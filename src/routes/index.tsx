@@ -317,6 +317,9 @@ function TasksPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Search">
+            <Search className="h-5 w-5 text-muted-foreground" />
+          </Button>
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
