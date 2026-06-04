@@ -98,19 +98,25 @@ function loadLists(): TaskList[] {
   }
 }
 
-const APPS = [
-  { name: "Account", color: "bg-stone-500", letter: "A" },
-  { name: "Drive", color: "bg-gradient-to-br from-emerald-400 to-amber-400", letter: "D" },
+const FAVOURITE_APPS = [
+  { name: "Account", color: "bg-stone-500", letter: "C" },
+  { name: "Drive", color: "bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400", letter: "△" },
   { name: "Business", color: "bg-gradient-to-br from-blue-400 to-blue-600", letter: "B" },
-  { name: "Mail", color: "bg-gradient-to-br from-red-500 to-yellow-400", letter: "M" },
-  { name: "Video", color: "bg-red-500", letter: "V" },
-  { name: "Assistant", color: "bg-gradient-to-br from-blue-500 to-pink-500", letter: "✦" },
-  { name: "Maps", color: "bg-gradient-to-br from-green-500 to-red-500", letter: "M" },
+  { name: "Gmail", color: "bg-gradient-to-br from-red-500 via-yellow-400 to-red-400", letter: "M" },
+  { name: "YouTube", color: "bg-red-500", letter: "▶" },
+  { name: "Gemini", color: "bg-gradient-to-br from-blue-500 via-fuchsia-500 to-amber-400", letter: "✦" },
+  { name: "Maps", color: "bg-gradient-to-br from-green-500 via-yellow-400 to-red-500", letter: "◉" },
   { name: "Search", color: "bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500", letter: "G" },
   { name: "Calendar", color: "bg-sky-500", letter: "31" },
+];
+
+const MORE_APPS = [
   { name: "News", color: "bg-blue-500", letter: "N" },
   { name: "Photos", color: "bg-gradient-to-br from-red-400 via-yellow-400 to-green-400", letter: "✿" },
   { name: "Meet", color: "bg-amber-400", letter: "▶" },
+  { name: "Translate", color: "bg-gradient-to-br from-blue-500 to-sky-400", letter: "文" },
+  { name: "Play", color: "bg-gradient-to-br from-indigo-500 to-violet-500", letter: "▷" },
+  { name: "Keep", color: "bg-emerald-500", letter: "+" },
 ];
 
 function TasksPage() {
