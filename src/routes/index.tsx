@@ -19,7 +19,9 @@ import {
   ListChecks,
   Check,
   Pencil,
+  Search,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -315,6 +317,9 @@ function TasksPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Search">
+            <Search className="h-5 w-5 text-muted-foreground" />
+          </Button>
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
@@ -337,22 +342,40 @@ function TasksPage() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-3 gap-y-4">
-                  {FAVOURITE_APPS.map((app) => (
-                    <button
-                      key={app.name}
-                      className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-sky-50"
-                    >
-                      <div
-                        className={cn(
-                          "grid h-11 w-11 place-items-center rounded-full text-white font-semibold shadow-sm",
-                          app.color,
-                        )}
+                  {FAVOURITE_APPS.map((app) => {
+                    const content = (
+                      <>
+                        <div
+                          className={cn(
+                            "grid h-11 w-11 place-items-center rounded-full text-white font-semibold shadow-sm",
+                            app.color,
+                          )}
+                        >
+                          {app.letter}
+                        </div>
+                        <span className="text-xs text-foreground/80">{app.name}</span>
+                      </>
+                    );
+                    if (app.name === "Drive") {
+                      return (
+                        <Link
+                          key={app.name}
+                          to="/drive"
+                          className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-sky-50"
+                        >
+                          {content}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <button
+                        key={app.name}
+                        className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-sky-50"
                       >
-                        {app.letter}
-                      </div>
-                      <span className="text-xs text-foreground/80">{app.name}</span>
-                    </button>
-                  ))}
+                        {content}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="px-5 pb-5 pt-2">
