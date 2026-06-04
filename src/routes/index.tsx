@@ -326,31 +326,54 @@ function TasksPage() {
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-[340px] rounded-3xl border-none bg-[hsl(220,33%,97%)] p-5 shadow-2xl"
+              sideOffset={8}
+              className="w-[360px] rounded-3xl border-none bg-[hsl(220,33%,97%)] p-0 shadow-2xl"
             >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-lg font-medium">Your favourites</h3>
-                <Button variant="ghost" size="icon" className="rounded-full bg-sky-100/70">
-                  <Pencil className="h-4 w-4 text-sky-700" />
-                </Button>
-              </div>
-              <div className="grid grid-cols-3 gap-y-4">
-                {APPS.map((app) => (
-                  <button
-                    key={app.name}
-                    className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-white"
-                  >
-                    <div
-                      className={cn(
-                        "grid h-11 w-11 place-items-center rounded-full text-white font-semibold shadow-sm",
-                        app.color,
-                      )}
+              <div className="m-2 rounded-2xl bg-white/70 p-5 shadow-sm ring-1 ring-black/5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Your favourites</h3>
+                  <Button variant="ghost" size="icon" className="rounded-full bg-sky-100/70 hover:bg-sky-200/70">
+                    <Pencil className="h-4 w-4 text-sky-700" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-y-4">
+                  {FAVOURITE_APPS.map((app) => (
+                    <button
+                      key={app.name}
+                      className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-sky-50"
                     >
-                      {app.letter}
-                    </div>
-                    <span className="text-xs text-foreground/80">{app.name}</span>
-                  </button>
-                ))}
+                      <div
+                        className={cn(
+                          "grid h-11 w-11 place-items-center rounded-full text-white font-semibold shadow-sm",
+                          app.color,
+                        )}
+                      >
+                        {app.letter}
+                      </div>
+                      <span className="text-xs text-foreground/80">{app.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="px-5 pb-5 pt-2">
+                <div className="grid grid-cols-3 gap-y-4">
+                  {MORE_APPS.map((app) => (
+                    <button
+                      key={app.name}
+                      className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-white"
+                    >
+                      <div
+                        className={cn(
+                          "grid h-11 w-11 place-items-center rounded-lg text-white font-semibold shadow-sm",
+                          app.color,
+                        )}
+                      >
+                        {app.letter}
+                      </div>
+                      <span className="text-xs text-foreground/80">{app.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </PopoverContent>
           </Popover>
