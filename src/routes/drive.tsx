@@ -117,15 +117,10 @@ function DrivePage() {
         </div>
 
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="hidden rounded-full sm:inline-flex" aria-label="Help">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <Button variant="ghost" size="icon" className="hidden rounded-full sm:inline-flex" aria-label="Settings">
-            <Settings className="h-5 w-5 text-muted-foreground" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Apps">
-            <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-          </Button>
+          <AppsMenu />
           <div className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white">
             C
           </div>
