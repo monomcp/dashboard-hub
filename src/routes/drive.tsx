@@ -4,8 +4,6 @@ import {
   Menu,
   Search,
   HelpCircle,
-  Settings,
-  LayoutGrid,
   Plus,
   FolderPlus,
   FileText,
@@ -28,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AppsMenu } from "@/components/apps-menu";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/drive")({
