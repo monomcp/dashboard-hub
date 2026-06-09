@@ -144,16 +144,13 @@ function DrivePage() {
         </div>
       )}
 
-      <div className="mx-auto flex max-w-[1400px] gap-6 px-4 py-6 md:px-8">
-        {/* Sidebar */}
-        <aside className="hidden w-60 shrink-0 md:block">
+      <div className="flex">
+        {/* Sidebar — matches index layout */}
+        <aside className="hidden w-[260px] shrink-0 px-3 md:block">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="h-14 w-full justify-start gap-3 rounded-2xl bg-white pl-4 pr-6 text-base font-medium text-foreground shadow-md hover:bg-white">
-                <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-indigo-500">
-                  <Plus className="h-5 w-5 text-white" strokeWidth={3} />
-                </div>
-                New
+              <Button className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg">
+                <Plus className="mr-1 h-5 w-5" /> New
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 rounded-2xl p-1.5">
@@ -173,29 +170,28 @@ function DrivePage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <nav className="mt-4 space-y-0.5">
+          <nav className="space-y-1">
             {[
-              { label: "My Drive", active: true },
-              { label: "Shared with me" },
-              { label: "Recent" },
-              { label: "Starred" },
-              { label: "Trash" },
+              { label: "My Drive", icon: Folder, active: true },
+              { label: "Shared with me", icon: Users },
+              { label: "Recent", icon: FileText },
+              { label: "Starred", icon: Sparkles },
+              { label: "Trash", icon: MoreVertical },
             ].map((n) => (
               <button
                 key={n.label}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-r-full px-5 py-2 text-sm",
-                  n.active
-                    ? "bg-sky-100 font-medium text-sky-900"
-                    : "text-foreground/75 hover:bg-black/[0.04]",
+                  "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
+                  n.active ? "bg-sky-100 text-sky-900" : "text-foreground/80 hover:bg-white/60",
                 )}
               >
-                <Folder className="h-4 w-4" />
-                {n.label}
+                <n.icon className="h-5 w-5 text-foreground/70" />
+                <span className="flex-1 truncate text-left">{n.label}</span>
               </button>
             ))}
           </nav>
         </aside>
+
 
         {/* Main */}
         <main className="min-w-0 flex-1">
