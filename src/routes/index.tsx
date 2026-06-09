@@ -412,7 +412,7 @@ function TasksPage() {
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <Button
               onClick={() => openNewTask(view === "all" || view === "starred" ? lists[0].id : view)}
-              className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
+              className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground hover:bg-white hover:shadow-lg"
             >
               <Plus className="mr-1 h-5 w-5" /> Create
             </Button>
