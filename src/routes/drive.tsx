@@ -194,7 +194,7 @@ function DrivePage() {
 
 
         {/* Main */}
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
           {/* Templates strip */}
           <section className="rounded-3xl bg-[hsl(220,33%,96%)] p-6">
             <div className="mb-4 flex items-center justify-between">
