@@ -160,7 +160,7 @@ function ContactsPage() {
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="mb-4 h-14 w-[160px] rounded-2xl bg-white text-foreground hover:bg-white hover:shadow-lg">
+                <Button className="mb-4 h-14 w-[160px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg">
                   <Plus className="mr-1 h-5 w-5" /> Create contact
                 </Button>
               </DropdownMenuTrigger>
