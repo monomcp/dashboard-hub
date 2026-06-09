@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 const FAVOURITE_APPS = [
   { name: "Account", color: "bg-stone-500", letter: "C" },
   { name: "Drive", color: "bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400", letter: "△" },
-  { name: "Business", color: "bg-gradient-to-br from-blue-400 to-blue-600", letter: "B" },
+  { name: "Contacts", color: "bg-gradient-to-br from-sky-400 to-blue-600", letter: "C" },
   { name: "Gmail", color: "bg-gradient-to-br from-red-500 via-yellow-400 to-red-400", letter: "M" },
   { name: "YouTube", color: "bg-red-500", letter: "▶" },
   { name: "Gemini", color: "bg-gradient-to-br from-blue-500 via-fuchsia-500 to-amber-400", letter: "✦" },
@@ -60,11 +60,12 @@ export function AppsMenu() {
                   <span className="text-xs text-foreground/80">{app.name}</span>
                 </>
               );
-              if (app.name === "Drive") {
+              const linkTo = app.name === "Drive" ? "/drive" : app.name === "Contacts" ? "/contacts" : null;
+              if (linkTo) {
                 return (
                   <Link
                     key={app.name}
-                    to="/drive"
+                    to={linkTo}
                     className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-sky-50"
                   >
                     {content}
