@@ -93,13 +93,14 @@ function DrivePage() {
   const files = filtered.filter((i) => i.kind !== "folder");
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
       {/* Top bar — matches index header */}
       <header className="flex items-center justify-between px-4 py-3 md:px-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Toggle menu">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Toggle menu" onClick={() => setSidebarOpen((s) => !s)}>
             <Menu className="h-5 w-5" />
           </Button>
           <Link to="/" className="flex items-center gap-2">
@@ -146,6 +147,7 @@ function DrivePage() {
 
       <div className="flex">
         {/* Sidebar — matches index layout */}
+        {sidebarOpen && (
         <aside className="hidden w-[260px] shrink-0 px-3 md:block">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -191,6 +193,7 @@ function DrivePage() {
             ))}
           </nav>
         </aside>
+        )}
 
 
         {/* Main */}
