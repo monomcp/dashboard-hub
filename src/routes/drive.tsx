@@ -93,6 +93,7 @@ function DrivePage() {
   const files = filtered.filter((i) => i.kind !== "folder");
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
