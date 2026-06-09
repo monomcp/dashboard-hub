@@ -147,6 +147,7 @@ function DrivePage() {
 
       <div className="flex">
         {/* Sidebar — matches index layout */}
+        {sidebarOpen && (
         <aside className="hidden w-[260px] shrink-0 px-3 md:block">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
