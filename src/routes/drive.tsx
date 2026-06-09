@@ -92,31 +92,33 @@ function DrivePage() {
   const folders = filtered.filter((i) => i.kind === "folder");
   const files = filtered.filter((i) => i.kind !== "folder");
 
+  const [searchOpen, setSearchOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
-      {/* Header */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-black/5 bg-white/80 px-4 py-2.5 backdrop-blur md:px-6">
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu">
-          <Menu className="h-5 w-5" />
-        </Button>
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400 shadow-sm">
-            <span className="text-sm font-bold text-white">△</span>
-          </div>
-          <span className="hidden text-xl font-medium tracking-tight text-foreground/80 sm:inline">Drive</span>
-        </Link>
-
-        <div className="relative mx-auto flex h-12 w-full max-w-2xl items-center">
-          <Search className="pointer-events-none absolute left-5 h-5 w-5 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search in Drive"
-            className="h-12 rounded-full border-none bg-[hsl(220,33%,95%)] pl-14 pr-14 text-base shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
-          />
+      {/* Top bar — matches index header */}
+      <header className="flex items-center justify-between px-4 py-3 md:px-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Toggle menu">
+            <Menu className="h-5 w-5" />
+          </Button>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400 shadow-sm">
+              <span className="text-sm font-bold text-white">△</span>
+            </div>
+            <span className="text-xl font-medium tracking-tight">Drive</span>
+          </Link>
         </div>
-
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Search"
+            onClick={() => setSearchOpen((s) => !s)}
+          >
+            <Search className="h-5 w-5 text-muted-foreground" />
+          </Button>
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
@@ -126,6 +128,21 @@ function DrivePage() {
           </div>
         </div>
       </header>
+
+      {searchOpen && (
+        <div className="px-4 pb-3 md:px-6">
+          <div className="relative mx-auto flex h-12 w-full max-w-2xl items-center">
+            <Search className="pointer-events-none absolute left-5 h-5 w-5 text-muted-foreground" />
+            <Input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search in Drive"
+              className="h-12 rounded-full border-none bg-[hsl(220,33%,95%)] pl-14 pr-14 text-base shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="mx-auto flex max-w-[1400px] gap-6 px-4 py-6 md:px-8">
         {/* Sidebar */}
