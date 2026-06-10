@@ -14,6 +14,7 @@ const FAVOURITE_APPS = [
   { name: "Maps", color: "bg-gradient-to-br from-green-500 via-yellow-400 to-red-500", letter: "◉" },
   { name: "Search", color: "bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500", letter: "G" },
   { name: "Calendar", color: "bg-sky-500", letter: "31" },
+  { name: "CMS", color: "bg-gradient-to-br from-indigo-500 to-violet-600", letter: "✎" },
 ];
 
 const MORE_APPS = [
@@ -60,7 +61,7 @@ export function AppsMenu() {
                   <span className="text-xs text-foreground/80">{app.name}</span>
                 </>
               );
-              const linkTo = app.name === "Drive" ? "/drive" : app.name === "Contacts" ? "/contacts" : app.name === "Calendar" ? "/calendar" : null;
+              const linkTo = app.name === "Drive" ? "/drive" : app.name === "Contacts" ? "/contacts" : app.name === "Calendar" ? "/calendar" : app.name === "CMS" ? "/cms" : null;
               if (linkTo) {
                 return (
                   <Link
