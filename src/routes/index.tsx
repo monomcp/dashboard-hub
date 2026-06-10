@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Menu,
   CheckCircle2,
@@ -7,7 +7,6 @@ import {
   HelpCircle,
   Star,
   ChevronUp,
-  Square,
   CheckSquare,
   MoreVertical,
   Circle,
@@ -18,10 +17,12 @@ import {
   ListChecks,
   Check,
   Search,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -58,54 +60,67 @@ export const Route = createFileRoute("/")({
   component: TasksPage,
 });
 
-type Task = {
-  id: string;
-  title: string;
-  description?: string;
-  done: boolean;
-  starred?: boolean;
-  dueDate?: string;
-  dueTime?: string;
-  createdAt: number;
+type Page<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
-type TaskList = {
+type TaskStatus = "open" | "in_progress" | "blocked" | "done" | "cancelled";
+
+type TaskListResponse = {
   id: string;
+  organization_id: string;
   name: string;
-  tasks: Task[];
-  sortBy: "my" | "date" | "deadline" | "starred" | "title";
+  description: string | null;
+  list_type: string;
+  sort_order: number;
+  is_default: boolean;
+  is_archived: boolean;
+  task_count: number;
+  created_at: string;
+  updated_at: string;
 };
 
-const STORAGE_KEY = "tasks-app-v1";
+type TaskResponse = {
+  id: string;
+  organization_id: string;
+  task_list_id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: string;
+  due_date: string | null;
+  due_time: string | null;
+  due_at: string | null;
+  timezone: string | null;
+  is_all_day: boolean;
+  is_starred: boolean;
+  completed_at: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
 
-const defaultLists: TaskList[] = [
-  { id: "default", name: "My Tasks", tasks: [], sortBy: "my" },
-];
+type SortBy = "my" | "date" | "deadline" | "starred" | "title";
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-
-function loadLists(): TaskList[] {
-  if (typeof window === "undefined") return defaultLists;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultLists;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length) return parsed;
-    return defaultLists;
-  } catch {
-    return defaultLists;
-  }
-}
+const isDone = (task: TaskResponse) => task.status === "done" || task.status === "cancelled";
 
 function TasksPage() {
-  const [lists, setLists] = useState<TaskList[]>(defaultLists);
-  const [hydrated, setHydrated] = useState(false);
+  const navigate = useNavigate();
+  const [lists, setLists] = useState<TaskListResponse[]>([]);
+  const [tasksByList, setTasksByList] = useState<Record<string, TaskResponse[]>>({});
+  const [sortByList, setSortByList] = useState<Record<string, SortBy>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [view, setView] = useState<"all" | "starred" | string>("all");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [listsExpanded, setListsExpanded] = useState(true);
 
   const [createListOpen, setCreateListOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const [savingList, setSavingList] = useState(false);
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskDialogListId, setTaskDialogListId] = useState<string | null>(null);
@@ -115,46 +130,102 @@ function TasksPage() {
   const [taskDate, setTaskDate] = useState("");
   const [taskTime, setTaskTime] = useState("");
   const [taskAllDay, setTaskAllDay] = useState(false);
+  const [savingTask, setSavingTask] = useState(false);
 
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameListId, setRenameListId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  useEffect(() => {
-    setLists(loadLists());
-    setHydrated(true);
-  }, []);
+  const handleApiError = useCallback(
+    (err: unknown, fallback = "Tasks request failed") => {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        clearAuthTokens();
+        void navigate({ to: "/login", replace: true });
+        return;
+      }
+      setError(err instanceof Error ? err.message : fallback);
+    },
+    [navigate],
+  );
+
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const listPage = await apiRequest<Page<TaskListResponse>>(
+        "/api/v1/tasks/lists?limit=200&sort=sort_order&direction=asc",
+      );
+      const taskPages = await Promise.all(
+        listPage.items.map((list) =>
+          apiRequest<Page<TaskResponse>>(
+            `/api/v1/tasks?task_list_id=${list.id}&limit=500&sort=sort_order&direction=asc`,
+          ),
+        ),
+      );
+      const byList: Record<string, TaskResponse[]> = {};
+      listPage.items.forEach((list, index) => {
+        byList[list.id] = taskPages[index].items;
+      });
+      setLists(listPage.items);
+      setTasksByList(byList);
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [handleApiError]);
 
   useEffect(() => {
-    if (hydrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
-  }, [lists, hydrated]);
+    void loadTasks();
+  }, [loadTasks]);
+
+  const defaultListId = useMemo(() => {
+    const def = lists.find((l) => l.is_default);
+    return def?.id ?? lists[0]?.id ?? null;
+  }, [lists]);
 
   const visibleLists = useMemo(() => {
     if (view === "all" || view === "starred") return lists;
     return lists.filter((l) => l.id === view);
   }, [lists, view]);
 
-  const sortedTasks = (list: TaskList) => {
-    const tasks = [...list.tasks];
-    if (view === "starred") {
-      return tasks.filter((t) => t.starred);
-    }
-    switch (list.sortBy) {
-      case "title":
-        tasks.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case "date":
-      case "deadline":
-        tasks.sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
-        break;
-      case "starred":
-        tasks.sort((a, b) => Number(!!b.starred) - Number(!!a.starred));
-        break;
-    }
-    return tasks;
+  const sortedTasks = useCallback(
+    (list: TaskListResponse) => {
+      const tasks = [...(tasksByList[list.id] ?? [])];
+      if (view === "starred") {
+        return tasks.filter((t) => t.is_starred);
+      }
+      const sortBy = sortByList[list.id] ?? "my";
+      switch (sortBy) {
+        case "title":
+          tasks.sort((a, b) => a.title.localeCompare(b.title));
+          break;
+        case "date":
+        case "deadline":
+          tasks.sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+          break;
+        case "starred":
+          tasks.sort((a, b) => Number(b.is_starred) - Number(a.is_starred));
+          break;
+      }
+      return tasks;
+    },
+    [tasksByList, sortByList, view],
+  );
+
+  const upsertTask = (task: TaskResponse) => {
+    setTasksByList((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((listId) => {
+        next[listId] = next[listId].filter((t) => t.id !== task.id);
+      });
+      next[task.task_list_id] = [task, ...(next[task.task_list_id] ?? [])];
+      return next;
+    });
   };
 
-  const openNewTask = (listId: string) => {
+  const openNewTask = (listId: string | null) => {
+    if (!listId) return;
     setEditingTaskId(null);
     setTaskDialogListId(listId);
     setTaskTitle("");
@@ -166,110 +237,170 @@ function TasksPage() {
     setTaskDialogOpen(true);
   };
 
-  const openEditTask = (listId: string, task: Task) => {
+  const openEditTask = (task: TaskResponse) => {
     setEditingTaskId(task.id);
-    setTaskDialogListId(listId);
+    setTaskDialogListId(task.task_list_id);
     setTaskTitle(task.title);
     setTaskDesc(task.description || "");
-    setTaskDate(task.dueDate || "");
-    setTaskTime(task.dueTime || "");
-    setTaskAllDay(!task.dueTime);
+    setTaskDate(task.due_date || "");
+    setTaskTime(task.due_time ? task.due_time.slice(0, 5) : "");
+    setTaskAllDay(task.is_all_day || !task.due_time);
     setTaskDialogOpen(true);
   };
 
-  const saveTask = () => {
-    if (!taskTitle.trim() || !taskDialogListId) return;
-    setLists((prev) =>
-      prev.map((l) => {
-        if (l.id !== taskDialogListId) return l;
-        if (editingTaskId) {
-          return {
-            ...l,
-            tasks: l.tasks.map((t) =>
-              t.id === editingTaskId
-                ? {
-                    ...t,
-                    title: taskTitle.trim(),
-                    description: taskDesc.trim() || undefined,
-                    dueDate: taskDate || undefined,
-                    dueTime: taskAllDay ? undefined : taskTime || undefined,
-                  }
-                : t,
-            ),
-          };
-        }
-        return {
-          ...l,
-          tasks: [
-            {
-              id: uid(),
-              title: taskTitle.trim(),
-              description: taskDesc.trim() || undefined,
-              done: false,
-              dueDate: taskDate || undefined,
-              dueTime: taskAllDay ? undefined : taskTime || undefined,
-              createdAt: Date.now(),
-            },
-            ...l.tasks,
-          ],
-        };
-      }),
-    );
-    setTaskDialogOpen(false);
+  const saveTask = async () => {
+    const title = taskTitle.trim();
+    if (!title || !taskDialogListId) return;
+    setSavingTask(true);
+    try {
+      const payload = {
+        title,
+        description: taskDesc.trim() || null,
+        due_date: taskDate || null,
+        due_time: taskAllDay ? null : taskTime || null,
+        is_all_day: taskAllDay,
+      };
+      let task: TaskResponse;
+      if (editingTaskId) {
+        task = await apiRequest<TaskResponse>(`/api/v1/tasks/${editingTaskId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ ...payload, task_list_id: taskDialogListId }),
+        });
+      } else {
+        task = await apiRequest<TaskResponse>("/api/v1/tasks", {
+          method: "POST",
+          body: JSON.stringify({ ...payload, task_list_id: taskDialogListId }),
+        });
+      }
+      upsertTask(task);
+      setTaskDialogOpen(false);
+    } catch (err) {
+      handleApiError(err, "Unable to save task");
+    } finally {
+      setSavingTask(false);
+    }
   };
 
-  const toggleDone = (listId: string, taskId: string) => {
-    setLists((prev) =>
-      prev.map((l) =>
-        l.id === listId
-          ? { ...l, tasks: l.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)) }
-          : l,
+  const toggleDone = async (task: TaskResponse) => {
+    const nextStatus: TaskStatus = isDone(task) ? "open" : "done";
+    // Optimistic update.
+    setTasksByList((prev) => ({
+      ...prev,
+      [task.task_list_id]: prev[task.task_list_id].map((t) =>
+        t.id === task.id ? { ...t, status: nextStatus } : t,
       ),
-    );
+    }));
+    try {
+      const updated = await apiRequest<TaskResponse>(`/api/v1/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      setTasksByList((prev) => ({
+        ...prev,
+        [task.task_list_id]: prev[task.task_list_id].map((t) =>
+          t.id === updated.id ? updated : t,
+        ),
+      }));
+    } catch (err) {
+      void loadTasks();
+      handleApiError(err, "Unable to update task");
+    }
   };
 
-  const toggleStar = (listId: string, taskId: string) => {
-    setLists((prev) =>
-      prev.map((l) =>
-        l.id === listId
-          ? { ...l, tasks: l.tasks.map((t) => (t.id === taskId ? { ...t, starred: !t.starred } : t)) }
-          : l,
+  const toggleStar = async (task: TaskResponse) => {
+    const next = !task.is_starred;
+    setTasksByList((prev) => ({
+      ...prev,
+      [task.task_list_id]: prev[task.task_list_id].map((t) =>
+        t.id === task.id ? { ...t, is_starred: next } : t,
       ),
-    );
+    }));
+    try {
+      await apiRequest<TaskResponse>(`/api/v1/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_starred: next }),
+      });
+    } catch (err) {
+      void loadTasks();
+      handleApiError(err, "Unable to update task");
+    }
   };
 
-  const createList = () => {
+  const createList = async () => {
     const name = newListName.trim();
     if (!name) return;
-    const newList: TaskList = { id: uid(), name, tasks: [], sortBy: "my" };
-    setLists((prev) => [...prev, newList]);
-    setNewListName("");
-    setCreateListOpen(false);
+    setSavingList(true);
+    try {
+      const list = await apiRequest<TaskListResponse>("/api/v1/tasks/lists", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      setLists((prev) => [...prev, list]);
+      setTasksByList((prev) => ({ ...prev, [list.id]: [] }));
+      setNewListName("");
+      setCreateListOpen(false);
+    } catch (err) {
+      handleApiError(err, "Unable to create list");
+    } finally {
+      setSavingList(false);
+    }
   };
 
-  const renameList = () => {
-    if (!renameListId) return;
+  const renameList = async () => {
     const name = renameValue.trim();
-    if (!name) return;
-    setLists((prev) => prev.map((l) => (l.id === renameListId ? { ...l, name } : l)));
-    setRenameOpen(false);
+    if (!renameListId || !name) return;
+    setSavingList(true);
+    try {
+      const list = await apiRequest<TaskListResponse>(`/api/v1/tasks/lists/${renameListId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      });
+      setLists((prev) => prev.map((l) => (l.id === list.id ? list : l)));
+      setRenameOpen(false);
+    } catch (err) {
+      handleApiError(err, "Unable to rename list");
+    } finally {
+      setSavingList(false);
+    }
   };
 
-  const deleteList = (id: string) => {
-    if (id === "default") return;
-    setLists((prev) => prev.filter((l) => l.id !== id));
-    if (view === id) setView("all");
+  const deleteList = async (list: TaskListResponse) => {
+    if (list.is_default) return;
+    try {
+      await apiRequest<void>(`/api/v1/tasks/lists/${list.id}`, { method: "DELETE" });
+      setLists((prev) => prev.filter((l) => l.id !== list.id));
+      setTasksByList((prev) => {
+        const next = { ...prev };
+        delete next[list.id];
+        return next;
+      });
+      if (view === list.id) setView("all");
+    } catch (err) {
+      handleApiError(err, "Unable to delete list");
+    }
   };
 
-  const deleteCompleted = (id: string) => {
-    setLists((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, tasks: l.tasks.filter((t) => !t.done) } : l)),
-    );
+  const deleteCompleted = async (list: TaskListResponse) => {
+    const done = (tasksByList[list.id] ?? []).filter(isDone);
+    if (done.length === 0) return;
+    try {
+      await Promise.all(
+        done.map((t) => apiRequest<void>(`/api/v1/tasks/${t.id}`, { method: "DELETE" })),
+      );
+      setTasksByList((prev) => ({
+        ...prev,
+        [list.id]: prev[list.id].filter((t) => !isDone(t)),
+      }));
+    } catch (err) {
+      handleApiError(err, "Unable to delete completed tasks");
+    }
   };
 
-  const setSort = (id: string, sortBy: TaskList["sortBy"]) => {
-    setLists((prev) => prev.map((l) => (l.id === id ? { ...l, sortBy } : l)));
+  const setSort = (listId: string, sortBy: SortBy) => {
+    setSortByList((prev) => ({ ...prev, [listId]: sortBy }));
   };
+
+  const openTaskListId = view === "all" || view === "starred" ? defaultListId : view;
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -311,7 +442,8 @@ function TasksPage() {
         {sidebarOpen && (
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <Button
-              onClick={() => openNewTask(view === "all" || view === "starred" ? lists[0].id : view)}
+              disabled={loading || !openTaskListId}
+              onClick={() => openNewTask(openTaskListId)}
               className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
             >
               <Plus className="mr-1 h-5 w-5" /> Create
@@ -344,20 +476,27 @@ function TasksPage() {
               </button>
               {listsExpanded && (
                 <div className="mt-1 space-y-1">
-                  {lists.map((l) => (
-                    <button
-                      key={l.id}
-                      onClick={() => setView(l.id)}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
-                        view === l.id ? "bg-sky-100 text-sky-900" : "hover:bg-white/60",
-                      )}
-                    >
-                      <CheckSquare className="h-5 w-5 text-foreground/70" />
-                      <span className="flex-1 truncate text-left">{l.name}</span>
-                      <span className="text-xs text-muted-foreground">{l.tasks.length}</span>
-                    </button>
-                  ))}
+                  {loading ? (
+                    <SidebarListsSkeleton />
+                  ) : (
+                    lists.map((l) => {
+                      const open = (tasksByList[l.id] ?? []).filter((t) => !isDone(t)).length;
+                      return (
+                        <button
+                          key={l.id}
+                          onClick={() => setView(l.id)}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
+                            view === l.id ? "bg-sky-100 text-sky-900" : "hover:bg-white/60",
+                          )}
+                        >
+                          <CheckSquare className="h-5 w-5 text-foreground/70" />
+                          <span className="flex-1 truncate text-left">{l.name}</span>
+                          <span className="text-xs text-muted-foreground">{open}</span>
+                        </button>
+                      );
+                    })
+                  )}
                   <button
                     onClick={() => setCreateListOpen(true)}
                     className="flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm text-foreground/80 transition hover:bg-white/60"
@@ -373,174 +512,188 @@ function TasksPage() {
 
         {/* Main content */}
         <main className="flex-1 px-4 pb-16 md:px-6">
-          <div className="flex flex-wrap gap-5">
-            {visibleLists.map((list) => {
-              const tasks = sortedTasks(list);
-              const showEmpty = view === "starred" && tasks.length === 0;
-              return (
-                <section
-                  key={list.id}
-                  className="w-full max-w-[360px] flex-1 basis-[320px] rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06)]"
-                >
-                  <div className="mb-2 flex items-start justify-between">
-                    <h2 className="text-lg font-medium tracking-tight">{list.name}</h2>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-64 rounded-xl p-1">
-                        <DropdownMenuLabel className="px-3 pt-2 text-xs font-medium text-foreground">
-                          Sort by
-                        </DropdownMenuLabel>
-                        {(
-                          [
-                            ["my", "My order"],
-                            ["date", "Date"],
-                            ["deadline", "Deadline"],
-                            ["starred", "Starred recently"],
-                            ["title", "Title"],
-                          ] as const
-                        ).map(([key, label]) => (
-                          <DropdownMenuItem
-                            key={key}
-                            onClick={() => setSort(list.id, key)}
-                            className="gap-3 rounded-lg pl-8 pr-3"
-                          >
-                            {list.sortBy === key && (
-                              <Check className="absolute left-3 h-4 w-4" />
-                            )}
-                            {label}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setRenameListId(list.id);
-                            setRenameValue(list.name);
-                            setRenameOpen(true);
-                          }}
-                          className="rounded-lg"
-                        >
-                          Rename list
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={list.id === "default"}
-                          onClick={() => deleteList(list.id)}
-                          className="flex-col items-start gap-0 rounded-lg"
-                        >
-                          <span>Delete list</span>
-                          {list.id === "default" && (
-                            <span className="text-xs text-muted-foreground">
-                              The default list can't be deleted
-                            </span>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => window.print()}
-                          className="rounded-lg"
-                        >
-                          Print list
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={!list.tasks.some((t) => t.done)}
-                          onClick={() => deleteCompleted(list.id)}
-                          className="rounded-lg"
-                        >
-                          Delete all completed tasks
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <button
-                    onClick={() => openNewTask(list.id)}
-                    className="mb-2 flex w-full items-center gap-3 rounded-lg py-2 text-sky-600 transition hover:bg-sky-50"
-                  >
-                    <span className="relative">
-                      <Circle className="h-5 w-5" />
-                      <Plus className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-white" />
-                    </span>
-                    <span className="font-medium">Add a task</span>
-                  </button>
-
-                  {showEmpty ? (
-                    <EmptyState />
-                  ) : (
-                    <ul className="space-y-1">
-                      {tasks.map((t) => (
-                        <li
-                          key={t.id}
-                          className="group flex items-center gap-3 rounded-lg px-1 py-2 hover:bg-stone-50"
-                        >
-                          <button
-                            onClick={() => toggleDone(list.id, t.id)}
-                            className="shrink-0"
-                            aria-label="Toggle complete"
-                          >
-                            {t.done ? (
-                              <CheckCircle className="h-5 w-5 text-sky-600" />
-                            ) : (
-                              <Circle className="h-5 w-5 text-foreground/40 transition hover:text-foreground" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => openEditTask(list.id, t)}
-                            className="flex-1 text-left"
-                          >
-                            <div
-                              className={cn(
-                                "text-sm",
-                                t.done && "text-muted-foreground line-through",
-                              )}
-                            >
-                              {t.title}
-                            </div>
-                            {(t.dueDate || t.description) && (
-                              <div className="text-xs text-muted-foreground">
-                                {t.dueDate}
-                                {t.dueTime ? ` · ${t.dueTime}` : ""}
-                                {t.description ? ` · ${t.description}` : ""}
-                              </div>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => toggleStar(list.id, t.id)}
-                            className={cn(
-                              "shrink-0 opacity-0 transition group-hover:opacity-100",
-                              t.starred && "opacity-100",
-                            )}
-                            aria-label="Star"
-                          >
-                            <Star
-                              className={cn(
-                                "h-4 w-4",
-                                t.starred
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "text-muted-foreground",
-                              )}
-                            />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              );
-            })}
-
-            <button
-              onClick={() => setCreateListOpen(true)}
-              className="grid h-[120px] w-full max-w-[360px] flex-1 basis-[320px] place-items-center rounded-2xl border-2 border-dashed border-stone-200 text-muted-foreground transition hover:border-sky-300 hover:text-sky-600"
+          {error && (
+            <div
+              className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700"
+              role="alert"
             >
-              <span className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Create new list
-              </span>
-            </button>
-          </div>
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex flex-wrap gap-5">
+              <TaskListSkeleton />
+              <TaskListSkeleton />
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-5">
+              {visibleLists.map((list) => {
+                const tasks = sortedTasks(list);
+                const showEmpty = view === "starred" && tasks.length === 0;
+                const sortBy = sortByList[list.id] ?? "my";
+                return (
+                  <section
+                    key={list.id}
+                    className="w-full max-w-[360px] flex-1 basis-[320px] rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06)]"
+                  >
+                    <div className="mb-2 flex items-start justify-between">
+                      <h2 className="text-lg font-medium tracking-tight">{list.name}</h2>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64 rounded-xl p-1">
+                          <DropdownMenuLabel className="px-3 pt-2 text-xs font-medium text-foreground">
+                            Sort by
+                          </DropdownMenuLabel>
+                          {(
+                            [
+                              ["my", "My order"],
+                              ["date", "Date"],
+                              ["deadline", "Deadline"],
+                              ["starred", "Starred recently"],
+                              ["title", "Title"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <DropdownMenuItem
+                              key={key}
+                              onClick={() => setSort(list.id, key)}
+                              className="gap-3 rounded-lg pl-8 pr-3"
+                            >
+                              {sortBy === key && <Check className="absolute left-3 h-4 w-4" />}
+                              {label}
+                            </DropdownMenuItem>
+                          ))}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setRenameListId(list.id);
+                              setRenameValue(list.name);
+                              setRenameOpen(true);
+                            }}
+                            className="rounded-lg"
+                          >
+                            Rename list
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={list.is_default}
+                            onClick={() => deleteList(list)}
+                            className="flex-col items-start gap-0 rounded-lg"
+                          >
+                            <span>Delete list</span>
+                            {list.is_default && (
+                              <span className="text-xs text-muted-foreground">
+                                The default list can't be deleted
+                              </span>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => window.print()} className="rounded-lg">
+                            Print list
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!(tasksByList[list.id] ?? []).some(isDone)}
+                            onClick={() => deleteCompleted(list)}
+                            className="rounded-lg"
+                          >
+                            Delete all completed tasks
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <button
+                      onClick={() => openNewTask(list.id)}
+                      className="mb-2 flex w-full items-center gap-3 rounded-lg py-2 text-sky-600 transition hover:bg-sky-50"
+                    >
+                      <span className="relative">
+                        <Circle className="h-5 w-5" />
+                        <Plus className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-white" />
+                      </span>
+                      <span className="font-medium">Add a task</span>
+                    </button>
+
+                    {showEmpty ? (
+                      <EmptyState />
+                    ) : (
+                      <ul className="space-y-1">
+                        {tasks.map((t) => {
+                          const done = isDone(t);
+                          return (
+                            <li
+                              key={t.id}
+                              className="group flex items-center gap-3 rounded-lg px-1 py-2 hover:bg-stone-50"
+                            >
+                              <button
+                                onClick={() => toggleDone(t)}
+                                className="shrink-0"
+                                aria-label="Toggle complete"
+                              >
+                                {done ? (
+                                  <CheckCircle className="h-5 w-5 text-sky-600" />
+                                ) : (
+                                  <Circle className="h-5 w-5 text-foreground/40 transition hover:text-foreground" />
+                                )}
+                              </button>
+                              <button onClick={() => openEditTask(t)} className="flex-1 text-left">
+                                <div
+                                  className={cn(
+                                    "text-sm",
+                                    done && "text-muted-foreground line-through",
+                                  )}
+                                >
+                                  {t.title}
+                                </div>
+                                {(t.due_date || t.description) && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {t.due_date}
+                                    {t.due_time && !t.is_all_day
+                                      ? ` · ${t.due_time.slice(0, 5)}`
+                                      : ""}
+                                    {t.description ? ` · ${t.description}` : ""}
+                                  </div>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => toggleStar(t)}
+                                className={cn(
+                                  "shrink-0 opacity-0 transition group-hover:opacity-100",
+                                  t.is_starred && "opacity-100",
+                                )}
+                                aria-label="Star"
+                              >
+                                <Star
+                                  className={cn(
+                                    "h-4 w-4",
+                                    t.is_starred
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-muted-foreground",
+                                  )}
+                                />
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })}
+
+              <button
+                onClick={() => setCreateListOpen(true)}
+                className="grid h-[120px] w-full max-w-[360px] flex-1 basis-[320px] place-items-center rounded-2xl border-2 border-dashed border-stone-200 text-muted-foreground transition hover:border-sky-300 hover:text-sky-600"
+              >
+                <span className="flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  Create new list
+                </span>
+              </button>
+            </div>
+          )}
         </main>
       </div>
 
@@ -559,15 +712,20 @@ function TasksPage() {
             className="border-0 border-b-2 border-sky-500 rounded-none focus-visible:ring-0 focus-visible:border-sky-500"
           />
           <DialogFooter className="sm:justify-end gap-2">
-            <Button variant="ghost" onClick={() => setCreateListOpen(false)} className="text-sky-600">
+            <Button
+              variant="ghost"
+              onClick={() => setCreateListOpen(false)}
+              className="text-sky-600"
+            >
               Cancel
             </Button>
             <Button
               onClick={createList}
-              disabled={!newListName.trim()}
+              disabled={!newListName.trim() || savingList}
               variant="ghost"
               className="text-sky-600 disabled:text-muted-foreground"
             >
+              {savingList ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               Done
             </Button>
           </DialogFooter>
@@ -591,7 +749,13 @@ function TasksPage() {
             <Button variant="ghost" onClick={() => setRenameOpen(false)} className="text-sky-600">
               Cancel
             </Button>
-            <Button onClick={renameList} variant="ghost" className="text-sky-600">
+            <Button
+              onClick={renameList}
+              disabled={!renameValue.trim() || savingList}
+              variant="ghost"
+              className="text-sky-600"
+            >
+              {savingList ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               Done
             </Button>
           </DialogFooter>
@@ -636,10 +800,7 @@ function TasksPage() {
                   )}
                 </div>
                 <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={taskAllDay}
-                    onCheckedChange={(v) => setTaskAllDay(!!v)}
-                  />
+                  <Checkbox checked={taskAllDay} onCheckedChange={(v) => setTaskAllDay(!!v)} />
                   All day
                 </label>
               </div>
@@ -675,9 +836,10 @@ function TasksPage() {
           <DialogFooter>
             <Button
               onClick={saveTask}
-              disabled={!taskTitle.trim()}
+              disabled={!taskTitle.trim() || savingTask}
               className="rounded-full bg-sky-600 hover:bg-sky-700"
             >
+              {savingTask ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               Save
             </Button>
           </DialogFooter>
@@ -709,6 +871,46 @@ function SidebarItem({
       {icon}
       <span>{label}</span>
     </button>
+  );
+}
+
+function SidebarListsSkeleton() {
+  return (
+    <div className="space-y-1" aria-label="Loading lists">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-3 px-3 py-2">
+          <Skeleton className="h-5 w-5 rounded-md" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-4 w-4" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TaskListSkeleton() {
+  return (
+    <section className="w-full max-w-[360px] flex-1 basis-[320px] rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06)]">
+      <div className="mb-3 flex items-center justify-between">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-8 w-8 rounded-full" />
+      </div>
+      <div className="mb-3 flex items-center gap-3 py-2">
+        <Skeleton className="h-5 w-5 rounded-full" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <ul className="space-y-1" aria-label="Loading tasks">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <li key={index} className="flex items-center gap-3 px-1 py-2">
+            <Skeleton className="h-5 w-5 rounded-full" />
+            <div className="flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
