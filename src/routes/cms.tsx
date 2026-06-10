@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Filter,
   MoreHorizontal,
+  MoreVertical,
   Type,
   Hash,
   Image as ImageIcon,
@@ -24,6 +25,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AppsMenu } from "@/components/apps-menu";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -212,6 +221,29 @@ type EntryRow = EntryResponse & {
 type FieldLike = FieldResponse | ComponentFieldResponse;
 
 const GROUP_LABELS = ["Collection Types", "Single Types", "Components"] as const;
+const FIELD_TYPES: FieldType[] = [
+  "short_text",
+  "long_text",
+  "rich_text",
+  "markdown",
+  "number",
+  "boolean",
+  "date",
+  "datetime",
+  "json",
+  "slug",
+  "enum",
+  "email",
+  "url",
+  "media",
+  "relation",
+  "component",
+  "dynamic_zone",
+  "seo",
+  "location",
+  "color",
+  "ai_prompt",
+];
 
 function formatFieldType(type: FieldType) {
   const labels: Record<FieldType, string> = {
@@ -276,6 +308,16 @@ function getEnumValues(options: Record<string, unknown>) {
   return Array.isArray(values) ? values.map(String) : [];
 }
 
+function slugify(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "untitled"
+  );
+}
+
 function CmsPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -335,6 +377,12 @@ function CmsPage() {
       setLoading(false);
     }
   }, [handleApiError]);
+
+  const updateContentType = useCallback((next: ContentTypeResponse) => {
+    const applyUpdate = (item: ContentTypeResponse) => (item.id === next.id ? next : item);
+    setCollections((current) => current.map(applyUpdate));
+    setSingleTypes((current) => current.map(applyUpdate));
+  }, []);
 
   useEffect(() => {
     void loadCmsRoot();
@@ -588,6 +636,7 @@ function CmsPage() {
               onOpenEntries={() =>
                 setView({ kind: "entries", contentTypeId: currentContentType.id })
               }
+              onContentTypeUpdated={updateContentType}
               onError={handleApiError}
             />
           )}
@@ -636,35 +685,122 @@ function CmsPage() {
 function SchemaView({
   contentType,
   onOpenEntries,
+  onContentTypeUpdated,
   onError,
 }: {
   contentType: ContentTypeResponse;
   onOpenEntries: () => void;
+  onContentTypeUpdated: (contentType: ContentTypeResponse) => void;
   onError: (err: unknown, fallback?: string) => void;
 }) {
   const [fields, setFields] = useState<FieldResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingContentType, setEditingContentType] = useState(false);
+  const [contentTypeName, setContentTypeName] = useState(contentType.display_name);
+  const [contentTypeDescription, setContentTypeDescription] = useState(
+    contentType.description ?? "",
+  );
+  const [editingField, setEditingField] = useState<FieldResponse | null>(null);
+  const [fieldLabel, setFieldLabel] = useState("");
+  const [fieldType, setFieldType] = useState<FieldType>("short_text");
+  const [fieldRequired, setFieldRequired] = useState(false);
+  const [fieldUnique, setFieldUnique] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const loadFields = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await apiRequest<FieldResponse[]>(
+        `/api/v1/cms/content-types/${contentType.id}/fields`,
+      );
+      setFields(rows);
+    } catch (err) {
+      onError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [contentType.id, onError]);
 
   useEffect(() => {
-    let cancelled = false;
-    const loadFields = async () => {
-      setLoading(true);
-      try {
-        const rows = await apiRequest<FieldResponse[]>(
-          `/api/v1/cms/content-types/${contentType.id}/fields`,
-        );
-        if (!cancelled) setFields(rows);
-      } catch (err) {
-        if (!cancelled) onError(err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    void loadFields();
+    setContentTypeName(contentType.display_name);
+    setContentTypeDescription(contentType.description ?? "");
+  }, [contentType.description, contentType.display_name]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    apiRequest<FieldResponse[]>(`/api/v1/cms/content-types/${contentType.id}/fields`)
+      .then((rows) => {
+        if (active) setFields(rows);
+      })
+      .catch((err) => {
+        if (active) onError(err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
-      cancelled = true;
+      active = false;
     };
   }, [contentType.id, onError]);
+
+  const openFieldEditor = (field: FieldResponse) => {
+    setEditingField(field);
+    setFieldLabel(field.label);
+    setFieldType(field.field_type);
+    setFieldRequired(field.is_required);
+    setFieldUnique(field.is_unique);
+  };
+
+  const saveContentType = async () => {
+    const name = contentTypeName.trim();
+    if (!name) return;
+    setSaving(true);
+    try {
+      const next = await apiRequest<ContentTypeResponse>(
+        `/api/v1/cms/content-types/${contentType.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            display_name: name,
+            description: contentTypeDescription.trim() || null,
+          }),
+        },
+      );
+      onContentTypeUpdated(next);
+      setEditingContentType(false);
+    } catch (err) {
+      onError(err, "Unable to update content type");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveField = async () => {
+    if (!editingField || !fieldLabel.trim()) return;
+    setSaving(true);
+    try {
+      const next = await apiRequest<FieldResponse>(
+        `/api/v1/cms/content-types/${contentType.id}/fields/${editingField.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            label: fieldLabel.trim(),
+            field_type: fieldType,
+            is_required: fieldRequired,
+            is_unique: fieldUnique,
+          }),
+        },
+      );
+      setFields((current) => current.map((field) => (field.id === next.id ? next : field)));
+      setEditingField(null);
+      await loadFields();
+    } catch (err) {
+      onError(err, "Unable to update field");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <section className="space-y-6">
@@ -672,7 +808,12 @@ function SchemaView({
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-4xl font-semibold tracking-tight">{contentType.display_name}</h1>
-            <Button disabled variant="outline" size="sm" className="rounded-lg">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-lg"
+              onClick={() => setEditingContentType(true)}
+            >
               <Edit3 className="mr-1.5 h-3.5 w-3.5" /> Edit
             </Button>
           </div>
@@ -693,17 +834,123 @@ function SchemaView({
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button disabled variant="outline" size="sm" className="rounded-lg">
-          <Filter className="mr-1.5 h-3.5 w-3.5" /> Configure the view
-        </Button>
-      </div>
-
       <FieldsTable
         fields={fields}
         loading={loading}
         emptyText="No fields found for this content type."
+        onEditField={openFieldEditor}
       />
+
+      <Dialog open={editingContentType} onOpenChange={setEditingContentType}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit content type</DialogTitle>
+            <DialogDescription>Update the name and description shown in the CMS.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Name</label>
+              <Input
+                value={contentTypeName}
+                onChange={(event) => setContentTypeName(event.target.value)}
+                className="h-11 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Description</label>
+              <textarea
+                value={contentTypeDescription}
+                onChange={(event) => setContentTypeDescription(event.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={saving}
+              onClick={() => setEditingContentType(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={saving || !contentTypeName.trim()}
+              onClick={saveContentType}
+            >
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingField} onOpenChange={(open) => !open && setEditingField(null)}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit field</DialogTitle>
+            <DialogDescription>Update how this field appears in the schema.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Label</label>
+              <Input
+                value={fieldLabel}
+                onChange={(event) => setFieldLabel(event.target.value)}
+                className="h-11 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Type</label>
+              <select
+                value={fieldType}
+                onChange={(event) => setFieldType(event.target.value as FieldType)}
+                className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                {FIELD_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {formatFieldType(type)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-3 py-3 text-sm font-medium">
+              <Checkbox
+                checked={fieldRequired}
+                onCheckedChange={(checked) => setFieldRequired(checked === true)}
+              />
+              Required field
+            </label>
+            <label className="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-3 py-3 text-sm font-medium">
+              <Checkbox
+                checked={fieldUnique}
+                onCheckedChange={(checked) => setFieldUnique(checked === true)}
+              />
+              Unique value
+            </label>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={saving}
+              onClick={() => setEditingField(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={saving || !fieldLabel.trim()}
+              onClick={saveField}
+            >
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -771,10 +1018,12 @@ function FieldsTable({
   fields,
   loading,
   emptyText,
+  onEditField,
 }: {
   fields: FieldLike[];
   loading: boolean;
   emptyText: string;
+  onEditField?: (field: FieldResponse) => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -794,7 +1043,7 @@ function FieldsTable({
             return (
               <li
                 key={f.id}
-                className="grid grid-cols-[1fr_2fr_80px] items-center gap-4 border-b border-black/5 px-6 py-4 last:border-b-0 hover:bg-[hsl(220,33%,98%)]"
+                className="group grid grid-cols-[1fr_2fr_80px] items-center gap-4 border-b border-black/5 px-6 py-4 last:border-b-0 hover:bg-[hsl(220,33%,98%)]"
               >
                 <div className="flex items-center gap-3">
                   <span className="grid h-8 w-8 place-items-center rounded-md bg-indigo-50 text-indigo-600">
@@ -805,11 +1054,12 @@ function FieldsTable({
                 <div className="text-foreground/80">{formatFieldType(f.field_type)}</div>
                 <div className="flex items-center justify-end gap-1">
                   <Button
-                    disabled
+                    disabled={!onEditField}
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 rounded-full"
                     aria-label="Edit field"
+                    onClick={() => onEditField?.(f as FieldResponse)}
                   >
                     <Edit3 className="h-3.5 w-3.5" />
                   </Button>
@@ -817,10 +1067,10 @@ function FieldsTable({
                     disabled
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-full"
+                    className="h-8 w-8 rounded-full opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
                     aria-label="Field actions"
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreVertical className="h-4 w-4" />
                   </Button>
                 </div>
               </li>
@@ -885,6 +1135,11 @@ function EntriesView({
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDocumentKey, setCreateDocumentKey] = useState("");
+  const [createLocale, setCreateLocale] = useState("en");
+  const [creating, setCreating] = useState(false);
 
   const loadEntries = useCallback(async () => {
     setLoading(true);
@@ -922,6 +1177,47 @@ function EntriesView({
   const toggle = (id: string) =>
     setSelected(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
 
+  const openCreateDialog = () => {
+    setCreateTitle("");
+    setCreateDocumentKey("");
+    setCreateLocale("en");
+    setCreateOpen(true);
+  };
+
+  const updateCreateTitle = (value: string) => {
+    setCreateTitle(value);
+    setCreateDocumentKey((current) => current || slugify(value));
+  };
+
+  const createEntry = async () => {
+    const title = createTitle.trim();
+    if (!title) return;
+    setCreating(true);
+    try {
+      const response = await apiRequest<EntryResponse | EntryDetailResponse>(
+        "/api/v1/cms/entries",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            content_type_id: contentType.id,
+            document_key: createDocumentKey.trim() || slugify(title),
+            locale: createLocale.trim() || "en",
+            title,
+            data: {},
+          }),
+        },
+      );
+      const entry = "entry" in response ? response.entry : response;
+      setCreateOpen(false);
+      setSelected([]);
+      onOpenEntry(entry.id);
+    } catch (err) {
+      onError(err, "Unable to create entry");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <section className="space-y-6">
       <button
@@ -936,7 +1232,7 @@ function EntriesView({
           <h1 className="text-4xl font-semibold tracking-tight">{contentType.display_name}</h1>
           <p className="mt-1 text-muted-foreground">{total} entries found</p>
         </div>
-        <Button disabled className="rounded-lg bg-indigo-600 hover:bg-indigo-700">
+        <Button className="rounded-lg bg-indigo-600 hover:bg-indigo-700" onClick={openCreateDialog}>
           <Plus className="mr-1.5 h-4 w-4" /> Create new entry
         </Button>
       </div>
@@ -990,10 +1286,7 @@ function EntriesView({
           <div />
         </div>
         {loading ? (
-          <div className="flex items-center gap-2 px-6 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading entries...
-          </div>
+          <EntriesTableSkeleton />
         ) : entries.length === 0 ? (
           <div className="px-6 py-6 text-sm text-muted-foreground">No entries found.</div>
         ) : (
@@ -1040,7 +1333,87 @@ function EntriesView({
           </ul>
         )}
       </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create new entry</DialogTitle>
+            <DialogDescription>
+              Start a new {contentType.display_name.toLowerCase()} draft.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Title</label>
+              <Input
+                value={createTitle}
+                onChange={(event) => updateCreateTitle(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder="Untitled entry"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Document key</label>
+              <Input
+                value={createDocumentKey}
+                onChange={(event) => setCreateDocumentKey(slugify(event.target.value))}
+                className="h-11 rounded-lg"
+                placeholder="untitled-entry"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Locale</label>
+              <Input
+                value={createLocale}
+                onChange={(event) => setCreateLocale(event.target.value)}
+                className="h-11 rounded-lg"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={creating}
+              onClick={() => setCreateOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={creating || !createTitle.trim()}
+              onClick={createEntry}
+            >
+              {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Create entry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
+  );
+}
+
+function EntriesTableSkeleton() {
+  const rows = Array.from({ length: 6 });
+
+  return (
+    <ul aria-label="Loading entries">
+      {rows.map((_, index) => (
+        <li
+          key={index}
+          className="grid grid-cols-[40px_80px_1fr_2fr_140px_120px_40px] items-center gap-4 border-b border-black/5 px-6 py-4 last:border-b-0"
+        >
+          <Skeleton className="h-5 w-5 rounded-md" />
+          <Skeleton className="h-5 w-14" />
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-5 w-52" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-7 w-20 rounded-md" />
+          <Skeleton className="h-8 w-8 rounded-full" />
+        </li>
+      ))}
+    </ul>
   );
 }
 
