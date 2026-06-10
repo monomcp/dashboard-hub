@@ -60,7 +60,7 @@ export function AppsMenu() {
                   <span className="text-xs text-foreground/80">{app.name}</span>
                 </>
               );
-              const linkTo = app.name === "Drive" ? "/drive" : app.name === "Contacts" ? "/contacts" : null;
+              const linkTo = app.name === "Drive" ? "/drive" : app.name === "Contacts" ? "/contacts" : app.name === "Calendar" ? "/calendar" : null;
               if (linkTo) {
                 return (
                   <Link
