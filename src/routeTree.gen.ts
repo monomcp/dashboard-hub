@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DriveRouteImport } from './routes/drive'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as CmsRouteImport } from './routes/cms'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const DriveRoute = DriveRouteImport.update({
 const ContactsRoute = ContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CmsRoute = CmsRouteImport.update({
+  id: '/cms',
+  path: '/cms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalendarRoute = CalendarRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/cms': typeof CmsRoute
   '/contacts': typeof ContactsRoute
   '/drive': typeof DriveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/cms': typeof CmsRoute
   '/contacts': typeof ContactsRoute
   '/drive': typeof DriveRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/calendar': typeof CalendarRoute
+  '/cms': typeof CmsRoute
   '/contacts': typeof ContactsRoute
   '/drive': typeof DriveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/calendar' | '/contacts' | '/drive'
+  fullPaths: '/' | '/calendar' | '/cms' | '/contacts' | '/drive'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/calendar' | '/contacts' | '/drive'
-  id: '__root__' | '/' | '/calendar' | '/contacts' | '/drive'
+  to: '/' | '/calendar' | '/cms' | '/contacts' | '/drive'
+  id: '__root__' | '/' | '/calendar' | '/cms' | '/contacts' | '/drive'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalendarRoute: typeof CalendarRoute
+  CmsRoute: typeof CmsRoute
   ContactsRoute: typeof ContactsRoute
   DriveRoute: typeof DriveRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/contacts'
       fullPath: '/contacts'
       preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cms': {
+      id: '/cms'
+      path: '/cms'
+      fullPath: '/cms'
+      preLoaderRoute: typeof CmsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calendar': {
@@ -105,9 +122,20 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalendarRoute: CalendarRoute,
+  CmsRoute: CmsRoute,
   ContactsRoute: ContactsRoute,
   DriveRoute: DriveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
