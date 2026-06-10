@@ -1,23 +1,26 @@
 import { LayoutGrid, Pencil } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-const FAVOURITE_APPS = [
+type App = { name: string; color: string; letter: string; to?: string };
+
+const FAVOURITE_APPS: App[] = [
   { name: "Account", color: "bg-stone-500", letter: "C" },
-  { name: "Drive", color: "bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400", letter: "△" },
-  { name: "Contacts", color: "bg-gradient-to-br from-sky-400 to-blue-600", letter: "C" },
+  { name: "Drive", color: "bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400", letter: "△", to: "/drive" },
+  { name: "Contacts", color: "bg-gradient-to-br from-sky-400 to-blue-600", letter: "C", to: "/contacts" },
+  { name: "Tasks", color: "bg-gradient-to-br from-sky-400 to-indigo-500", letter: "✓", to: "/" },
   { name: "Gmail", color: "bg-gradient-to-br from-red-500 via-yellow-400 to-red-400", letter: "M" },
   { name: "YouTube", color: "bg-red-500", letter: "▶" },
   { name: "Gemini", color: "bg-gradient-to-br from-blue-500 via-fuchsia-500 to-amber-400", letter: "✦" },
   { name: "Maps", color: "bg-gradient-to-br from-green-500 via-yellow-400 to-red-500", letter: "◉" },
   { name: "Search", color: "bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500", letter: "G" },
-  { name: "Calendar", color: "bg-sky-500", letter: "31" },
-  { name: "CMS", color: "bg-gradient-to-br from-indigo-500 to-violet-600", letter: "✎" },
+  { name: "Calendar", color: "bg-sky-500", letter: "31", to: "/calendar" },
+  { name: "CMS", color: "bg-gradient-to-br from-indigo-500 to-violet-600", letter: "✎", to: "/cms" },
 ];
 
-const MORE_APPS = [
+const MORE_APPS: App[] = [
   { name: "News", color: "bg-blue-500", letter: "N" },
   { name: "Photos", color: "bg-gradient-to-br from-red-400 via-yellow-400 to-green-400", letter: "✿" },
   { name: "Meet", color: "bg-amber-400", letter: "▶" },
@@ -27,6 +30,8 @@ const MORE_APPS = [
 ];
 
 export function AppsMenu() {
+  const { pathname } = useLocation();
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -47,7 +52,7 @@ export function AppsMenu() {
             </Button>
           </div>
           <div className="grid grid-cols-3 gap-y-4">
-            {FAVOURITE_APPS.map((app) => {
+            {FAVOURITE_APPS.filter((app) => app.to !== pathname).map((app) => {
               const content = (
                 <>
                   <div
@@ -61,12 +66,11 @@ export function AppsMenu() {
                   <span className="text-xs text-foreground/80">{app.name}</span>
                 </>
               );
-              const linkTo = app.name === "Drive" ? "/drive" : app.name === "Contacts" ? "/contacts" : app.name === "Calendar" ? "/calendar" : app.name === "CMS" ? "/cms" : null;
-              if (linkTo) {
+              if (app.to) {
                 return (
                   <Link
                     key={app.name}
-                    to={linkTo}
+                    to={app.to}
                     className="flex flex-col items-center gap-1.5 rounded-xl p-2 transition hover:bg-sky-50"
                   >
                     {content}

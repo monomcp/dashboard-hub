@@ -781,7 +781,7 @@ function SchemaView({
     setSaving(true);
     try {
       const next = await apiRequest<FieldResponse>(
-        `/api/v1/cms/content-types/${contentType.id}/fields/${editingField.id}`,
+        `/api/v1/cms/fields/${editingField.id}`,
         {
           method: "PATCH",
           body: JSON.stringify({
