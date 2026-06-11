@@ -14,6 +14,7 @@ import { Route as DriveRouteImport } from './routes/drive'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CmsRouteImport } from './routes/cms'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 
 const LoginRoute = LoginRouteImport.update({
@@ -41,6 +42,11 @@ const CalendarRoute = CalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -49,6 +55,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/contacts': typeof ContactsRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/contacts': typeof ContactsRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit': typeof AuditRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/contacts': typeof ContactsRoute
@@ -74,12 +83,20 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/calendar' | '/cms' | '/contacts' | '/drive' | '/login'
+  fullPaths:
+    | '/'
+    | '/audit'
+    | '/calendar'
+    | '/cms'
+    | '/contacts'
+    | '/drive'
+    | '/login'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/calendar' | '/cms' | '/contacts' | '/drive' | '/login'
+  to: '/' | '/audit' | '/calendar' | '/cms' | '/contacts' | '/drive' | '/login'
   id:
     | '__root__'
     | '/'
+    | '/audit'
     | '/calendar'
     | '/cms'
     | '/contacts'
@@ -89,6 +106,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditRoute: typeof AuditRoute
   CalendarRoute: typeof CalendarRoute
   CmsRoute: typeof CmsRoute
   ContactsRoute: typeof ContactsRoute
@@ -133,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -145,6 +170,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditRoute: AuditRoute,
   CalendarRoute: CalendarRoute,
   CmsRoute: CmsRoute,
   ContactsRoute: ContactsRoute,
