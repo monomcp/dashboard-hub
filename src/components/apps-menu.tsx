@@ -11,7 +11,7 @@ const FAVOURITE_APPS: App[] = [
   { name: "Drive", color: "bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400", letter: "△", to: "/drive" },
   { name: "Contacts", color: "bg-gradient-to-br from-sky-400 to-blue-600", letter: "C", to: "/contacts" },
   { name: "Tasks", color: "bg-gradient-to-br from-sky-400 to-indigo-500", letter: "✓", to: "/" },
-  { name: "Gmail", color: "bg-gradient-to-br from-red-500 via-yellow-400 to-red-400", letter: "M" },
+  { name: "Email", color: "bg-gradient-to-br from-rose-500 via-amber-400 to-rose-400", letter: "✉", to: "/email" },
   { name: "YouTube", color: "bg-red-500", letter: "▶" },
   { name: "Gemini", color: "bg-gradient-to-br from-blue-500 via-fuchsia-500 to-amber-400", letter: "✦" },
   { name: "Maps", color: "bg-gradient-to-br from-green-500 via-yellow-400 to-red-500", letter: "◉" },
