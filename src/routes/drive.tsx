@@ -19,6 +19,7 @@ import {
   Trash2,
   RotateCcw,
   Star,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,9 @@ export const Route = createFileRoute("/drive")({
       { property: "og:description", content: "Browse, search and manage your files and folders." },
     ],
     links: [{ rel: "canonical", href: "/drive" }],
+  }),
+  validateSearch: (search: Record<string, unknown>): { folder?: string } => ({
+    folder: typeof search.folder === "string" && search.folder ? search.folder : undefined,
   }),
   component: DrivePage,
 });
@@ -136,6 +140,7 @@ function buildListPath(
   base: "/api/v1/drive-folders" | "/api/v1/drive-files",
   filter: DriveViewFilter,
   query: string,
+  folderId?: string,
 ) {
   const params = new URLSearchParams({
     sort: "updated_at",
@@ -146,11 +151,16 @@ function buildListPath(
   if (query.trim()) params.set("q", query.trim());
   if (filter === "starred") params.set("starred", "true");
   if (filter === "trash") params.set("trashed", "true");
+  if (filter === "my-drive" && folderId) {
+    params.set(base === "/api/v1/drive-folders" ? "parent_folder_id" : "folder_id", folderId);
+  }
   return `${base}?${params.toString()}`;
 }
 
 function DrivePage() {
   const navigate = useNavigate();
+  const { folder: folderId } = Route.useSearch();
+  const [breadcrumbs, setBreadcrumbs] = useState<DriveFolderResponse[]>([]);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<DriveViewFilter>("my-drive");
@@ -182,9 +192,11 @@ function DrivePage() {
     try {
       const [folderPage, filePage] = await Promise.all([
         apiRequest<Page<DriveFolderResponse>>(
-          buildListPath("/api/v1/drive-folders", filter, query),
+          buildListPath("/api/v1/drive-folders", filter, query, folderId),
         ),
-        apiRequest<Page<DriveFileResponse>>(buildListPath("/api/v1/drive-files", filter, query)),
+        apiRequest<Page<DriveFileResponse>>(
+          buildListPath("/api/v1/drive-files", filter, query, folderId),
+        ),
       ]);
       setFolders(folderPage.items);
       setFiles(filePage.items);
@@ -193,11 +205,44 @@ function DrivePage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, handleApiError, query]);
+  }, [filter, folderId, handleApiError, query]);
 
   useEffect(() => {
     void loadDrive();
   }, [loadDrive]);
+
+  useEffect(() => {
+    if (!folderId) {
+      setBreadcrumbs([]);
+      return;
+    }
+    let cancelled = false;
+    const loadBreadcrumbs = async () => {
+      try {
+        const chain: DriveFolderResponse[] = [];
+        let currentId: string | null = folderId;
+        while (currentId && chain.length < 20) {
+          const folder: DriveFolderResponse = await apiRequest<DriveFolderResponse>(
+            `/api/v1/drive-folders/${currentId}`,
+          );
+          chain.unshift(folder);
+          currentId = folder.parent_folder_id;
+        }
+        if (!cancelled) setBreadcrumbs(chain);
+      } catch (err) {
+        if (!cancelled) handleApiError(err);
+      }
+    };
+    void loadBreadcrumbs();
+    return () => {
+      cancelled = true;
+    };
+  }, [folderId, handleApiError]);
+
+  const openFolder = (folder: DriveFolderResponse) => {
+    setFilter("my-drive");
+    void navigate({ to: "/drive", search: { folder: folder.id } });
+  };
 
   const currentTitle = useMemo(() => {
     if (filter === "starred") return "Starred";
@@ -216,14 +261,14 @@ function DrivePage() {
       if (createOpen === "folder") {
         await apiRequest<DriveFolderResponse>("/api/v1/drive-folders", {
           method: "POST",
-          body: JSON.stringify({ name, parent_folder_id: null }),
+          body: JSON.stringify({ name, parent_folder_id: folderId ?? null }),
         });
       } else {
         await apiRequest<DriveFileResponse>("/api/v1/drive-files", {
           method: "POST",
           body: JSON.stringify({
             name,
-            folder_id: null,
+            folder_id: folderId ?? null,
             kind: "document",
             mime_type: "application/vnd.google-apps.document",
           }),
@@ -439,7 +484,10 @@ function DrivePage() {
                       ? "bg-sky-100 text-sky-900"
                       : "text-foreground/80 hover:bg-white/60",
                   )}
-                  onClick={() => setFilter(n.id)}
+                  onClick={() => {
+                    setFilter(n.id);
+                    if (folderId) void navigate({ to: "/drive", search: {} });
+                  }}
                 >
                   <n.icon className="h-5 w-5 text-foreground/70" />
                   <span className="flex-1 truncate text-left">{n.label}</span>
@@ -450,6 +498,7 @@ function DrivePage() {
         )}
 
         <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
+          {!folderId && filter === "my-drive" && (
           <section className="rounded-3xl bg-[hsl(220,33%,96%)] p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-medium">Start a new document</h2>
@@ -476,9 +525,38 @@ function DrivePage() {
               ))}
             </div>
           </section>
+          )}
 
           <div className="mt-8 flex items-center justify-between">
-            <h2 className="text-lg font-medium">{currentTitle}</h2>
+            {folderId && filter === "my-drive" ? (
+              <nav className="flex min-w-0 items-center gap-1 text-lg font-medium">
+                <button
+                  className="shrink-0 rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
+                  onClick={() => void navigate({ to: "/drive", search: {} })}
+                >
+                  My Drive
+                </button>
+                {breadcrumbs.map((crumb, index) => (
+                  <span key={crumb.id} className="flex min-w-0 items-center gap-1">
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    {index === breadcrumbs.length - 1 ? (
+                      <span className="truncate px-2 py-0.5">{crumb.name}</span>
+                    ) : (
+                      <button
+                        className="truncate rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
+                        onClick={() =>
+                          void navigate({ to: "/drive", search: { folder: crumb.id } })
+                        }
+                      >
+                        {crumb.name}
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </nav>
+            ) : (
+              <h2 className="text-lg font-medium">{currentTitle}</h2>
+            )}
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
@@ -533,20 +611,33 @@ function DrivePage() {
                 {folders.map((folder) => (
                   <div
                     key={folder.id}
-                    className="group flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
+                    className="group flex cursor-pointer items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (filter !== "trash") openFolder(folder);
+                    }}
+                    onKeyDown={(event) => {
+                      if ((event.key === "Enter" || event.key === " ") && filter !== "trash") {
+                        event.preventDefault();
+                        openFolder(folder);
+                      }
+                    }}
                   >
                     <div className="grid h-9 w-9 place-items-center rounded-lg bg-amber-400">
                       <KindIcon kind="folder" />
                     </div>
                     <span className="flex-1 truncate text-sm font-medium">{folder.name}</span>
-                    <DriveActions
-                      trashed={filter === "trash"}
-                      starred={folder.starred}
-                      disabled={mutating}
-                      onToggleStar={() => updateFolder(folder, { starred: !folder.starred })}
-                      onTrash={() => trashFolder(folder)}
-                      onRestore={() => restoreFolder(folder)}
-                    />
+                    <span onClick={(event) => event.stopPropagation()}>
+                      <DriveActions
+                        trashed={filter === "trash"}
+                        starred={folder.starred}
+                        disabled={mutating}
+                        onToggleStar={() => updateFolder(folder, { starred: !folder.starred })}
+                        onTrash={() => trashFolder(folder)}
+                        onRestore={() => restoreFolder(folder)}
+                      />
+                    </span>
                   </div>
                 ))}
               </div>

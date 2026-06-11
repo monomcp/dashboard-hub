@@ -20,6 +20,12 @@ import {
   Link2,
   GitBranch,
   Loader2,
+  Layers,
+  FileText,
+  Map as MapIcon,
+  Bot,
+  Sparkles,
+  FileStack,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +39,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AppsMenu } from "@/components/apps-menu";
+import { SitemapView } from "@/components/cms-sitemap-view";
+import { LlmsFullView, LlmsView, RobotsView } from "@/components/cms-discovery-views";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -212,7 +226,11 @@ type View =
   | { kind: "collection-list" }
   | { kind: "schema"; target: SidebarTarget }
   | { kind: "entries"; contentTypeId: string }
-  | { kind: "entry"; contentTypeId: string; entryId: string };
+  | { kind: "entry"; contentTypeId: string; entryId: string }
+  | { kind: "sitemap" }
+  | { kind: "robots" }
+  | { kind: "llms" }
+  | { kind: "llms-full" };
 
 type EntryRow = EntryResponse & {
   primaryLocale: EntryLocaleResponse | null;
@@ -318,6 +336,17 @@ function slugify(value: string) {
   );
 }
 
+function keyify(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .replace(/^([0-9])/, "field_$1") || "field"
+  );
+}
+
 function CmsPage() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -335,6 +364,18 @@ function CmsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [createKind, setCreateKind] = useState<ContentTypeKind | null>(null);
+  const [createName, setCreateName] = useState("");
+  const [createUid, setCreateUid] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createPlural, setCreatePlural] = useState("");
+  const [creatingType, setCreatingType] = useState(false);
+  const [componentDialogOpen, setComponentDialogOpen] = useState(false);
+  const [componentName, setComponentName] = useState("");
+  const [componentUid, setComponentUid] = useState("");
+  const [componentCategory, setComponentCategory] = useState("blocks");
+  const [componentDescription, setComponentDescription] = useState("");
+  const [creatingComponent, setCreatingComponent] = useState(false);
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "CMS request failed") => {
@@ -384,6 +425,98 @@ function CmsPage() {
     setSingleTypes((current) => current.map(applyUpdate));
   }, []);
 
+  const openTypeCreator = (kind: ContentTypeKind) => {
+    setCreateKind(kind);
+    setCreateName("");
+    setCreateUid("");
+    setCreateDescription("");
+    setCreatePlural("");
+  };
+
+  const updateCreateName = (value: string) => {
+    setCreateName(value);
+    setCreateUid((current) => (current ? current : keyify(value)));
+  };
+
+  const createContentType = async () => {
+    if (!createKind) return;
+    const name = createName.trim();
+    const uid = keyify(createUid || name);
+    if (!name || !uid) return;
+    setCreatingType(true);
+    try {
+      const next = await apiRequest<ContentTypeResponse>("/api/v1/cms/content-types", {
+        method: "POST",
+        body: JSON.stringify({
+          uid,
+          display_name: name,
+          plural_name: createPlural.trim() || null,
+          description: createDescription.trim() || null,
+          kind: createKind,
+        }),
+      });
+      const group = next.kind === "single" ? "Single Types" : "Collection Types";
+      if (next.kind === "single") {
+        setSingleTypes((current) => [...current, next]);
+      } else {
+        setCollections((current) => [...current, next]);
+      }
+      setCreateKind(null);
+      setSelected([]);
+      setView({
+        kind: "schema",
+        target: { kind: "content-type", id: next.id, group },
+      });
+    } catch (err) {
+      handleApiError(err, "Unable to create content type");
+    } finally {
+      setCreatingType(false);
+    }
+  };
+
+  const openComponentCreator = () => {
+    setComponentName("");
+    setComponentUid("");
+    setComponentCategory("blocks");
+    setComponentDescription("");
+    setComponentDialogOpen(true);
+  };
+
+  const updateComponentName = (value: string) => {
+    setComponentName(value);
+    setComponentUid((current) => (current ? current : keyify(value)));
+  };
+
+  const createComponent = async () => {
+    const name = componentName.trim();
+    const uid = keyify(componentUid || name);
+    const category = keyify(componentCategory) || "blocks";
+    if (!name || !uid) return;
+    setCreatingComponent(true);
+    try {
+      const next = await apiRequest<ComponentResponse>("/api/v1/cms/components", {
+        method: "POST",
+        body: JSON.stringify({
+          uid,
+          category,
+          display_name: name,
+          description: componentDescription.trim() || null,
+        }),
+      });
+      setComponents((current) => [...current, next]);
+      setComponentDialogOpen(false);
+      setSelected([]);
+      setView({
+        kind: "schema",
+        target: { kind: "component", id: next.id, group: "Components" },
+      });
+    } catch (err) {
+      handleApiError(err, "Unable to create component");
+    } finally {
+      setCreatingComponent(false);
+    }
+  };
+
   useEffect(() => {
     void loadCmsRoot();
   }, [loadCmsRoot]);
@@ -420,6 +553,7 @@ function CmsPage() {
       label: "Collection Types",
       items: collections,
       createLabel: "Create new Collection type",
+      onCreate: () => openTypeCreator("collection"),
       targetFor: (item: ContentTypeResponse): SidebarTarget => ({
         kind: "content-type",
         id: item.id,
@@ -430,6 +564,7 @@ function CmsPage() {
       label: "Single Types",
       items: singleTypes,
       createLabel: "Create new Single type",
+      onCreate: () => openTypeCreator("single"),
       targetFor: (item: ContentTypeResponse): SidebarTarget => ({
         kind: "content-type",
         id: item.id,
@@ -440,6 +575,7 @@ function CmsPage() {
       label: "Components",
       items: components,
       createLabel: "Create new Component",
+      onCreate: openComponentCreator,
       targetFor: (item: ComponentResponse): SidebarTarget => ({
         kind: "component",
         id: item.id,
@@ -450,6 +586,7 @@ function CmsPage() {
     label: (typeof GROUP_LABELS)[number];
     items: (ContentTypeResponse | ComponentResponse)[];
     createLabel: string;
+    onCreate: (() => void) | undefined;
     targetFor: (item: ContentTypeResponse & ComponentResponse) => SidebarTarget;
   }[];
 
@@ -522,12 +659,33 @@ function CmsPage() {
       <div className="flex">
         {sidebarOpen && (
           <aside className="hidden w-[280px] shrink-0 px-3 md:block">
-            <Button
-              disabled
-              className="mb-4 h-14 w-[180px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white"
-            >
-              <Plus className="mr-1 h-5 w-5" /> Create
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="mb-4 h-14 w-[180px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg">
+                  <Plus className="mr-1 h-5 w-5" /> Create
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 rounded-2xl p-1.5">
+                <DropdownMenuItem
+                  className="gap-3 rounded-lg py-2.5"
+                  onSelect={() => openTypeCreator("collection")}
+                >
+                  <Layers className="h-4 w-4" /> Collection type
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-3 rounded-lg py-2.5"
+                  onSelect={() => openTypeCreator("single")}
+                >
+                  <FileText className="h-4 w-4" /> Single type
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-3 rounded-lg py-2.5"
+                  onSelect={openComponentCreator}
+                >
+                  <GitBranch className="h-4 w-4" /> Component
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <nav className="space-y-5">
               {groups.map((g) => {
@@ -588,8 +746,12 @@ function CmsPage() {
                         )}
                         <li>
                           <button
-                            disabled
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-indigo-600 opacity-50"
+                            disabled={!g.onCreate}
+                            onClick={g.onCreate}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-indigo-600 transition hover:bg-white/60",
+                              !g.onCreate && "cursor-default opacity-50 hover:bg-transparent",
+                            )}
                           >
                             <Plus className="h-4 w-4" />
                             <span className="truncate">{g.createLabel}</span>
@@ -600,6 +762,45 @@ function CmsPage() {
                   </div>
                 );
               })}
+
+              <div>
+                <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Discovery
+                </div>
+                {(
+                  [
+                    { kind: "sitemap", label: "Sitemap", Icon: MapIcon },
+                    { kind: "robots", label: "Robots.txt", Icon: Bot },
+                    { kind: "llms", label: "LLMs.txt", Icon: Sparkles },
+                    { kind: "llms-full", label: "LLMs Full", Icon: FileStack },
+                  ] as const
+                ).map(({ kind, label, Icon }) => {
+                  const isActive = view.kind === kind;
+                  return (
+                    <button
+                      key={kind}
+                      onClick={() => {
+                        setView({ kind });
+                        setSelected([]);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                        isActive
+                          ? "bg-indigo-50 font-semibold text-indigo-700"
+                          : "text-foreground/80 hover:bg-white/60",
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "h-4 w-4",
+                          isActive ? "text-indigo-600" : "text-muted-foreground",
+                        )}
+                      />
+                      <span className="truncate text-left">{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </nav>
           </aside>
         )}
@@ -676,8 +877,188 @@ function CmsPage() {
               onError={handleApiError}
             />
           )}
+
+          {!loading && view.kind === "sitemap" && (
+            <SitemapView
+              contentTypes={[...collections, ...singleTypes].map((type) => ({
+                id: type.id,
+                display_name: type.display_name,
+              }))}
+              onError={handleApiError}
+            />
+          )}
+
+          {!loading && view.kind === "robots" && <RobotsView onError={handleApiError} />}
+
+          {!loading && view.kind === "llms" && <LlmsView onError={handleApiError} />}
+
+          {!loading && view.kind === "llms-full" && (
+            <LlmsFullView
+              contentTypes={[...collections, ...singleTypes].map((type) => ({
+                id: type.id,
+                display_name: type.display_name,
+              }))}
+              onError={handleApiError}
+            />
+          )}
         </main>
       </div>
+
+      <Dialog open={!!createKind} onOpenChange={(open) => !open && setCreateKind(null)}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {createKind === "single" ? "Create new Single type" : "Create new Collection type"}
+            </DialogTitle>
+            <DialogDescription>
+              {createKind === "single"
+                ? "A single type holds one unique entry, like global settings."
+                : "A collection type holds many entries that share the same fields."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Display name</label>
+              <Input
+                value={createName}
+                onChange={(event) => updateCreateName(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder={createKind === "single" ? "Site Settings" : "Blog Post"}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">API UID</label>
+              <Input
+                value={createUid}
+                onChange={(event) => setCreateUid(keyify(event.target.value))}
+                className="h-11 rounded-lg font-mono"
+                placeholder={createKind === "single" ? "site_settings" : "blog_post"}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Used to reference this type in the API. Lowercase letters, numbers and underscores.
+              </p>
+            </div>
+            {createKind !== "single" && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">
+                  Plural name <span className="text-muted-foreground">(optional)</span>
+                </label>
+                <Input
+                  value={createPlural}
+                  onChange={(event) => setCreatePlural(event.target.value)}
+                  className="h-11 rounded-lg"
+                  placeholder="Blog Posts"
+                />
+              </div>
+            )}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Description <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                value={createDescription}
+                onChange={(event) => setCreateDescription(event.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={creatingType}
+              onClick={() => setCreateKind(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={creatingType || !createName.trim()}
+              onClick={createContentType}
+            >
+              {creatingType ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={componentDialogOpen} onOpenChange={setComponentDialogOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create new Component</DialogTitle>
+            <DialogDescription>
+              A component is a reusable group of fields you can embed in content types.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Display name</label>
+              <Input
+                value={componentName}
+                onChange={(event) => updateComponentName(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder="Hero Section"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">API UID</label>
+              <Input
+                value={componentUid}
+                onChange={(event) => setComponentUid(keyify(event.target.value))}
+                className="h-11 rounded-lg font-mono"
+                placeholder="hero_section"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Used to reference this component in the API. Lowercase letters, numbers and
+                underscores.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Category</label>
+              <Input
+                value={componentCategory}
+                onChange={(event) => setComponentCategory(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder="blocks"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Components are grouped by category in the builder.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Description <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                value={componentDescription}
+                onChange={(event) => setComponentDescription(event.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={creatingComponent}
+              onClick={() => setComponentDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={creatingComponent || !componentName.trim()}
+              onClick={createComponent}
+            >
+              {creatingComponent ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -706,6 +1087,12 @@ function SchemaView({
   const [fieldRequired, setFieldRequired] = useState(false);
   const [fieldUnique, setFieldUnique] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [creatingField, setCreatingField] = useState(false);
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldType, setNewFieldType] = useState<FieldType>("short_text");
+  const [newFieldRequired, setNewFieldRequired] = useState(false);
+  const [newFieldUnique, setNewFieldUnique] = useState(false);
 
   const loadFields = useCallback(async () => {
     setLoading(true);
@@ -752,6 +1139,49 @@ function SchemaView({
     setFieldUnique(field.is_unique);
   };
 
+  const openFieldCreator = () => {
+    setNewFieldLabel("");
+    setNewFieldKey("");
+    setNewFieldType("short_text");
+    setNewFieldRequired(false);
+    setNewFieldUnique(false);
+    setCreatingField(true);
+  };
+
+  const updateNewFieldLabel = (value: string) => {
+    setNewFieldLabel(value);
+    setNewFieldKey((current) => (current ? current : keyify(value)));
+  };
+
+  const createField = async () => {
+    const label = newFieldLabel.trim();
+    const key = keyify(newFieldKey || label);
+    if (!label || !key) return;
+    setSaving(true);
+    try {
+      const next = await apiRequest<FieldResponse>(
+        `/api/v1/cms/content-types/${contentType.id}/fields`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            key,
+            label,
+            field_type: newFieldType,
+            is_required: newFieldRequired,
+            is_unique: newFieldUnique,
+            order_index: fields.length,
+          }),
+        },
+      );
+      setFields((current) => [...current, next]);
+      setCreatingField(false);
+    } catch (err) {
+      onError(err, "Unable to create field");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveContentType = async () => {
     const name = contentTypeName.trim();
     if (!name) return;
@@ -780,18 +1210,15 @@ function SchemaView({
     if (!editingField || !fieldLabel.trim()) return;
     setSaving(true);
     try {
-      const next = await apiRequest<FieldResponse>(
-        `/api/v1/cms/fields/${editingField.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            label: fieldLabel.trim(),
-            field_type: fieldType,
-            is_required: fieldRequired,
-            is_unique: fieldUnique,
-          }),
-        },
-      );
+      const next = await apiRequest<FieldResponse>(`/api/v1/cms/fields/${editingField.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          label: fieldLabel.trim(),
+          field_type: fieldType,
+          is_required: fieldRequired,
+          is_unique: fieldUnique,
+        }),
+      });
       setFields((current) => current.map((field) => (field.id === next.id ? next : field)));
       setEditingField(null);
       await loadFields();
@@ -825,11 +1252,12 @@ function SchemaView({
           <Button variant="outline" className="rounded-lg" onClick={onOpenEntries}>
             View entries
           </Button>
-          <Button disabled variant="outline" className="rounded-lg text-indigo-600">
+          <Button
+            variant="outline"
+            className="rounded-lg text-indigo-600"
+            onClick={openFieldCreator}
+          >
             <Plus className="mr-1.5 h-4 w-4" /> Add new field
-          </Button>
-          <Button disabled className="rounded-lg bg-indigo-600 hover:bg-indigo-700">
-            <Check className="mr-1.5 h-4 w-4" /> Save
           </Button>
         </div>
       </div>
@@ -839,6 +1267,12 @@ function SchemaView({
         loading={loading}
         emptyText="No fields found for this content type."
         onEditField={openFieldEditor}
+        onAddField={openFieldCreator}
+        addFieldLabel={
+          contentType.kind === "single"
+            ? "Add another field to this Single type"
+            : "Add another field to this Collection type"
+        }
       />
 
       <Dialog open={editingContentType} onOpenChange={setEditingContentType}>
@@ -882,6 +1316,86 @@ function SchemaView({
             >
               {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={creatingField} onOpenChange={setCreatingField}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add new field</DialogTitle>
+            <DialogDescription>
+              Add a field to the {contentType.display_name} schema.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Label</label>
+              <Input
+                value={newFieldLabel}
+                onChange={(event) => updateNewFieldLabel(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder="Title"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Key</label>
+              <Input
+                value={newFieldKey}
+                onChange={(event) => setNewFieldKey(keyify(event.target.value))}
+                className="h-11 rounded-lg font-mono"
+                placeholder="title"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Used as the field identifier in the API. Lowercase letters, numbers and underscores.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Type</label>
+              <select
+                value={newFieldType}
+                onChange={(event) => setNewFieldType(event.target.value as FieldType)}
+                className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                {FIELD_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {formatFieldType(type)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-3 py-3 text-sm font-medium">
+              <Checkbox
+                checked={newFieldRequired}
+                onCheckedChange={(checked) => setNewFieldRequired(checked === true)}
+              />
+              Required field
+            </label>
+            <label className="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-3 py-3 text-sm font-medium">
+              <Checkbox
+                checked={newFieldUnique}
+                onCheckedChange={(checked) => setNewFieldUnique(checked === true)}
+              />
+              Unique value
+            </label>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={saving}
+              onClick={() => setCreatingField(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={saving || !newFieldLabel.trim()}
+              onClick={createField}
+            >
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Add field
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -964,6 +1478,12 @@ function ComponentSchemaView({
 }) {
   const [fields, setFields] = useState<ComponentFieldResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creatingField, setCreatingField] = useState(false);
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newFieldKey, setNewFieldKey] = useState("");
+  const [newFieldType, setNewFieldType] = useState<FieldType>("short_text");
+  const [newFieldRequired, setNewFieldRequired] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -986,6 +1506,47 @@ function ComponentSchemaView({
     };
   }, [component.id, onError]);
 
+  const openFieldCreator = () => {
+    setNewFieldLabel("");
+    setNewFieldKey("");
+    setNewFieldType("short_text");
+    setNewFieldRequired(false);
+    setCreatingField(true);
+  };
+
+  const updateNewFieldLabel = (value: string) => {
+    setNewFieldLabel(value);
+    setNewFieldKey((current) => (current ? current : keyify(value)));
+  };
+
+  const createField = async () => {
+    const label = newFieldLabel.trim();
+    const key = keyify(newFieldKey || label);
+    if (!label || !key) return;
+    setSaving(true);
+    try {
+      const next = await apiRequest<ComponentFieldResponse>(
+        `/api/v1/cms/components/${component.id}/fields`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            key,
+            label,
+            field_type: newFieldType,
+            is_required: newFieldRequired,
+            order_index: fields.length,
+          }),
+        },
+      );
+      setFields((current) => [...current, next]);
+      setCreatingField(false);
+    } catch (err) {
+      onError(err, "Unable to create field");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1000,7 +1561,7 @@ function ComponentSchemaView({
             {component.description || "Reusable component schema."}
           </p>
         </div>
-        <Button disabled variant="outline" className="rounded-lg text-indigo-600">
+        <Button variant="outline" className="rounded-lg text-indigo-600" onClick={openFieldCreator}>
           <Plus className="mr-1.5 h-4 w-4" /> Add new field
         </Button>
       </div>
@@ -1009,7 +1570,82 @@ function ComponentSchemaView({
         fields={fields}
         loading={loading}
         emptyText="No fields found for this component."
+        onAddField={openFieldCreator}
+        addFieldLabel="Add another field to this Component"
       />
+
+      <Dialog open={creatingField} onOpenChange={setCreatingField}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add new field</DialogTitle>
+            <DialogDescription>
+              Add a field to the {component.display_name} component.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Label</label>
+              <Input
+                value={newFieldLabel}
+                onChange={(event) => updateNewFieldLabel(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder="Title"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Key</label>
+              <Input
+                value={newFieldKey}
+                onChange={(event) => setNewFieldKey(keyify(event.target.value))}
+                className="h-11 rounded-lg font-mono"
+                placeholder="title"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Used as the field identifier in the API. Lowercase letters, numbers and underscores.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Type</label>
+              <select
+                value={newFieldType}
+                onChange={(event) => setNewFieldType(event.target.value as FieldType)}
+                className="h-11 w-full rounded-lg border border-black/10 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                {FIELD_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {formatFieldType(type)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-3 rounded-lg border border-black/10 bg-white px-3 py-3 text-sm font-medium">
+              <Checkbox
+                checked={newFieldRequired}
+                onCheckedChange={(checked) => setNewFieldRequired(checked === true)}
+              />
+              Required field
+            </label>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={saving}
+              onClick={() => setCreatingField(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={saving || !newFieldLabel.trim()}
+              onClick={createField}
+            >
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Add field
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -1019,11 +1655,15 @@ function FieldsTable({
   loading,
   emptyText,
   onEditField,
+  onAddField,
+  addFieldLabel = "Add another field to this Collection type",
 }: {
   fields: FieldLike[];
   loading: boolean;
   emptyText: string;
   onEditField?: (field: FieldResponse) => void;
+  onAddField?: () => void;
+  addFieldLabel?: string;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -1079,13 +1719,17 @@ function FieldsTable({
         </ul>
       )}
       <button
-        disabled
-        className="flex w-full items-center gap-3 bg-indigo-50/60 px-6 py-4 text-sm font-medium text-indigo-600 opacity-50"
+        disabled={!onAddField}
+        onClick={onAddField}
+        className={cn(
+          "flex w-full items-center gap-3 bg-indigo-50/60 px-6 py-4 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50",
+          !onAddField && "cursor-default opacity-50 hover:bg-indigo-50/60",
+        )}
       >
         <span className="grid h-6 w-6 place-items-center rounded-full bg-indigo-100">
           <Plus className="h-3.5 w-3.5" />
         </span>
-        Add another field to this Collection type
+        {addFieldLabel}
       </button>
     </div>
   );

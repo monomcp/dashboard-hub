@@ -16,7 +16,7 @@ export function clearAuthTokens() {
   localStorage.removeItem("token_type");
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+function buildHeaders(init: RequestInit): Headers {
   const accessToken = localStorage.getItem("access_token");
   const organizationId = localStorage.getItem("organization_id");
   const headers = new Headers(init.headers);
@@ -30,10 +30,25 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   if (organizationId) {
     headers.set("X-Organization-Id", organizationId);
   }
+  return headers;
+}
 
+export async function apiRequestText(path: string, init: RequestInit = {}): Promise<string> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers,
+    headers: buildHeaders(init),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new ApiError(response.status, "Request failed");
+  }
+  return text;
+}
+
+export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: buildHeaders(init),
   });
 
   if (response.status === 204) {
