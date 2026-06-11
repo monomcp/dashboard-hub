@@ -9,6 +9,7 @@ import {
   Database,
   ChevronDown,
   Edit3,
+  Trash2,
   Check,
   ArrowLeft,
   Filter,
@@ -45,6 +46,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AppsMenu } from "@/components/apps-menu";
 import { SitemapView } from "@/components/cms-sitemap-view";
 import { LlmsFullView, LlmsView, RobotsView } from "@/components/cms-discovery-views";
@@ -425,6 +436,40 @@ function CmsPage() {
     setSingleTypes((current) => current.map(applyUpdate));
   }, []);
 
+  const deleteContentType = useCallback(
+    async (contentType: ContentTypeResponse) => {
+      try {
+        await apiRequest<void>(`/api/v1/cms/content-types/${contentType.id}`, {
+          method: "DELETE",
+        });
+        let nextCollections: ContentTypeResponse[] = [];
+        setCollections((current) => {
+          nextCollections = current.filter((item) => item.id !== contentType.id);
+          return nextCollections;
+        });
+        let nextSingles: ContentTypeResponse[] = [];
+        setSingleTypes((current) => {
+          nextSingles = current.filter((item) => item.id !== contentType.id);
+          return nextSingles;
+        });
+        setSelected([]);
+        const fallback = nextCollections[0] ?? nextSingles[0];
+        if (fallback) {
+          const group = fallback.kind === "single" ? "Single Types" : "Collection Types";
+          setView({
+            kind: "schema",
+            target: { kind: "content-type", id: fallback.id, group },
+          });
+        } else {
+          setView({ kind: "collection-list" });
+        }
+      } catch (err) {
+        handleApiError(err, "Unable to delete content type");
+      }
+    },
+    [handleApiError],
+  );
+
   const openTypeCreator = (kind: ContentTypeKind) => {
     setCreateKind(kind);
     setCreateName("");
@@ -688,119 +733,153 @@ function CmsPage() {
             </DropdownMenu>
 
             <nav className="space-y-5">
-              {groups.map((g) => {
-                const open = openGroups[g.label];
-                const items = g.items.filter((item) =>
-                  item.display_name.toLowerCase().includes(query.toLowerCase()),
-                );
-                return (
-                  <div key={g.label}>
-                    <button
-                      onClick={() =>
-                        setOpenGroups((prev) => ({ ...prev, [g.label]: !prev[g.label] }))
-                      }
-                      className="flex w-full items-center justify-between px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                    >
-                      <span className="flex items-center gap-1">
-                        {g.label}
-                        <ChevronDown
-                          className={cn("h-3.5 w-3.5 transition", !open && "-rotate-90")}
-                        />
-                      </span>
-                      <span className="rounded-md bg-[hsl(220,20%,92%)] px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {g.items.length}
-                      </span>
-                    </button>
-                    {open && (
-                      <ul className="space-y-0.5">
-                        {items.map((item) => {
-                          const isActive = activeId === item.id;
-                          return (
-                            <li key={item.id}>
-                              <button
-                                onClick={() =>
-                                  selectItem(
-                                    g.targetFor(item as ContentTypeResponse & ComponentResponse),
-                                  )
-                                }
-                                className={cn(
-                                  "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
-                                  isActive
-                                    ? "bg-indigo-50 font-semibold text-indigo-700"
-                                    : "text-foreground/80 hover:bg-white/60",
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    isActive ? "bg-indigo-600" : "bg-muted-foreground/50",
-                                  )}
-                                />
-                                <span className="truncate text-left">{item.display_name}</span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                        {items.length === 0 && (
-                          <li className="px-3 py-1.5 text-sm text-muted-foreground">No items</li>
-                        )}
-                        <li>
-                          <button
-                            disabled={!g.onCreate}
-                            onClick={g.onCreate}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-indigo-600 transition hover:bg-white/60",
-                              !g.onCreate && "cursor-default opacity-50 hover:bg-transparent",
-                            )}
-                          >
-                            <Plus className="h-4 w-4" />
-                            <span className="truncate">{g.createLabel}</span>
-                          </button>
-                        </li>
+              {loading && (
+                <>
+                  {[4, 2, 4].map((count, groupIndex) => (
+                    <div key={groupIndex}>
+                      <div className="flex items-center justify-between px-3 pb-2">
+                        <Skeleton className="h-3.5 w-28" />
+                        <Skeleton className="h-4 w-6 rounded-md" />
+                      </div>
+                      <ul className="space-y-1">
+                        {Array.from({ length: count }).map((_, itemIndex) => (
+                          <li key={itemIndex} className="flex items-center gap-2 px-3 py-1.5">
+                            <Skeleton className="h-1.5 w-1.5 rounded-full" />
+                            <Skeleton className="h-4 w-32" />
+                          </li>
+                        ))}
                       </ul>
-                    )}
+                    </div>
+                  ))}
+                  <div>
+                    <Skeleton className="mx-3 mb-2 h-3.5 w-24" />
+                    <ul className="space-y-1">
+                      {Array.from({ length: 4 }).map((_, itemIndex) => (
+                        <li key={itemIndex} className="flex items-center gap-2 px-3 py-1.5">
+                          <Skeleton className="h-4 w-4 rounded" />
+                          <Skeleton className="h-4 w-24" />
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                );
-              })}
-
-              <div>
-                <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Discovery
-                </div>
-                {(
-                  [
-                    { kind: "sitemap", label: "Sitemap", Icon: MapIcon },
-                    { kind: "robots", label: "Robots.txt", Icon: Bot },
-                    { kind: "llms", label: "LLMs.txt", Icon: Sparkles },
-                    { kind: "llms-full", label: "LLMs Full", Icon: FileStack },
-                  ] as const
-                ).map(({ kind, label, Icon }) => {
-                  const isActive = view.kind === kind;
+                </>
+              )}
+              {!loading &&
+                groups.map((g) => {
+                  const open = openGroups[g.label];
+                  const items = g.items.filter((item) =>
+                    item.display_name.toLowerCase().includes(query.toLowerCase()),
+                  );
                   return (
-                    <button
-                      key={kind}
-                      onClick={() => {
-                        setView({ kind });
-                        setSelected([]);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
-                        isActive
-                          ? "bg-indigo-50 font-semibold text-indigo-700"
-                          : "text-foreground/80 hover:bg-white/60",
+                    <div key={g.label}>
+                      <button
+                        onClick={() =>
+                          setOpenGroups((prev) => ({ ...prev, [g.label]: !prev[g.label] }))
+                        }
+                        className="flex w-full items-center justify-between px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        <span className="flex items-center gap-1">
+                          {g.label}
+                          <ChevronDown
+                            className={cn("h-3.5 w-3.5 transition", !open && "-rotate-90")}
+                          />
+                        </span>
+                        <span className="rounded-md bg-[hsl(220,20%,92%)] px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {g.items.length}
+                        </span>
+                      </button>
+                      {open && (
+                        <ul className="space-y-0.5">
+                          {items.map((item) => {
+                            const isActive = activeId === item.id;
+                            return (
+                              <li key={item.id}>
+                                <button
+                                  onClick={() =>
+                                    selectItem(
+                                      g.targetFor(item as ContentTypeResponse & ComponentResponse),
+                                    )
+                                  }
+                                  className={cn(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                                    isActive
+                                      ? "bg-indigo-50 font-semibold text-indigo-700"
+                                      : "text-foreground/80 hover:bg-white/60",
+                                  )}
+                                >
+                                  <span
+                                    className={cn(
+                                      "h-1.5 w-1.5 rounded-full",
+                                      isActive ? "bg-indigo-600" : "bg-muted-foreground/50",
+                                    )}
+                                  />
+                                  <span className="truncate text-left">{item.display_name}</span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                          {items.length === 0 && (
+                            <li className="px-3 py-1.5 text-sm text-muted-foreground">No items</li>
+                          )}
+                          <li>
+                            <button
+                              disabled={!g.onCreate}
+                              onClick={g.onCreate}
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-indigo-600 transition hover:bg-white/60",
+                                !g.onCreate && "cursor-default opacity-50 hover:bg-transparent",
+                              )}
+                            >
+                              <Plus className="h-4 w-4" />
+                              <span className="truncate">{g.createLabel}</span>
+                            </button>
+                          </li>
+                        </ul>
                       )}
-                    >
-                      <Icon
-                        className={cn(
-                          "h-4 w-4",
-                          isActive ? "text-indigo-600" : "text-muted-foreground",
-                        )}
-                      />
-                      <span className="truncate text-left">{label}</span>
-                    </button>
+                    </div>
                   );
                 })}
-              </div>
+
+              {!loading && (
+                <div>
+                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Discovery
+                  </div>
+                  {(
+                    [
+                      { kind: "sitemap", label: "Sitemap", Icon: MapIcon },
+                      { kind: "robots", label: "Robots.txt", Icon: Bot },
+                      { kind: "llms", label: "LLMs.txt", Icon: Sparkles },
+                      { kind: "llms-full", label: "LLMs Full", Icon: FileStack },
+                    ] as const
+                  ).map(({ kind, label, Icon }) => {
+                    const isActive = view.kind === kind;
+                    return (
+                      <button
+                        key={kind}
+                        onClick={() => {
+                          setView({ kind });
+                          setSelected([]);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                          isActive
+                            ? "bg-indigo-50 font-semibold text-indigo-700"
+                            : "text-foreground/80 hover:bg-white/60",
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4",
+                            isActive ? "text-indigo-600" : "text-muted-foreground",
+                          )}
+                        />
+                        <span className="truncate text-left">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </nav>
           </aside>
         )}
@@ -816,9 +895,32 @@ function CmsPage() {
           )}
 
           {loading && (
-            <section className="flex items-center gap-2 rounded-2xl bg-white p-6 text-muted-foreground shadow-sm ring-1 ring-black/5">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading CMS...
+            <section className="space-y-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-64" />
+                  <Skeleton className="h-5 w-80" />
+                </div>
+                <Skeleton className="h-11 w-32 rounded-lg" />
+              </div>
+              <div className="rounded-3xl bg-white p-2 shadow-sm ring-1 ring-black/5">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between border-t border-black/5 px-4 py-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-8 w-8 rounded-md bg-indigo-50" />
+                      <Skeleton className="h-5 w-32" />
+                    </div>
+                    <Skeleton className="h-5 w-28" />
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 
@@ -838,6 +940,7 @@ function CmsPage() {
                 setView({ kind: "entries", contentTypeId: currentContentType.id })
               }
               onContentTypeUpdated={updateContentType}
+              onDeleteContentType={deleteContentType}
               onError={handleApiError}
             />
           )}
@@ -1067,16 +1170,20 @@ function SchemaView({
   contentType,
   onOpenEntries,
   onContentTypeUpdated,
+  onDeleteContentType,
   onError,
 }: {
   contentType: ContentTypeResponse;
   onOpenEntries: () => void;
   onContentTypeUpdated: (contentType: ContentTypeResponse) => void;
+  onDeleteContentType: (contentType: ContentTypeResponse) => Promise<void> | void;
   onError: (err: unknown, fallback?: string) => void;
 }) {
   const [fields, setFields] = useState<FieldResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingContentType, setEditingContentType] = useState(false);
+  const [confirmDeleteType, setConfirmDeleteType] = useState(false);
+  const [deletingType, setDeletingType] = useState(false);
   const [contentTypeName, setContentTypeName] = useState(contentType.display_name);
   const [contentTypeDescription, setContentTypeDescription] = useState(
     contentType.description ?? "",
@@ -1229,20 +1336,21 @@ function SchemaView({
     }
   };
 
+  const deleteField = async (field: FieldLike) => {
+    try {
+      await apiRequest<void>(`/api/v1/cms/fields/${field.id}`, { method: "DELETE" });
+      setFields((current) => current.filter((row) => row.id !== field.id));
+    } catch (err) {
+      onError(err, "Unable to delete field");
+    }
+  };
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-4xl font-semibold tracking-tight">{contentType.display_name}</h1>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg"
-              onClick={() => setEditingContentType(true)}
-            >
-              <Edit3 className="mr-1.5 h-3.5 w-3.5" /> Edit
-            </Button>
           </div>
           <p className="mt-1 text-muted-foreground">
             {contentType.description || "Build the data architecture of your content."}
@@ -1252,21 +1360,69 @@ function SchemaView({
           <Button variant="outline" className="rounded-lg" onClick={onOpenEntries}>
             View entries
           </Button>
-          <Button
-            variant="outline"
-            className="rounded-lg text-indigo-600"
-            onClick={openFieldCreator}
-          >
-            <Plus className="mr-1.5 h-4 w-4" /> Add new field
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-lg"
+                aria-label="More actions"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditingContentType(true)}>
+                <Edit3 className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-rose-600 focus:text-rose-600"
+                onClick={() => setConfirmDeleteType(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      <AlertDialog open={confirmDeleteType} onOpenChange={setConfirmDeleteType}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{contentType.display_name}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this{" "}
+              {contentType.kind === "single" ? "single" : "collection"} type and all of its entries.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingType}>No</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700"
+              disabled={deletingType}
+              onClick={(e) => {
+                e.preventDefault();
+                setDeletingType(true);
+                void Promise.resolve(onDeleteContentType(contentType)).finally(() => {
+                  setDeletingType(false);
+                  setConfirmDeleteType(false);
+                });
+              }}
+            >
+              {deletingType ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <FieldsTable
         fields={fields}
         loading={loading}
         emptyText="No fields found for this content type."
         onEditField={openFieldEditor}
+        onDeleteField={deleteField}
         onAddField={openFieldCreator}
         addFieldLabel={
           contentType.kind === "single"
@@ -1547,6 +1703,15 @@ function ComponentSchemaView({
     }
   };
 
+  const deleteField = async (field: FieldLike) => {
+    try {
+      await apiRequest<void>(`/api/v1/cms/component-fields/${field.id}`, { method: "DELETE" });
+      setFields((current) => current.filter((row) => row.id !== field.id));
+    } catch (err) {
+      onError(err, "Unable to delete field");
+    }
+  };
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1570,6 +1735,7 @@ function ComponentSchemaView({
         fields={fields}
         loading={loading}
         emptyText="No fields found for this component."
+        onDeleteField={deleteField}
         onAddField={openFieldCreator}
         addFieldLabel="Add another field to this Component"
       />
@@ -1655,6 +1821,7 @@ function FieldsTable({
   loading,
   emptyText,
   onEditField,
+  onDeleteField,
   onAddField,
   addFieldLabel = "Add another field to this Collection type",
 }: {
@@ -1662,9 +1829,24 @@ function FieldsTable({
   loading: boolean;
   emptyText: string;
   onEditField?: (field: FieldResponse) => void;
+  onDeleteField?: (field: FieldLike) => Promise<void> | void;
   onAddField?: () => void;
   addFieldLabel?: string;
 }) {
+  const [pendingDelete, setPendingDelete] = useState<FieldLike | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || !onDeleteField) return;
+    setDeleting(true);
+    try {
+      await onDeleteField(pendingDelete);
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
       <div className="grid grid-cols-[1fr_2fr_80px] gap-4 border-b border-black/5 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1680,6 +1862,7 @@ function FieldsTable({
         <ul>
           {fields.map((f) => {
             const Icon = fieldIcon(f.field_type);
+            const hasActions = Boolean(onEditField || onDeleteField);
             return (
               <li
                 key={f.id}
@@ -1692,26 +1875,42 @@ function FieldsTable({
                   <span className="font-medium">{f.label}</span>
                 </div>
                 <div className="text-foreground/80">{formatFieldType(f.field_type)}</div>
-                <div className="flex items-center justify-end gap-1">
-                  <Button
-                    disabled={!onEditField}
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    aria-label="Edit field"
-                    onClick={() => onEditField?.(f as FieldResponse)}
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    disabled
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100"
-                    aria-label="Field actions"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center justify-end">
+                  {hasActions && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                          aria-label="Field actions"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40 rounded-xl p-1">
+                        {onEditField && (
+                          <DropdownMenuItem
+                            className="gap-2 rounded-lg"
+                            onSelect={() => onEditField(f as FieldResponse)}
+                          >
+                            <Edit3 className="h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                        )}
+                        {onDeleteField && (
+                          <DropdownMenuItem
+                            className="gap-2 rounded-lg text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                            onSelect={(event) => {
+                              event.preventDefault();
+                              setPendingDelete(f);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </li>
             );
@@ -1731,6 +1930,38 @@ function FieldsTable({
         </span>
         {addFieldLabel}
       </button>
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => !open && !deleting && setPendingDelete(null)}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete field</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete
+              {pendingDelete ? ` "${pendingDelete.label}"` : " this field"}? This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting} className="rounded-lg">
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDelete();
+              }}
+              className="rounded-lg bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-300"
+            >
+              {deleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1750,8 +1981,7 @@ function FieldsTableSkeleton() {
             <Skeleton className="h-5 w-32" />
           </div>
           <Skeleton className="h-5 w-28" />
-          <div className="flex items-center justify-end gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
+          <div className="flex items-center justify-end">
             <Skeleton className="h-8 w-8 rounded-full" />
           </div>
         </li>

@@ -3,6 +3,7 @@ import { Eye, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, apiRequestText } from "@/lib/api-client";
 
 type LlmsFullGenerationMode = "auto" | "manual" | "hybrid";
@@ -111,11 +112,26 @@ function usePreview(path: string, onError: OnError) {
   return { content, loading, load };
 }
 
-function LoadingCard() {
+function LoadingCard({ rows = 4 }: { rows?: number }) {
   return (
-    <section className="flex items-center gap-2 rounded-2xl bg-white p-6 text-muted-foreground shadow-sm ring-1 ring-black/5">
-      <Loader2 className="h-4 w-4 animate-spin" />
-      Loading...
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-5 w-80" />
+        </div>
+        <Skeleton className="h-11 w-44 rounded-lg" />
+      </div>
+      <div className={cardClass}>
+        <div className="space-y-4">
+          {Array.from({ length: rows }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Skeleton className="h-10 w-32 rounded-lg" />
+        </div>
+      </div>
     </section>
   );
 }
@@ -462,7 +478,7 @@ export function LlmsFullView({
     setManualContent(settings.llms_full_content);
   }, [settings]);
 
-  if (loading) return <LoadingCard />;
+  if (loading) return <LoadingCard rows={6} />;
 
   const toggleType = (id: string) => {
     setIncludedTypeIds((current) =>
