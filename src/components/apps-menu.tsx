@@ -18,6 +18,7 @@ const FAVOURITE_APPS: App[] = [
   { name: "Search", color: "bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500", letter: "G" },
   { name: "Calendar", color: "bg-sky-500", letter: "31", to: "/calendar" },
   { name: "CMS", color: "bg-gradient-to-br from-indigo-500 to-violet-600", letter: "✎", to: "/cms" },
+  { name: "Audit", color: "bg-gradient-to-br from-amber-400 to-rose-500", letter: "⛨", to: "/audit" },
 ];
 
 const MORE_APPS: App[] = [
