@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as EmailRouteImport } from './routes/email'
 import { Route as DriveRouteImport } from './routes/drive'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CompanyRouteImport } from './routes/company'
@@ -21,6 +22,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailRoute = EmailRouteImport.update({
+  id: '/email',
+  path: '/email',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriveRoute = DriveRouteImport.update({
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
   '/drive': typeof DriveRoute
+  '/email': typeof EmailRoute
   '/login': typeof LoginRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
   '/drive': typeof DriveRoute
+  '/email': typeof EmailRoute
   '/login': typeof LoginRoute
 }
 export interface FileRoutesById {
@@ -88,6 +96,7 @@ export interface FileRoutesById {
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
   '/drive': typeof DriveRoute
+  '/email': typeof EmailRoute
   '/login': typeof LoginRoute
 }
 export interface FileRouteTypes {
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/company'
     | '/contacts'
     | '/drive'
+    | '/email'
     | '/login'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/company'
     | '/contacts'
     | '/drive'
+    | '/email'
     | '/login'
   id:
     | '__root__'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
     | '/company'
     | '/contacts'
     | '/drive'
+    | '/email'
     | '/login'
   fileRoutesById: FileRoutesById
 }
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   CompanyRoute: typeof CompanyRoute
   ContactsRoute: typeof ContactsRoute
   DriveRoute: typeof DriveRoute
+  EmailRoute: typeof EmailRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email': {
+      id: '/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof EmailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/drive': {
@@ -203,8 +223,19 @@ const rootRouteChildren: RootRouteChildren = {
   CompanyRoute: CompanyRoute,
   ContactsRoute: ContactsRoute,
   DriveRoute: DriveRoute,
+  EmailRoute: EmailRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

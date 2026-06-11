@@ -1,0 +1,542 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import {
+  Menu,
+  Search,
+  HelpCircle,
+  Settings,
+  Mail,
+  BarChart3,
+  Globe,
+  ScrollText,
+  MoreVertical,
+  Plus,
+  Download,
+  CheckCircle2,
+  ChevronDown,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { AppsMenu } from "@/components/apps-menu";
+import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/email")({
+  head: () => ({
+    meta: [
+      { title: "Email — Metrics, Domains & Logs" },
+      {
+        name: "description",
+        content: "Monitor email deliverability, manage sender domains, and inspect every send log.",
+      },
+      { property: "og:title", content: "Email — Metrics, Domains & Logs" },
+      {
+        property: "og:description",
+        content: "Monitor email deliverability, manage sender domains, and inspect every send log.",
+      },
+    ],
+    links: [{ rel: "canonical", href: "/email" }],
+  }),
+  component: EmailPage,
+});
+
+type View = "metrics" | "domains" | "logs";
+
+const NAV: { id: View; label: string; icon: typeof BarChart3 }[] = [
+  { id: "metrics", label: "Metrics", icon: BarChart3 },
+  { id: "domains", label: "Domains", icon: Globe },
+  { id: "logs", label: "Logs", icon: ScrollText },
+];
+
+// ───────────────────────── Metrics data ─────────────────────────
+const DAYS = [
+  "May 28","May 29","May 30","May 31","Jun 01","Jun 02","Jun 03",
+  "Jun 04","Jun 05","Jun 06","Jun 07","Jun 08","Jun 09","Jun 10","Jun 11",
+];
+const SERIES: { name: string; color: string; pct: string; values: number[] }[] = [
+  { name: "Delivered", color: "#0ea5e9", pct: "50%",  values: [0,0,0,0,0,0,0,1,3,2,3,2,1,4,2] },
+  { name: "Opened",    color: "#10b981", pct: "50%",  values: [0,0,0,0,0,0,0,0,1,3,1,2,0,18,1] },
+  { name: "Bounced",   color: "#ef4444", pct: "50%",  values: [0,0,0,0,0,0,0,0,1,4,0,1,0,12,1] },
+  { name: "Sent",      color: "#475569", pct: "218%", values: [0,0,0,0,0,0,0,1,2,5,1,2,1,58,2] },
+];
+
+// ───────────────────────── Domains data ─────────────────────────
+type Domain = {
+  id: string;
+  name: string;
+  status: "verified" | "pending" | "failed";
+  region: string;
+  flag: string;
+  createdAgo: string;
+};
+const DOMAINS: Domain[] = [
+  { id: "d_1", name: "monomcp.com", status: "verified", region: "Ireland (eu-west-1)", flag: "🇮🇪", createdAgo: "10 days ago" },
+  { id: "d_2", name: "mail.acme.io", status: "verified", region: "N. Virginia (us-east-1)", flag: "🇺🇸", createdAgo: "32 days ago" },
+  { id: "d_3", name: "send.lab.dev", status: "pending",  region: "Frankfurt (eu-central-1)", flag: "🇩🇪", createdAgo: "2 hours ago" },
+];
+
+// ───────────────────────── Logs data ─────────────────────────
+type LogEntry = {
+  id: string;
+  endpoint: string;
+  method: "POST" | "GET" | "DELETE";
+  status: number;
+  ago: string;
+  apiKey: string;
+  userAgent: string;
+};
+const LOGS: LogEntry[] = [
+  { id: "log_1", endpoint: "/emails", method: "POST", status: 200, ago: "about 22 hours ago", apiKey: "key_live_a1b2", userAgent: "node/20" },
+  { id: "log_2", endpoint: "/emails", method: "POST", status: 200, ago: "about 22 hours ago", apiKey: "key_live_a1b2", userAgent: "node/20" },
+  { id: "log_3", endpoint: "/emails", method: "POST", status: 200, ago: "about 23 hours ago", apiKey: "key_live_a1b2", userAgent: "deno/1.45" },
+  { id: "log_4", endpoint: "/emails", method: "POST", status: 200, ago: "about 24 hours ago", apiKey: "key_live_a1b2", userAgent: "node/20" },
+  { id: "log_5", endpoint: "/emails", method: "POST", status: 200, ago: "1 day ago", apiKey: "key_live_a1b2", userAgent: "curl/8.4" },
+  { id: "log_6", endpoint: "/emails", method: "POST", status: 422, ago: "2 days ago", apiKey: "key_live_a1b2", userAgent: "node/20" },
+  { id: "log_7", endpoint: "/domains", method: "GET", status: 200, ago: "2 days ago", apiKey: "key_live_a1b2", userAgent: "browser" },
+];
+
+function Chip({ children, active = false, onClick }: { children: React.ReactNode; active?: boolean; onClick?: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm transition",
+        active ? "bg-foreground text-background" : "bg-[hsl(220,33%,95%)] text-foreground/80 hover:bg-[hsl(220,33%,92%)]",
+      )}
+    >
+      {children}
+      <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+    </button>
+  );
+}
+
+function StatusPill({ status }: { status: number }) {
+  const ok = status >= 200 && status < 300;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1",
+        ok ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200",
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+// ───────────────────────── Metrics chart (SVG) ─────────────────────────
+function LineChart() {
+  const W = 880;
+  const H = 320;
+  const PAD = { l: 24, r: 56, t: 16, b: 28 };
+  const max = Math.max(...SERIES.flatMap((s) => s.values), 60);
+  const stepX = (W - PAD.l - PAD.r) / (DAYS.length - 1);
+  const y = (v: number) => PAD.t + (H - PAD.t - PAD.b) * (1 - v / max);
+  const ticks = [0, 15, 30, 45, 60];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {ticks.map((t) => {
+        const yy = y(t);
+        return (
+          <g key={t}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={yy} y2={yy} stroke="hsl(220 14% 92%)" strokeDasharray="3 3" />
+            <text x={W - PAD.r + 8} y={yy + 4} className="fill-muted-foreground" fontSize={10}>
+              {t}
+            </text>
+          </g>
+        );
+      })}
+      {DAYS.map((d, i) => (
+        <text key={d} x={PAD.l + i * stepX} y={H - 8} textAnchor="middle" fontSize={10} className="fill-muted-foreground">
+          {d}
+        </text>
+      ))}
+      {SERIES.map((s) => {
+        const path = s.values
+          .map((v, i) => `${i === 0 ? "M" : "L"} ${PAD.l + i * stepX} ${y(v)}`)
+          .join(" ");
+        const area =
+          `M ${PAD.l} ${y(0)} ` +
+          s.values.map((v, i) => `L ${PAD.l + i * stepX} ${y(v)}`).join(" ") +
+          ` L ${PAD.l + (s.values.length - 1) * stepX} ${y(0)} Z`;
+        return (
+          <g key={s.name}>
+            <path d={area} fill={s.color} opacity={0.08} />
+            <path d={path} fill="none" stroke={s.color} strokeWidth={1.75} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function MiniBars({ values, color }: { values: number[]; color: string }) {
+  const max = Math.max(...values, 1);
+  return (
+    <div className="flex h-32 items-end gap-1">
+      {values.map((v, i) => (
+        <div
+          key={i}
+          className="flex-1 rounded-sm"
+          style={{ height: `${(v / max) * 100}%`, backgroundColor: color, opacity: v ? 1 : 0.15 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ───────────────────────── Page ─────────────────────────
+function EmailPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [view, setView] = useState<View>("metrics");
+  const [query, setQuery] = useState("");
+  const [domainQuery, setDomainQuery] = useState("");
+
+  const filteredLogs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return LOGS;
+    return LOGS.filter(
+      (l) =>
+        l.endpoint.toLowerCase().includes(q) ||
+        l.method.toLowerCase().includes(q) ||
+        String(l.status).includes(q) ||
+        l.apiKey.toLowerCase().includes(q),
+    );
+  }, [query]);
+
+  const filteredDomains = useMemo(() => {
+    const q = domainQuery.trim().toLowerCase();
+    if (!q) return DOMAINS;
+    return DOMAINS.filter((d) => d.name.toLowerCase().includes(q) || d.region.toLowerCase().includes(q));
+  }, [domainQuery]);
+
+  const searchField = (
+    <div className="relative flex h-9 w-full items-center">
+      <Search className="pointer-events-none absolute left-4 h-5 w-5 text-muted-foreground" />
+      <Input
+        autoFocus
+        placeholder="Search emails, domains, logs"
+        className="h-9 rounded-full border-none bg-[hsl(220,33%,95%)] pl-12 pr-12 text-base shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
+      />
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
+      <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Toggle menu"
+            onClick={() => setSidebarOpen((s) => !s)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-rose-500 via-amber-400 to-rose-400 shadow-sm">
+              <Mail className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-xl font-medium tracking-tight">Email</span>
+          </Link>
+        </div>
+        {searchOpen && <div className="hidden min-w-0 max-w-2xl flex-1 md:block">{searchField}</div>}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Search" onClick={() => setSearchOpen((s) => !s)}>
+            <Search className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
+            <HelpCircle className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
+            <Settings className="h-5 w-5 text-muted-foreground" />
+          </Button>
+          <AppsMenu />
+          <div className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white">C</div>
+        </div>
+      </header>
+
+      {searchOpen && <div className="px-4 pb-3 md:hidden">{searchField}</div>}
+
+      <div className="flex">
+        {sidebarOpen && (
+          <aside className="hidden w-[260px] shrink-0 px-3 md:block">
+            <Button
+              className="mb-4 h-14 w-[160px] gap-2 rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
+            >
+              <Plus className="h-5 w-5" /> Send email
+            </Button>
+
+            <nav className="space-y-1">
+              {NAV.map((n) => {
+                const active = view === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => setView(n.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
+                      active ? "bg-rose-100 text-rose-900" : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <n.icon className="h-5 w-5 text-foreground/70" />
+                    <span className="flex-1 truncate text-left">{n.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="mt-6 px-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Recent sends
+            </div>
+            <ul className="mt-2 space-y-1 px-1">
+              {["Welcome email", "Password reset", "Weekly digest"].map((t) => (
+                <li key={t} className="rounded-lg px-3 py-1.5 text-sm text-foreground/75 hover:bg-white/60">
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </aside>
+        )}
+
+        <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
+          <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
+            {view === "metrics" && (
+              <>
+                <div className="mb-5 flex items-center justify-between">
+                  <h1 className="text-2xl font-normal tracking-tight">Metrics</h1>
+                  <div className="flex items-center gap-2">
+                    <Chip>All domains</Chip>
+                    <Chip>Last 15 days</Chip>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl ring-1 ring-black/5 p-5">
+                  <div className="mb-4 flex items-end justify-between">
+                    <div className="flex gap-10">
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Emails</div>
+                        <div className="text-3xl font-light">56</div>
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Deliverability rate</div>
+                        <div className="text-3xl font-light">66.67%</div>
+                      </div>
+                    </div>
+                    <Chip>All Events</Chip>
+                  </div>
+                  <LineChart />
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="text-sm text-foreground/80">
+                      monomcp.com <span className="text-muted-foreground">(42)</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs">
+                      {SERIES.map((s) => (
+                        <span key={s.name} className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                          <span className="text-foreground/70">{s.name}</span>
+                          <span className="text-muted-foreground">{s.pct}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl ring-1 ring-black/5 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Bounce rate</div>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="mt-1 text-3xl font-light">33.33%</div>
+                    <MiniBars values={[0,0,0,0,0,0,0,0,0,0,0,0,8,9,0]} color="#ef4444" />
+                    <ul className="mt-3 space-y-1 text-sm">
+                      <li className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500" />Transient</span>
+                        <span className="text-muted-foreground">6 · 42.86%</span>
+                      </li>
+                      <li className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500" />Permanent</span>
+                        <span className="text-muted-foreground">8 · 57.14%</span>
+                      </li>
+                      <li className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />Undetermined</span>
+                        <span className="text-muted-foreground">0 · 0%</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="rounded-2xl ring-1 ring-black/5 p-5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">Complain rate</div>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="mt-1 text-3xl font-light">0%</div>
+                    <MiniBars values={[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]} color="#f59e0b" />
+                    <ul className="mt-3 space-y-1 text-sm">
+                      <li className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />Complained</span>
+                        <span className="text-muted-foreground">0 · 0%</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {view === "domains" && (
+              <>
+                <div className="mb-5 flex items-center justify-between">
+                  <h1 className="text-2xl font-normal tracking-tight">Domains</h1>
+                  <div className="flex items-center gap-2">
+                    <Button className="h-9 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90">
+                      <Plus className="h-4 w-4" /> Add domain
+                    </Button>
+                    <Button variant="ghost" size="icon" className="rounded-full" aria-label="API">
+                      <ScrollText className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <div className="relative flex h-9 min-w-[260px] flex-1 items-center">
+                    <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={domainQuery}
+                      onChange={(e) => setDomainQuery(e.target.value)}
+                      placeholder="Search..."
+                      className="h-9 rounded-full border-none bg-[hsl(220,33%,95%)] pl-9 text-sm shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
+                    />
+                  </div>
+                  <Chip>All statuses</Chip>
+                  <Chip>All regions</Chip>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Export">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl ring-1 ring-black/5">
+                  <table className="w-full text-sm">
+                    <thead className="bg-[hsl(220,33%,97%)] text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="w-10 px-4 py-2"></th>
+                        <th className="px-4 py-2 text-left font-medium">Domain</th>
+                        <th className="px-4 py-2 text-left font-medium">Status</th>
+                        <th className="px-4 py-2 text-left font-medium">Region</th>
+                        <th className="px-4 py-2 text-right font-medium">Created</th>
+                        <th className="w-10 px-4 py-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDomains.map((d) => (
+                        <tr key={d.id} className="border-t border-black/5 hover:bg-rose-50/30">
+                          <td className="px-4 py-3">
+                            <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 ring-1 ring-emerald-200">
+                              <Globe className="h-4 w-4 text-emerald-700" />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-medium underline-offset-2 hover:underline">{d.name}</td>
+                          <td className="px-4 py-3">
+                            <span className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                              d.status === "verified" && "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+                              d.status === "pending" && "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                              d.status === "failed" && "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+                            )}>
+                              {d.status === "verified" && <CheckCircle2 className="h-3 w-3" />}
+                              {d.status[0].toUpperCase() + d.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-foreground/80">
+                            <span className="mr-2">{d.flag}</span>{d.region}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{d.createdAgo}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Button variant="ghost" size="icon" className="rounded-full" aria-label="More">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Page 1 – 1 of 1 domains – {filteredDomains.length} items
+                </p>
+              </>
+            )}
+
+            {view === "logs" && (
+              <>
+                <div className="mb-5 flex items-center justify-between">
+                  <h1 className="text-2xl font-normal tracking-tight">Logs</h1>
+                  <Link to="/audit" className="text-sm text-sky-700 hover:underline">
+                    Open full audit log →
+                  </Link>
+                </div>
+
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <div className="relative flex h-9 min-w-[260px] flex-1 items-center">
+                    <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search..."
+                      className="h-9 rounded-full border-none bg-[hsl(220,33%,95%)] pl-9 text-sm shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
+                    />
+                  </div>
+                  <Chip>Last 15 days</Chip>
+                  <Chip>All statuses</Chip>
+                  <Chip>All user agents</Chip>
+                  <Chip>All API keys</Chip>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Export">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl ring-1 ring-black/5">
+                  <table className="w-full text-sm">
+                    <thead className="bg-[hsl(220,33%,97%)] text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="w-10 px-4 py-2"></th>
+                        <th className="px-4 py-2 text-left font-medium">Endpoint</th>
+                        <th className="px-4 py-2 text-left font-medium">Status</th>
+                        <th className="px-4 py-2 text-left font-medium">Method</th>
+                        <th className="px-4 py-2 text-right font-medium">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLogs.map((l) => (
+                        <tr key={l.id} className="border-t border-black/5 hover:bg-rose-50/30">
+                          <td className="px-4 py-3">
+                            <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 ring-1 ring-emerald-200">
+                              <Mail className="h-4 w-4 text-emerald-700" />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-medium">{l.endpoint}</td>
+                          <td className="px-4 py-3"><StatusPill status={l.status} /></td>
+                          <td className="px-4 py-3 text-foreground/80">{l.method}</td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{l.ago}</td>
+                        </tr>
+                      ))}
+                      {filteredLogs.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                            No logs match your search.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
+        </main>
+      </div>
+    </div>
+  );
+}
