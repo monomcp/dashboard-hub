@@ -47,7 +47,7 @@ function formatDateTime(value: string | null) {
   });
 }
 
-export function SocialCalendarList({ businessId, platformId, onError }: Props) {
+export function SocialCalendarList({ businessId, platformId, view = "list", onError }: Props) {
   const [items, setItems] = useState<SocialCalendarItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
@@ -300,7 +300,24 @@ export function SocialCalendarList({ businessId, platformId, onError }: Props) {
         </div>
       )}
 
-      {!loading && items.length > 0 && (
+      {!loading && items.length > 0 && view === "calendar" && (
+        <CalendarMonthView
+          events={items
+            .filter((item) => item.planned_publish_at)
+            .map((item) => ({
+              id: item.id,
+              date: item.planned_publish_at as string,
+              title: item.title || "Untitled",
+              colorClass: socialBadgeClass(item.status),
+            }))}
+          onSelect={(id) => {
+            const item = items.find((i) => i.id === id);
+            if (item) void openDetail(item);
+          }}
+        />
+      )}
+
+      {!loading && items.length > 0 && view === "list" && (
         <ul>
           <li className="hidden grid-cols-[1.4fr_180px_150px_44px_44px] items-center gap-4 border-b border-black/5 px-2 pb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
             <div>Title</div>
