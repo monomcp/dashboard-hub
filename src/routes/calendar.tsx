@@ -10,9 +10,7 @@ import {
   ChevronRight,
   CalendarDays,
   CheckSquare,
-  Lightbulb,
   MapPin,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -623,21 +621,6 @@ function CalendarPage() {
           )}
         </main>
 
-        {/* Right rail */}
-        <aside className="hidden w-12 shrink-0 flex-col items-center gap-3 py-4 lg:flex">
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Keep">
-            <Lightbulb className="h-5 w-5 text-amber-500" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Tasks">
-            <CheckSquare className="h-5 w-5 text-sky-500" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Contacts">
-            <User className="h-5 w-5 text-blue-500" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="Maps">
-            <MapPin className="h-5 w-5 text-emerald-500" />
-          </Button>
-        </aside>
       </div>
     </div>
   );

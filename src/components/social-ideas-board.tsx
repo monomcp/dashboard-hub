@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -22,75 +21,78 @@ import {
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import {
-  badgeClass,
-  CALENDAR_FORMATS,
-  linesToList,
-  SCORE_FIELDS,
   statusLabel,
-  type CalendarFormat,
-  type IdeaResponse,
-  type IdeaStatus,
   type Page,
   type PillarResponse,
   type StrategyResponse,
 } from "@/lib/content-types";
+import {
+  SOCIAL_IDEA_FORMATS,
+  SOCIAL_SCORE_FIELDS,
+  SOCIAL_SOURCE_TYPES,
+  socialBadgeClass,
+  type SocialIdeaFormat,
+  type SocialIdeaResponse,
+  type SocialIdeaSourceType,
+  type SocialIdeaStatus,
+  type SocialPlatform,
+} from "@/lib/social-types";
 
 type Props = {
   businessId: string;
+  platformId: string;
+  platforms: SocialPlatform[];
   query: string;
   onError: (err: unknown) => void;
 };
 
-const STATUS_TABS: { id: IdeaStatus | "all"; label: string }[] = [
+const STATUS_TABS: { id: SocialIdeaStatus | "all"; label: string }[] = [
   { id: "all", label: "All" },
   { id: "idea", label: "New" },
   { id: "approved", label: "Approved" },
   { id: "rejected", label: "Rejected" },
   { id: "planned", label: "Planned" },
-  { id: "drafting", label: "Drafting" },
 ];
 
 const EMPTY_IDEA_FORM = {
   title: "",
+  hook: "",
   angle: "",
-  target_keyword: "",
-  secondary_keywords: "",
-  funnel_stage: "",
-  intent: "",
+  format: "single_post" as SocialIdeaFormat,
+  source_type: "manual" as SocialIdeaSourceType,
+  platform_id: "",
   pillar_id: "",
 };
 
-const EMPTY_SCORES = Object.fromEntries(SCORE_FIELDS.map(([key]) => [key, ""])) as Record<
-  string,
-  string
->;
+const EMPTY_SCORES = Object.fromEntries(
+  SOCIAL_SCORE_FIELDS.map(([key]) => [key, ""]),
+) as Record<string, string>;
 
-export function ContentIdeasBoard({ businessId, query, onError }: Props) {
-  const [ideas, setIdeas] = useState<IdeaResponse[]>([]);
+export function SocialIdeasBoard({ businessId, platformId, platforms, query, onError }: Props) {
+  const [ideas, setIdeas] = useState<SocialIdeaResponse[]>([]);
   const [pillars, setPillars] = useState<PillarResponse[]>([]);
-  const [tab, setTab] = useState<IdeaStatus | "all">("all");
+  const [tab, setTab] = useState<SocialIdeaStatus | "all">("all");
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [ideaForm, setIdeaForm] = useState(EMPTY_IDEA_FORM);
 
-  const [scoring, setScoring] = useState<IdeaResponse | null>(null);
+  const [scoring, setScoring] = useState<SocialIdeaResponse | null>(null);
   const [scoreForm, setScoreForm] = useState(EMPTY_SCORES);
-  const [scoreRecommendation, setScoreRecommendation] = useState("");
-  const [autoApprove, setAutoApprove] = useState(true);
-  const [approveThreshold, setApproveThreshold] = useState(75);
 
-  const [rejecting, setRejecting] = useState<IdeaResponse | null>(null);
+  const [rejecting, setRejecting] = useState<SocialIdeaResponse | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const [planning, setPlanning] = useState<IdeaResponse | null>(null);
+  const [planning, setPlanning] = useState<SocialIdeaResponse | null>(null);
   const [planForm, setPlanForm] = useState({
-    format: "blog_post" as CalendarFormat,
-    channel: "",
-    planned_publish_date: "",
+    planned_publish_at: "",
+    timezone: "",
     assigned_agent: "",
+    campaign_id: "",
   });
+
+  const platformName = (id: string) => platforms.find((p) => p.id === id)?.name ?? "Unknown";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,16 +103,17 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
         direction: "desc",
         limit: "100",
       });
+      if (platformId) params.set("platform_id", platformId);
       if (tab !== "all") params.set("status", tab);
       if (query.trim()) params.set("q", query.trim());
-      const page = await apiRequest<Page<IdeaResponse>>(`/api/v1/content/ideas?${params}`);
+      const page = await apiRequest<Page<SocialIdeaResponse>>(`/api/v1/social/ideas?${params}`);
       setIdeas(page.items);
     } catch (err) {
       onError(err);
     } finally {
       setLoading(false);
     }
-  }, [businessId, tab, query, onError]);
+  }, [businessId, platformId, tab, query, onError]);
 
   useEffect(() => {
     void load();
@@ -123,9 +126,6 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
           `/api/v1/content/strategies?business_id=${businessId}&limit=1`,
         );
         const strategy = page.items[0];
-        if (strategy?.auto_approve_threshold != null) {
-          setApproveThreshold(Number(strategy.auto_approve_threshold));
-        }
         setPillars(
           strategy
             ? await apiRequest<PillarResponse[]>(
@@ -151,21 +151,29 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     }
   };
 
+  const openCreate = () => {
+    setIdeaForm({
+      ...EMPTY_IDEA_FORM,
+      platform_id: platformId || platforms[0]?.id || "",
+    });
+    setCreateOpen(true);
+  };
+
   const submitCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!ideaForm.title.trim()) return;
+    if (!ideaForm.title.trim() || !ideaForm.platform_id) return;
     await run(() =>
-      apiRequest("/api/v1/content/ideas", {
+      apiRequest("/api/v1/social/ideas", {
         method: "POST",
         body: JSON.stringify({
           business_id: businessId,
+          platform_id: ideaForm.platform_id,
           pillar_id: ideaForm.pillar_id || null,
+          format: ideaForm.format,
           title: ideaForm.title.trim(),
+          hook: ideaForm.hook.trim() || null,
           angle: ideaForm.angle.trim() || null,
-          target_keyword: ideaForm.target_keyword.trim() || null,
-          secondary_keywords: linesToList(ideaForm.secondary_keywords),
-          funnel_stage: ideaForm.funnel_stage.trim() || null,
-          intent: ideaForm.intent.trim() || null,
+          source_type: ideaForm.source_type,
         }),
       }),
     );
@@ -173,24 +181,29 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     setIdeaForm(EMPTY_IDEA_FORM);
   };
 
-  const openScore = (idea: IdeaResponse) => {
+  const openScore = (idea: SocialIdeaResponse) => {
     setScoring(idea);
     setScoreForm(
       Object.fromEntries(
-        SCORE_FIELDS.map(([key]) => [key, idea[key as keyof IdeaResponse]?.toString() ?? ""]),
+        SOCIAL_SCORE_FIELDS.map(([key]) => [
+          key,
+          idea[key as keyof SocialIdeaResponse]?.toString() ?? "",
+        ]),
       ) as Record<string, string>,
     );
-    setScoreRecommendation(idea.recommendation ?? "");
-    setAutoApprove(true);
   };
 
   const submitScore = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!scoring) return;
+    const payload: Record<string, unknown> = {};
+    for (const [key] of SOCIAL_SCORE_FIELDS) {
+      if (scoreForm[key] !== "") payload[key] = Number(scoreForm[key]);
+    }
     await run(() =>
-      apiRequest(`/api/v1/content/ideas/${scoring.id}/score?auto_approve=${autoApprove}`, {
+      apiRequest(`/api/v1/social/ideas/${scoring.id}/score`, {
         method: "POST",
-        body: JSON.stringify({ recommendation: scoreRecommendation.trim() || null }),
+        body: JSON.stringify(payload),
       }),
     );
     setScoring(null);
@@ -200,7 +213,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     event.preventDefault();
     if (!rejecting || !rejectReason.trim()) return;
     await run(() =>
-      apiRequest(`/api/v1/content/ideas/${rejecting.id}/reject`, {
+      apiRequest(`/api/v1/social/ideas/${rejecting.id}/reject`, {
         method: "POST",
         body: JSON.stringify({ rejection_reason: rejectReason.trim() }),
       }),
@@ -213,14 +226,16 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     event.preventDefault();
     if (!planning) return;
     await run(() =>
-      apiRequest("/api/v1/content/calendar-items", {
+      apiRequest("/api/v1/social/calendar-items", {
         method: "POST",
         body: JSON.stringify({
-          content_idea_id: planning.id,
-          format: planForm.format,
-          channel: planForm.channel.trim() || null,
-          planned_publish_date: planForm.planned_publish_date || null,
+          social_idea_id: planning.id,
+          planned_publish_at: planForm.planned_publish_at
+            ? new Date(planForm.planned_publish_at).toISOString()
+            : null,
+          timezone: planForm.timezone.trim() || null,
           assigned_agent: planForm.assigned_agent.trim() || null,
+          campaign_id: planForm.campaign_id.trim() || null,
         }),
       }),
     );
@@ -244,7 +259,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
             </button>
           ))}
         </div>
-        <Button size="sm" className="rounded-lg" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="rounded-lg" onClick={openCreate}>
           <Plus className="mr-1 h-4 w-4" /> New idea
         </Button>
       </div>
@@ -259,7 +274,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
 
       {!loading && ideas.length === 0 && (
         <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
-          <p className="text-sm font-medium">No ideas here yet</p>
+          <p className="text-sm font-medium">No social ideas here yet</p>
           <p className="text-xs text-muted-foreground">Create one or change the filter.</p>
         </div>
       )}
@@ -278,54 +293,52 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
                     <span
                       className={cn(
                         "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                        badgeClass(idea.status),
+                        socialBadgeClass(idea.status),
                       )}
                     >
                       {statusLabel(idea.status)}
                     </span>
-                    {idea.total_score != null && (
-                      <button
-                        type="button"
-                        onClick={() => openScore(idea)}
-                        disabled={mutating}
-                        title="View score"
-                        className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 transition hover:bg-violet-200 disabled:opacity-60"
-                      >
-                        <Star className="h-3 w-3" /> {Number(idea.total_score)}
-                      </button>
-                    )}
+                    <span className="inline-flex rounded-full bg-fuchsia-100 px-2 py-0.5 text-xs font-medium text-fuchsia-700">
+                      {platformName(idea.platform_id)}
+                    </span>
+                    <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">
+                      {statusLabel(idea.format)}
+                    </span>
                   </div>
-                  {(idea.target_keyword || idea.funnel_stage || idea.intent) && (
-                    <div className="text-xs text-muted-foreground">
-                      {[idea.target_keyword, idea.funnel_stage, idea.intent]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
+                  {idea.hook && (
+                    <div className="truncate text-xs text-muted-foreground">{idea.hook}</div>
                   )}
                   {idea.rejection_reason && (
                     <div className="text-xs text-rose-600">Rejected: {idea.rejection_reason}</div>
                   )}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-1">
-                  {idea.status !== "approved" &&
-                    idea.status !== "planned" &&
-                    idea.status !== "drafting" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-lg text-emerald-700"
-                        disabled={mutating}
-                        onClick={() =>
-                          run(() =>
-                            apiRequest(`/api/v1/content/ideas/${idea.id}/approve`, {
-                              method: "POST",
-                            }),
-                          )
-                        }
-                      >
-                        <Check className="mr-1 h-3.5 w-3.5" /> Approve
-                      </Button>
-                    )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg"
+                    disabled={mutating}
+                    onClick={() => openScore(idea)}
+                  >
+                    <Star className="mr-1 h-3.5 w-3.5" /> Score
+                  </Button>
+                  {idea.status !== "approved" && idea.status !== "planned" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg text-emerald-700"
+                      disabled={mutating}
+                      onClick={() =>
+                        run(() =>
+                          apiRequest(`/api/v1/social/ideas/${idea.id}/approve`, {
+                            method: "POST",
+                          }),
+                        )
+                      }
+                    >
+                      <Check className="mr-1 h-3.5 w-3.5" /> Approve
+                    </Button>
+                  )}
                   {idea.status !== "rejected" && idea.status !== "planned" && (
                     <Button
                       variant="outline"
@@ -345,7 +358,15 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
                       size="sm"
                       className="h-8 rounded-lg"
                       disabled={mutating}
-                      onClick={() => setPlanning(idea)}
+                      onClick={() => {
+                        setPlanning(idea);
+                        setPlanForm({
+                          planned_publish_at: "",
+                          timezone: "",
+                          assigned_agent: "",
+                          campaign_id: "",
+                        });
+                      }}
                     >
                       <CalendarPlus className="mr-1 h-3.5 w-3.5" /> Plan
                     </Button>
@@ -357,7 +378,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
                     disabled={mutating}
                     onClick={() =>
                       run(() =>
-                        apiRequest<void>(`/api/v1/content/ideas/${idea.id}`, {
+                        apiRequest<void>(`/api/v1/social/ideas/${idea.id}`, {
                           method: "DELETE",
                         }),
                       )
@@ -367,10 +388,12 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
                   </Button>
                 </div>
               </div>
-              {SCORE_FIELDS.some(([key]) => idea[key as keyof IdeaResponse] != null) && (
+              {SOCIAL_SCORE_FIELDS.some(
+                ([key]) => idea[key as keyof SocialIdeaResponse] != null,
+              ) && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {SCORE_FIELDS.map(([key, label]) => {
-                    const value = idea[key as keyof IdeaResponse];
+                  {SOCIAL_SCORE_FIELDS.map(([key, label]) => {
+                    const value = idea[key as keyof SocialIdeaResponse];
                     if (value == null) return null;
                     return (
                       <span
@@ -393,21 +416,72 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
         <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl">
           <form onSubmit={submitCreate}>
             <DialogHeader>
-              <DialogTitle>New content idea</DialogTitle>
+              <DialogTitle>New social idea</DialogTitle>
             </DialogHeader>
             <div className="mt-5 grid gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="idea-title">Title</Label>
+                <Label htmlFor="social-idea-title">Title</Label>
                 <Input
-                  id="idea-title"
+                  id="social-idea-title"
                   value={ideaForm.title}
                   onChange={(e) => setIdeaForm((prev) => ({ ...prev, title: e.target.value }))}
                 />
               </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label>Platform</Label>
+                  <Select
+                    value={ideaForm.platform_id || undefined}
+                    onValueChange={(value) =>
+                      setIdeaForm((prev) => ({ ...prev, platform_id: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick a platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {platforms.map((platform) => (
+                        <SelectItem key={platform.id} value={platform.id}>
+                          {platform.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Format</Label>
+                  <Select
+                    value={ideaForm.format}
+                    onValueChange={(value: SocialIdeaFormat) =>
+                      setIdeaForm((prev) => ({ ...prev, format: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOCIAL_IDEA_FORMATS.map((format) => (
+                        <SelectItem key={format} value={format} className="capitalize">
+                          {statusLabel(format)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label htmlFor="idea-angle">Angle</Label>
+                <Label htmlFor="social-idea-hook">Hook</Label>
                 <Textarea
-                  id="idea-angle"
+                  id="social-idea-hook"
+                  rows={2}
+                  value={ideaForm.hook}
+                  onChange={(e) => setIdeaForm((prev) => ({ ...prev, hook: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="social-idea-angle">Angle</Label>
+                <Textarea
+                  id="social-idea-angle"
                   rows={2}
                   value={ideaForm.angle}
                   onChange={(e) => setIdeaForm((prev) => ({ ...prev, angle: e.target.value }))}
@@ -415,14 +489,24 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="idea-keyword">Target keyword</Label>
-                  <Input
-                    id="idea-keyword"
-                    value={ideaForm.target_keyword}
-                    onChange={(e) =>
-                      setIdeaForm((prev) => ({ ...prev, target_keyword: e.target.value }))
+                  <Label>Source</Label>
+                  <Select
+                    value={ideaForm.source_type}
+                    onValueChange={(value: SocialIdeaSourceType) =>
+                      setIdeaForm((prev) => ({ ...prev, source_type: value }))
                     }
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOCIAL_SOURCE_TYPES.map((source) => (
+                        <SelectItem key={source} value={source} className="capitalize">
+                          {statusLabel(source)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label>Pillar</Label>
@@ -449,39 +533,6 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
                   </Select>
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="idea-secondary">Secondary keywords (one per line)</Label>
-                <Textarea
-                  id="idea-secondary"
-                  rows={2}
-                  value={ideaForm.secondary_keywords}
-                  onChange={(e) =>
-                    setIdeaForm((prev) => ({ ...prev, secondary_keywords: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="idea-funnel">Funnel stage</Label>
-                  <Input
-                    id="idea-funnel"
-                    placeholder="tofu / mofu / bofu"
-                    value={ideaForm.funnel_stage}
-                    onChange={(e) =>
-                      setIdeaForm((prev) => ({ ...prev, funnel_stage: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="idea-intent">Intent</Label>
-                  <Input
-                    id="idea-intent"
-                    placeholder="informational / commercial"
-                    value={ideaForm.intent}
-                    onChange={(e) => setIdeaForm((prev) => ({ ...prev, intent: e.target.value }))}
-                  />
-                </div>
-              </div>
             </div>
             <DialogFooter className="mt-6">
               <Button
@@ -492,7 +543,10 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={mutating || !ideaForm.title.trim()}>
+              <Button
+                type="submit"
+                disabled={mutating || !ideaForm.title.trim() || !ideaForm.platform_id}
+              >
                 {mutating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create
               </Button>
@@ -503,45 +557,27 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
 
       {/* Score idea */}
       <Dialog open={scoring !== null} onOpenChange={(open) => !open && setScoring(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl">
+        <DialogContent className="rounded-2xl">
           <form onSubmit={submitScore}>
             <DialogHeader>
               <DialogTitle>Score idea</DialogTitle>
             </DialogHeader>
-            <div className="mt-5 grid gap-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {SCORE_FIELDS.map(([key, label]) => (
-                  <div key={key} className="grid gap-2">
-                    <Label htmlFor={`score-${key}`}>{label}</Label>
-                    <Input
-                      id={`score-${key}`}
-                      type="number"
-                      value={scoreForm[key]}
-                      readOnly
-                      disabled
-                      className="bg-muted/50"
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="score-recommendation">Recommendation</Label>
-                <Textarea
-                  id="score-recommendation"
-                  rows={2}
-                  value={scoreRecommendation}
-                  readOnly
-                  disabled
-                  className="bg-muted/50"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={autoApprove}
-                  onCheckedChange={(checked) => setAutoApprove(checked === true)}
-                />
-                Auto-approve when total score is {approveThreshold} or higher
-              </label>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {SOCIAL_SCORE_FIELDS.map(([key, label]) => (
+                <div key={key} className="grid gap-2">
+                  <Label htmlFor={`social-score-${key}`}>{label}</Label>
+                  <Input
+                    id={`social-score-${key}`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={scoreForm[key]}
+                    onChange={(e) =>
+                      setScoreForm((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
             </div>
             <DialogFooter className="mt-6">
               <Button
@@ -554,7 +590,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
               </Button>
               <Button type="submit" disabled={mutating}>
                 {mutating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save
+                Save scores
               </Button>
             </DialogFooter>
           </form>
@@ -569,9 +605,9 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
               <DialogTitle>Reject idea</DialogTitle>
             </DialogHeader>
             <div className="mt-5 grid gap-2">
-              <Label htmlFor="reject-reason">Reason</Label>
+              <Label htmlFor="social-reject-reason">Reason</Label>
               <Textarea
-                id="reject-reason"
+                id="social-reject-reason"
                 rows={3}
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
@@ -607,59 +643,51 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
               <DialogTitle>Schedule on calendar</DialogTitle>
             </DialogHeader>
             <div className="mt-5 grid gap-4">
-              <div className="grid gap-2">
-                <Label>Format</Label>
-                <Select
-                  value={planForm.format}
-                  onValueChange={(value: CalendarFormat) =>
-                    setPlanForm((prev) => ({ ...prev, format: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CALENDAR_FORMATS.map((format) => (
-                      <SelectItem key={format} value={format} className="capitalize">
-                        {statusLabel(format)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="social-plan-date">Publish at</Label>
+                  <Input
+                    id="social-plan-date"
+                    type="datetime-local"
+                    value={planForm.planned_publish_at}
+                    onChange={(e) =>
+                      setPlanForm((prev) => ({ ...prev, planned_publish_at: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="social-plan-timezone">Timezone</Label>
+                  <Input
+                    id="social-plan-timezone"
+                    placeholder="Europe/Kyiv"
+                    value={planForm.timezone}
+                    onChange={(e) =>
+                      setPlanForm((prev) => ({ ...prev, timezone: e.target.value }))
+                    }
+                  />
+                </div>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="grid gap-2">
-                  <Label htmlFor="plan-date">Publish date</Label>
+                  <Label htmlFor="social-plan-agent">Assigned agent</Label>
                   <Input
-                    id="plan-date"
-                    type="date"
-                    value={planForm.planned_publish_date}
+                    id="social-plan-agent"
+                    value={planForm.assigned_agent}
                     onChange={(e) =>
-                      setPlanForm((prev) => ({ ...prev, planned_publish_date: e.target.value }))
+                      setPlanForm((prev) => ({ ...prev, assigned_agent: e.target.value }))
                     }
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="plan-channel">Channel</Label>
+                  <Label htmlFor="social-plan-campaign">Campaign</Label>
                   <Input
-                    id="plan-channel"
-                    placeholder="blog"
-                    value={planForm.channel}
+                    id="social-plan-campaign"
+                    value={planForm.campaign_id}
                     onChange={(e) =>
-                      setPlanForm((prev) => ({ ...prev, channel: e.target.value }))
+                      setPlanForm((prev) => ({ ...prev, campaign_id: e.target.value }))
                     }
                   />
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="plan-agent">Assigned agent</Label>
-                <Input
-                  id="plan-agent"
-                  value={planForm.assigned_agent}
-                  onChange={(e) =>
-                    setPlanForm((prev) => ({ ...prev, assigned_agent: e.target.value }))
-                  }
-                />
               </div>
             </div>
             <DialogFooter className="mt-6">

@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { ContentBriefDetail } from "@/components/content-brief-detail";
 import { ContentDraftEditor } from "@/components/content-draft-editor";
+import { CalendarMonthView } from "@/components/calendar-month-view";
 import {
   badgeClass,
   CALENDAR_STATUSES,
@@ -26,10 +27,11 @@ import {
 
 type Props = {
   businessId: string;
+  view?: "list" | "calendar";
   onError: (err: unknown) => void;
 };
 
-export function ContentCalendarList({ businessId, onError }: Props) {
+export function ContentCalendarList({ businessId, view = "list", onError }: Props) {
   const [items, setItems] = useState<CalendarItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
@@ -224,7 +226,24 @@ export function ContentCalendarList({ businessId, onError }: Props) {
         </div>
       )}
 
-      {!loading && items.length > 0 && (
+      {!loading && items.length > 0 && view === "calendar" && (
+        <CalendarMonthView
+          events={items
+            .filter((item) => item.planned_publish_date)
+            .map((item) => ({
+              id: item.id,
+              date: item.planned_publish_date as string,
+              title: item.title || "Untitled",
+              colorClass: badgeClass(item.status),
+            }))}
+          onSelect={(id) => {
+            const item = items.find((i) => i.id === id);
+            if (item) void openDetail(item);
+          }}
+        />
+      )}
+
+      {!loading && items.length > 0 && view === "list" && (
         <ul>
           <li className="hidden grid-cols-[1.4fr_1fr_120px_150px_44px] items-center gap-4 border-b border-black/5 px-2 pb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
             <div>Title</div>

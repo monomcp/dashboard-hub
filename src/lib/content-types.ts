@@ -51,6 +51,7 @@ export type StrategyResponse = {
   distribution_channels: string[];
   success_metrics: string[];
   publishing_frequency: string | null;
+  auto_approve_threshold: string | null;
   created_at: string;
   updated_at: string;
 };

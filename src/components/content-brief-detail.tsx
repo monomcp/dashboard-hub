@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,9 +138,6 @@ export function ContentBriefDetail({ calendarItemId, briefs, onChanged, onError 
         <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Briefs
         </h3>
-        <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openDialog(null)}>
-          <Plus className="mr-1 h-4 w-4" /> New brief
-        </Button>
       </div>
 
       {briefs.length === 0 && (
