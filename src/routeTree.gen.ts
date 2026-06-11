@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DriveRouteImport } from './routes/drive'
+import { Route as ContentRouteImport } from './routes/content'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CompanyRouteImport } from './routes/company'
 import { Route as CmsRouteImport } from './routes/cms'
@@ -32,6 +33,11 @@ const EmailRoute = EmailRouteImport.update({
 const DriveRoute = DriveRouteImport.update({
   id: '/drive',
   path: '/drive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentRoute = ContentRouteImport.update({
+  id: '/content',
+  path: '/content',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactsRoute = ContactsRouteImport.update({
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
+  '/content': typeof ContentRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/login': typeof LoginRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
+  '/content': typeof ContentRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/login': typeof LoginRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
+  '/content': typeof ContentRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/login': typeof LoginRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/cms'
     | '/company'
     | '/contacts'
+    | '/content'
     | '/drive'
     | '/email'
     | '/login'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/cms'
     | '/company'
     | '/contacts'
+    | '/content'
     | '/drive'
     | '/email'
     | '/login'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/cms'
     | '/company'
     | '/contacts'
+    | '/content'
     | '/drive'
     | '/email'
     | '/login'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   CmsRoute: typeof CmsRoute
   CompanyRoute: typeof CompanyRoute
   ContactsRoute: typeof ContactsRoute
+  ContentRoute: typeof ContentRoute
   DriveRoute: typeof DriveRoute
   EmailRoute: typeof EmailRoute
   LoginRoute: typeof LoginRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/drive'
       fullPath: '/drive'
       preLoaderRoute: typeof DriveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content': {
+      id: '/content'
+      path: '/content'
+      fullPath: '/content'
+      preLoaderRoute: typeof ContentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contacts': {
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   CmsRoute: CmsRoute,
   CompanyRoute: CompanyRoute,
   ContactsRoute: ContactsRoute,
+  ContentRoute: ContentRoute,
   DriveRoute: DriveRoute,
   EmailRoute: EmailRoute,
   LoginRoute: LoginRoute,

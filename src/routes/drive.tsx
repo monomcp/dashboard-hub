@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Menu,
   Search,
@@ -13,6 +13,8 @@ import {
   MoreVertical,
   Users,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   List,
   Grid3x3,
   Sparkles,
@@ -136,16 +138,58 @@ function KindIcon({ kind, className }: { kind: DriveFileKind | "folder"; classNa
   return <FileText className={cls} />;
 }
 
+const PAGE_LIMIT = 50;
+
+type SortField = "name" | "updated_at" | "created_at" | "size_bytes";
+type SortDirection = "asc" | "desc";
+
+const SORT_OPTIONS: { field: SortField; label: string }[] = [
+  { field: "name", label: "Name" },
+  { field: "updated_at", label: "Last modified" },
+  { field: "created_at", label: "Date created" },
+  { field: "size_bytes", label: "Size" },
+];
+
+// Strings sort case-insensitively; size_bytes (folders/null) sorts as -1 so it
+// trails real sizes. Folders have no size_bytes, so that field falls back to name.
+function compareItems<T extends DriveFolderResponse | DriveFileResponse>(
+  field: SortField,
+  direction: SortDirection,
+) {
+  const effective: SortField = field;
+  return (a: T, b: T) => {
+    const pick = (item: T): string | number => {
+      if (effective === "size_bytes") {
+        return "size_bytes" in item ? (item.size_bytes ?? -1) : -1;
+      }
+      return item[effective];
+    };
+    const av = pick(a);
+    const bv = pick(b);
+    let cmp: number;
+    if (typeof av === "string" && typeof bv === "string") {
+      cmp = av.localeCompare(bv, undefined, { sensitivity: "base" });
+    } else {
+      cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    }
+    return direction === "asc" ? cmp : -cmp;
+  };
+}
+
 function buildListPath(
   base: "/api/v1/drive-folders" | "/api/v1/drive-files",
   filter: DriveViewFilter,
   query: string,
+  sortField: SortField,
+  sortDirection: SortDirection,
   folderId?: string,
 ) {
+  // Folders carry no size; sort them by name when the user picks Size.
+  const sort = base === "/api/v1/drive-folders" && sortField === "size_bytes" ? "name" : sortField;
   const params = new URLSearchParams({
-    sort: "updated_at",
-    direction: "desc",
-    limit: "50",
+    sort,
+    direction: sortDirection,
+    limit: String(PAGE_LIMIT),
     offset: "0",
   });
   if (query.trim()) params.set("q", query.trim());
@@ -166,6 +210,10 @@ function DrivePage() {
   const [filter, setFilter] = useState<DriveViewFilter>("my-drive");
   const [folders, setFolders] = useState<DriveFolderResponse[]>([]);
   const [files, setFiles] = useState<DriveFileResponse[]>([]);
+  const [foldersTotal, setFoldersTotal] = useState(0);
+  const [filesTotal, setFilesTotal] = useState(0);
+  const [sortField, setSortField] = useState<SortField>("updated_at");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -186,20 +234,29 @@ function DrivePage() {
     [navigate],
   );
 
+  // Current sort is read through a ref inside loadDrive so that changing the
+  // sort doesn't change loadDrive's identity (which would force a refetch even
+  // for single-page lists that we sort client-side).
+  const sortRef = useRef({ field: sortField, direction: sortDirection });
+  sortRef.current = { field: sortField, direction: sortDirection };
+
   const loadDrive = useCallback(async () => {
     setLoading(true);
     setError("");
+    const { field, direction } = sortRef.current;
     try {
       const [folderPage, filePage] = await Promise.all([
         apiRequest<Page<DriveFolderResponse>>(
-          buildListPath("/api/v1/drive-folders", filter, query, folderId),
+          buildListPath("/api/v1/drive-folders", filter, query, field, direction, folderId),
         ),
         apiRequest<Page<DriveFileResponse>>(
-          buildListPath("/api/v1/drive-files", filter, query, folderId),
+          buildListPath("/api/v1/drive-files", filter, query, field, direction, folderId),
         ),
       ]);
       setFolders(folderPage.items);
       setFiles(filePage.items);
+      setFoldersTotal(folderPage.total);
+      setFilesTotal(filePage.total);
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -250,6 +307,45 @@ function DrivePage() {
     return "My Drive";
   }, [filter]);
 
+  // A list spans multiple pages when the server reports more rows than we hold.
+  // In that case only the backend can order the full set, so we keep its order;
+  // otherwise the whole list is in memory and we sort it instantly client-side.
+  const foldersMultiPage = foldersTotal > PAGE_LIMIT;
+  const filesMultiPage = filesTotal > PAGE_LIMIT;
+
+  const displayFolders = useMemo(
+    () =>
+      foldersMultiPage
+        ? folders
+        : [...folders].sort(compareItems<DriveFolderResponse>(sortField, sortDirection)),
+    [folders, foldersMultiPage, sortField, sortDirection],
+  );
+  const displayFiles = useMemo(
+    () =>
+      filesMultiPage
+        ? files
+        : [...files].sort(compareItems<DriveFileResponse>(sortField, sortDirection)),
+    [files, filesMultiPage, sortField, sortDirection],
+  );
+
+  const changeSort = (field: SortField) => {
+    const direction: SortDirection =
+      field === sortField
+        ? sortDirection === "asc"
+          ? "desc"
+          : "asc"
+        : field === "name"
+          ? "asc"
+          : "desc";
+    setSortField(field);
+    setSortDirection(direction);
+    sortRef.current = { field, direction };
+    // Multi-page lists need the server to re-order across all pages.
+    if (foldersMultiPage || filesMultiPage) void loadDrive();
+  };
+
+  const sortLabel = SORT_OPTIONS.find((o) => o.field === sortField)?.label ?? "Sort";
+
   const submitCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = createName.trim();
@@ -258,13 +354,17 @@ function DrivePage() {
     setMutating(true);
     setError("");
     try {
+      setCreateOpen(null);
+      setCreateName("");
       if (createOpen === "folder") {
-        await apiRequest<DriveFolderResponse>("/api/v1/drive-folders", {
+        const created = await apiRequest<DriveFolderResponse>("/api/v1/drive-folders", {
           method: "POST",
           body: JSON.stringify({ name, parent_folder_id: folderId ?? null }),
         });
+        // Only surfaces in the My Drive view; Starred/Trash shouldn't show a new item.
+        if (filter === "my-drive") setFolders((prev) => [created, ...prev]);
       } else {
-        await apiRequest<DriveFileResponse>("/api/v1/drive-files", {
+        const created = await apiRequest<DriveFileResponse>("/api/v1/drive-files", {
           method: "POST",
           body: JSON.stringify({
             name,
@@ -273,16 +373,18 @@ function DrivePage() {
             mime_type: "application/vnd.google-apps.document",
           }),
         });
+        if (filter === "my-drive") setFiles((prev) => [created, ...prev]);
       }
-      setCreateOpen(null);
-      setCreateName("");
-      await loadDrive();
     } catch (err) {
       handleApiError(err);
     } finally {
       setMutating(false);
     }
   };
+
+  // True when an item should drop out of the current view after a mutation
+  // (e.g. unstarring while on the Starred filter).
+  const leavesView = (starred: boolean) => filter === "starred" && !starred;
 
   const updateFolder = async (
     folder: DriveFolderResponse,
@@ -291,11 +393,15 @@ function DrivePage() {
     setMutating(true);
     setError("");
     try {
-      await apiRequest<DriveFolderResponse>(`/api/v1/drive-folders/${folder.id}`, {
+      const updated = await apiRequest<DriveFolderResponse>(`/api/v1/drive-folders/${folder.id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
-      await loadDrive();
+      setFolders((prev) =>
+        leavesView(updated.starred)
+          ? prev.filter((f) => f.id !== updated.id)
+          : prev.map((f) => (f.id === updated.id ? updated : f)),
+      );
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -307,11 +413,15 @@ function DrivePage() {
     setMutating(true);
     setError("");
     try {
-      await apiRequest<DriveFileResponse>(`/api/v1/drive-files/${file.id}`, {
+      const updated = await apiRequest<DriveFileResponse>(`/api/v1/drive-files/${file.id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
-      await loadDrive();
+      setFiles((prev) =>
+        leavesView(updated.starred)
+          ? prev.filter((f) => f.id !== updated.id)
+          : prev.map((f) => (f.id === updated.id ? updated : f)),
+      );
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -324,7 +434,7 @@ function DrivePage() {
     setError("");
     try {
       await apiRequest<void>(`/api/v1/drive-folders/${folder.id}`, { method: "DELETE" });
-      await loadDrive();
+      setFolders((prev) => prev.filter((f) => f.id !== folder.id));
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -337,7 +447,7 @@ function DrivePage() {
     setError("");
     try {
       await apiRequest<void>(`/api/v1/drive-files/${file.id}`, { method: "DELETE" });
-      await loadDrive();
+      setFiles((prev) => prev.filter((f) => f.id !== file.id));
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -352,7 +462,8 @@ function DrivePage() {
       await apiRequest<DriveFolderResponse>(`/api/v1/drive-folders/${folder.id}/restore`, {
         method: "POST",
       });
-      await loadDrive();
+      // Restored items leave the Trash view.
+      setFolders((prev) => prev.filter((f) => f.id !== folder.id));
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -367,7 +478,7 @@ function DrivePage() {
       await apiRequest<DriveFileResponse>(`/api/v1/drive-files/${file.id}/restore`, {
         method: "POST",
       });
-      await loadDrive();
+      setFiles((prev) => prev.filter((f) => f.id !== file.id));
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -433,9 +544,7 @@ function DrivePage() {
         </div>
       </header>
 
-      {searchOpen && (
-        <div className="px-4 pb-3 md:hidden">{searchField}</div>
-      )}
+      {searchOpen && <div className="px-4 pb-3 md:hidden">{searchField}</div>}
 
       <div className="flex">
         {sidebarOpen && (
@@ -499,32 +608,32 @@ function DrivePage() {
 
         <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
           {!folderId && filter === "my-drive" && (
-          <section className="rounded-3xl bg-[hsl(220,33%,96%)] p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-medium">Start a new document</h2>
-              <Button variant="ghost" className="gap-1 text-sm">
-                Template gallery
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-              {TEMPLATES.map((t) => (
-                <button key={t.name} className="group flex flex-col items-start gap-2 text-left">
-                  <div
-                    className={cn(
-                      "grid aspect-[3/4] w-full place-items-center rounded-xl border border-black/5 bg-gradient-to-br shadow-sm transition group-hover:shadow-md",
-                      t.color,
-                    )}
-                  >
-                    <span className="text-3xl font-light text-foreground/40">{t.glyph}</span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.sub}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
+            <section className="rounded-3xl bg-[hsl(220,33%,96%)] p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-medium">Start a new document</h2>
+                <Button variant="ghost" className="gap-1 text-sm">
+                  Template gallery
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                {TEMPLATES.map((t) => (
+                  <button key={t.name} className="group flex flex-col items-start gap-2 text-left">
+                    <div
+                      className={cn(
+                        "grid aspect-[3/4] w-full place-items-center rounded-xl border border-black/5 bg-gradient-to-br shadow-sm transition group-hover:shadow-md",
+                        t.color,
+                      )}
+                    >
+                      <span className="text-3xl font-light text-foreground/40">{t.glyph}</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.sub}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           <div className="mt-8 flex items-center justify-between">
@@ -558,13 +667,39 @@ function DrivePage() {
               <h2 className="text-lg font-medium">{currentTitle}</h2>
             )}
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1 rounded-full text-muted-foreground"
-              >
-                <ArrowUpDown className="h-4 w-4" /> Last modified
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 rounded-full text-muted-foreground"
+                  >
+                    <ArrowUpDown className="h-4 w-4" /> {sortLabel}
+                    {sortDirection === "asc" ? (
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5">
+                  {SORT_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.field}
+                      className="gap-2 rounded-lg"
+                      onSelect={() => changeSort(option.field)}
+                    >
+                      <span className="flex-1">{option.label}</span>
+                      {sortField === option.field &&
+                        (sortDirection === "asc" ? (
+                          <ArrowUp className="h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4" />
+                        ))}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="ghost"
                 size="icon"
@@ -608,7 +743,7 @@ function DrivePage() {
                 Folders
               </h3>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {folders.map((folder) => (
+                {displayFolders.map((folder) => (
                   <div
                     key={folder.id}
                     className="group flex cursor-pointer items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
@@ -650,8 +785,8 @@ function DrivePage() {
                 Files
               </h3>
               {view === "grid" ? (
-                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {files.map((file) => (
+                <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {displayFiles.map((file) => (
                     <div
                       key={file.id}
                       className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
@@ -698,7 +833,7 @@ function DrivePage() {
                     <div>Size</div>
                     <div />
                   </div>
-                  {files.map((file) => (
+                  {displayFiles.map((file) => (
                     <div
                       key={file.id}
                       className="group grid grid-cols-[1fr_140px_140px_100px_40px] items-center gap-2 border-t border-black/5 px-4 py-2.5 text-sm hover:bg-[hsl(220,33%,98%)]"
@@ -829,7 +964,8 @@ function DriveActions({
         ) : (
           <>
             <DropdownMenuItem className="gap-2 rounded-lg" onSelect={onToggleStar}>
-              <Star className="h-4 w-4" /> {starred ? "Unstar" : "Star"}
+              <Star className={`h-4 w-4 ${starred ? "fill-yellow-400 text-yellow-400" : ""}`} />{" "}
+              {starred ? "Unstar" : "Star"}
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2 rounded-lg text-destructive" onSelect={onTrash}>
               <Trash2 className="h-4 w-4" /> Move to trash
