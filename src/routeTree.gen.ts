@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DriveRouteImport } from './routes/drive'
+import { Route as DatabaseRouteImport } from './routes/database'
 import { Route as ContentRouteImport } from './routes/content'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CompanyRouteImport } from './routes/company'
@@ -39,6 +40,11 @@ const EmailRoute = EmailRouteImport.update({
 const DriveRoute = DriveRouteImport.update({
   id: '/drive',
   path: '/drive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatabaseRoute = DatabaseRouteImport.update({
+  id: '/database',
+  path: '/database',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContentRoute = ContentRouteImport.update({
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRoute
+  '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRoute
+  '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRoute
+  '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/company'
     | '/contacts'
     | '/content'
+    | '/database'
     | '/drive'
     | '/email'
     | '/firecrawl'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/company'
     | '/contacts'
     | '/content'
+    | '/database'
     | '/drive'
     | '/email'
     | '/firecrawl'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/company'
     | '/contacts'
     | '/content'
+    | '/database'
     | '/drive'
     | '/email'
     | '/firecrawl'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   CompanyRoute: typeof CompanyRoute
   ContactsRoute: typeof ContactsRoute
   ContentRoute: typeof ContentRoute
+  DatabaseRoute: typeof DatabaseRoute
   DriveRoute: typeof DriveRoute
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
@@ -201,6 +214,13 @@ declare module '@tanstack/react-router' {
       path: '/drive'
       fullPath: '/drive'
       preLoaderRoute: typeof DriveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/database': {
+      id: '/database'
+      path: '/database'
+      fullPath: '/database'
+      preLoaderRoute: typeof DatabaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/content': {
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompanyRoute: CompanyRoute,
   ContactsRoute: ContactsRoute,
   ContentRoute: ContentRoute,
+  DatabaseRoute: DatabaseRoute,
   DriveRoute: DriveRoute,
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
