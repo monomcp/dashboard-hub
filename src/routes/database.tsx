@@ -941,9 +941,10 @@ function CalendarView({ table, rows }: { table: TableDef; rows: Row[] }) {
   const firstDay = new Date(year, month, 1);
   const startOffset = firstDay.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (number | null)[] = Array.from({ length: startOffset }, () => null).concat(
-    Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  );
+  const cells: (number | null)[] = [
+    ...Array.from({ length: startOffset }, () => null as number | null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
   while (cells.length % 7 !== 0) cells.push(null);
 
   const byDay = new Map<string, Row[]>();
