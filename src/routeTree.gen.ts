@@ -21,6 +21,7 @@ import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CompanyRouteImport } from './routes/company'
 import { Route as CmsRouteImport } from './routes/cms'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as BrandDnaRouteImport } from './routes/brand-dna'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -84,6 +85,11 @@ const CalendarRoute = CalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrandDnaRoute = BrandDnaRouteImport.update({
+  id: '/brand-dna',
+  path: '/brand-dna',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -98,6 +104,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/brand-dna': typeof BrandDnaRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/brand-dna': typeof BrandDnaRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/brand-dna': typeof BrandDnaRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audit'
+    | '/brand-dna'
     | '/calendar'
     | '/cms'
     | '/company'
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audit'
+    | '/brand-dna'
     | '/calendar'
     | '/cms'
     | '/company'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/audit'
+    | '/brand-dna'
     | '/calendar'
     | '/cms'
     | '/company'
@@ -198,6 +210,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
+  BrandDnaRoute: typeof BrandDnaRoute
   CalendarRoute: typeof CalendarRoute
   CmsRoute: typeof CmsRoute
   CompanyRoute: typeof CompanyRoute
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brand-dna': {
+      id: '/brand-dna'
+      path: '/brand-dna'
+      fullPath: '/brand-dna'
+      preLoaderRoute: typeof BrandDnaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/audit': {
       id: '/audit'
       path: '/audit'
@@ -318,6 +338,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
+  BrandDnaRoute: BrandDnaRoute,
   CalendarRoute: CalendarRoute,
   CmsRoute: CmsRoute,
   CompanyRoute: CompanyRoute,
