@@ -21,13 +21,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { AppsMenu } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { ContentIdeasBoard } from "@/components/content-ideas-board";
@@ -96,7 +89,6 @@ function ContentPage() {
   );
   const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [platformId, setPlatformId] = useState<string>("");
-  const [businesses, setBusinesses] = useState<BusinessSummary[]>([]);
   const [businessId, setBusinessId] = useState<string>(
     () => localStorage.getItem(BUSINESS_STORAGE_KEY) ?? "",
   );
@@ -121,7 +113,6 @@ function ContentPage() {
         const page = await apiRequest<Page<BusinessSummary>>(
           "/api/v1/business?sort=name&direction=asc&limit=200&offset=0",
         );
-        setBusinesses(page.items);
         const stored = localStorage.getItem(BUSINESS_STORAGE_KEY);
         const valid = page.items.some((b) => b.id === stored);
         const fallback = page.items[0]?.id ?? "";
@@ -146,12 +137,6 @@ function ContentPage() {
       }
     })();
   }, [mode, platforms.length, handleApiError]);
-
-  const selectBusiness = (id: string) => {
-    setBusinessId(id);
-    localStorage.setItem(BUSINESS_STORAGE_KEY, id);
-    setError("");
-  };
 
   const selectMode = (next: ContentMode) => {
     setMode(next);
@@ -185,10 +170,12 @@ function ContentPage() {
 
   const viewToggle = (
     <div className="flex items-center rounded-full bg-[hsl(220,33%,95%)] p-1">
-      {([
-        { id: "list", label: "List", icon: List },
-        { id: "calendar", label: "Calendar", icon: LayoutGrid },
-      ] as const).map((v) => (
+      {(
+        [
+          { id: "list", label: "List", icon: List },
+          { id: "calendar", label: "Calendar", icon: LayoutGrid },
+        ] as const
+      ).map((v) => (
         <button
           key={v.id}
           onClick={() => setCalendarView(v.id)}
@@ -271,30 +258,6 @@ function ContentPage() {
       <div className="flex">
         {sidebarOpen && (
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
-            <div className="mb-4 px-1">
-              <div className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Company
-              </div>
-              <Select
-                value={businessId || undefined}
-                onValueChange={selectBusiness}
-                disabled={loadingBusinesses || businesses.length === 0}
-              >
-                <SelectTrigger className="h-11 rounded-2xl bg-white shadow-md">
-                  <SelectValue
-                    placeholder={loadingBusinesses ? "Loading…" : "No companies"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {businesses.map((business) => (
-                    <SelectItem key={business.id} value={business.id}>
-                      {business.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <nav className="space-y-1">
               {CONTENT_NAV.map((n) => {
                 const active = section === n.id;
