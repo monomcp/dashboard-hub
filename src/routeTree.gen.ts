@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DriveRouteImport } from './routes/drive'
 import { Route as ContentRouteImport } from './routes/content'
@@ -23,6 +24,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FirecrawlRoute = FirecrawlRouteImport.update({
+  id: '/firecrawl',
+  path: '/firecrawl',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailRoute = EmailRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/content': typeof ContentRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
+  '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/content': typeof ContentRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
+  '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/content': typeof ContentRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
+  '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/content'
     | '/drive'
     | '/email'
+    | '/firecrawl'
     | '/login'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/content'
     | '/drive'
     | '/email'
+    | '/firecrawl'
     | '/login'
   id:
     | '__root__'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/content'
     | '/drive'
     | '/email'
+    | '/firecrawl'
     | '/login'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   ContentRoute: typeof ContentRoute
   DriveRoute: typeof DriveRoute
   EmailRoute: typeof EmailRoute
+  FirecrawlRoute: typeof FirecrawlRoute
   LoginRoute: typeof LoginRoute
 }
 
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/firecrawl': {
+      id: '/firecrawl'
+      path: '/firecrawl'
+      fullPath: '/firecrawl'
+      preLoaderRoute: typeof FirecrawlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/email': {
@@ -245,18 +265,9 @@ const rootRouteChildren: RootRouteChildren = {
   ContentRoute: ContentRoute,
   DriveRoute: DriveRoute,
   EmailRoute: EmailRoute,
+  FirecrawlRoute: FirecrawlRoute,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
