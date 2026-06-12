@@ -7,11 +7,6 @@ import {
   Settings as SettingsIcon,
   Database,
   Plus,
-  ChevronDown,
-  ChevronRight,
-  Table2,
-  Kanban,
-  Calendar as CalendarIcon,
   LayoutGrid,
   Filter,
   ArrowDownUp,
@@ -26,6 +21,17 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AppsMenu } from "@/components/apps-menu";
 import { cn } from "@/lib/utils";
 
@@ -262,15 +268,6 @@ const INITIAL_BASES: Base[] = [
   },
 ];
 
-type ViewKind = "grid" | "kanban" | "calendar" | "gallery";
-
-const VIEWS: { id: ViewKind; label: string; icon: typeof Table2 }[] = [
-  { id: "grid", label: "Grid", icon: Table2 },
-  { id: "kanban", label: "Kanban", icon: Kanban },
-  { id: "calendar", label: "Calendar", icon: CalendarIcon },
-  { id: "gallery", label: "Gallery", icon: LayoutGrid },
-];
-
 // --------------------------- Component ---------------------------
 
 function DatabasePage() {
@@ -281,12 +278,9 @@ function DatabasePage() {
   const [bases, setBases] = useState<Base[]>(INITIAL_BASES);
   const [activeBaseId, setActiveBaseId] = useState(INITIAL_BASES[0].id);
   const [activeTableId, setActiveTableId] = useState(INITIAL_BASES[0].tables[0].id);
-  const [view, setView] = useState<ViewKind>("grid");
-  const [expandedBases, setExpandedBases] = useState<Record<string, boolean>>({ b1: true });
 
   const activeBase = bases.find((b) => b.id === activeBaseId)!;
-  const activeTable =
-    activeBase.tables.find((t) => t.id === activeTableId) ?? activeBase.tables[0];
+  const activeTable = activeBase.tables.find((t) => t.id === activeTableId) ?? activeBase.tables[0];
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -343,9 +337,7 @@ function DatabasePage() {
       rows: [],
     };
     setBases((prev) =>
-      prev.map((b) =>
-        b.id === activeBaseId ? { ...b, tables: [...b.tables, newTable] } : b,
-      ),
+      prev.map((b) => (b.id === activeBaseId ? { ...b, tables: [...b.tables, newTable] } : b)),
     );
     setActiveTableId(id);
   }
@@ -374,15 +366,40 @@ function DatabasePage() {
       ],
     };
     setBases((prev) => [...prev, newBase]);
-    setExpandedBases((s) => ({ ...s, [id]: true }));
     setActiveBaseId(id);
     setActiveTableId("t1");
   }
 
+  const tableTabs = (
+    <div className="flex items-center rounded-full bg-[hsl(220,33%,95%)] p-1">
+      {activeBase.tables.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => setActiveTableId(t.id)}
+          className={cn(
+            "rounded-full px-5 py-1.5 text-sm transition",
+            t.id === activeTable.id
+              ? "bg-white text-foreground shadow-sm"
+              : "text-foreground/60 hover:text-foreground",
+          )}
+        >
+          {t.name}
+        </button>
+      ))}
+      <button
+        onClick={addTable}
+        className="grid h-8 w-9 place-items-center rounded-full text-foreground/60 transition hover:bg-white/60 hover:text-foreground"
+        aria-label="Add table"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
       {/* Header */}
-      <header className="flex items-center justify-between gap-3 border-b border-black/5 bg-white px-4 py-2.5 md:px-6">
+      <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -394,12 +411,11 @@ function DatabasePage() {
             <Menu className="h-5 w-5" />
           </Button>
           <Link to="/" className="flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-yellow-400 via-pink-500 to-blue-600 shadow-sm">
+            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-yellow-400 via-pink-500 to-blue-600 shadow-sm">
               <Database className="h-4 w-4 text-white" />
             </div>
             <div className="leading-tight">
               <div className="text-lg font-medium tracking-tight">Database</div>
-              <div className="text-xs text-muted-foreground">{activeBase.name}</div>
             </div>
           </Link>
         </div>
@@ -452,90 +468,49 @@ function DatabasePage() {
       <div className="flex">
         {/* Sidebar: bases / tables */}
         {sidebarOpen && (
-          <aside className="hidden w-[260px] shrink-0 border-r border-black/5 bg-white p-3 md:block">
-            <div className="mb-3 flex items-center justify-between px-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Workspace
-              </span>
+          <aside className="hidden w-[260px] shrink-0 px-3 md:block">
+            <Button
+              onClick={addBase}
+              className="mb-4 h-14 w-[160px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
+            >
+              <Plus className="mr-1 h-5 w-5" /> New base
+            </Button>
+
+            <div className="flex items-center justify-between px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <span>Tables</span>
               <button
                 onClick={addBase}
-                className="rounded-full p-1 text-muted-foreground hover:bg-sky-50 hover:text-sky-700"
+                className="grid h-6 w-6 place-items-center rounded-full hover:bg-white/60"
                 aria-label="Add base"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </div>
 
             <nav className="space-y-1">
               {bases.map((b) => {
-                const expanded = expandedBases[b.id];
+                const baseActive = activeBaseId === b.id;
                 return (
-                  <div key={b.id}>
-                    <button
-                      onClick={() => {
-                        setExpandedBases((s) => ({ ...s, [b.id]: !s[b.id] }));
-                        setActiveBaseId(b.id);
-                        setActiveTableId(b.tables[0].id);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition",
-                        activeBaseId === b.id
-                          ? "bg-sky-50 text-sky-900"
-                          : "hover:bg-stone-50",
-                      )}
-                    >
-                      {expanded ? (
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
-                      <div
-                        className={cn(
-                          "grid h-6 w-6 place-items-center rounded-md text-xs font-semibold text-white",
-                          b.color,
-                        )}
-                      >
-                        {b.name[0]}
-                      </div>
-                      <span className="truncate text-left">{b.name}</span>
-                    </button>
-
-                    {expanded && (
-                      <div className="ml-5 mt-1 space-y-0.5 border-l border-black/5 pl-2">
-                        {b.tables.map((t) => (
-                          <button
-                            key={t.id}
-                            onClick={() => {
-                              setActiveBaseId(b.id);
-                              setActiveTableId(t.id);
-                            }}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm transition",
-                              activeBaseId === b.id && activeTableId === t.id
-                                ? "bg-stone-100 font-medium text-foreground"
-                                : "text-foreground/70 hover:bg-stone-50",
-                            )}
-                          >
-                            <span className="text-muted-foreground">{t.icon}</span>
-                            <span className="truncate">{t.name}</span>
-                          </button>
-                        ))}
-                        {activeBaseId === b.id && (
-                          <button
-                            onClick={addTable}
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-stone-50"
-                          >
-                            <Plus className="h-3.5 w-3.5" /> Add table
-                          </button>
-                        )}
-                      </div>
+                  <button
+                    key={b.id}
+                    onClick={() => {
+                      setActiveBaseId(b.id);
+                      setActiveTableId(b.tables[0].id);
+                    }}
+                    className={cn(
+                      "flex w-full items-center rounded-full px-3 py-2 text-sm transition",
+                      baseActive
+                        ? "bg-sky-100 font-medium text-sky-900"
+                        : "text-foreground/80 hover:bg-white/60",
                     )}
-                  </div>
+                  >
+                    <span className="truncate text-left">{b.name}</span>
+                  </button>
                 );
               })}
             </nav>
 
-            <div className="mt-6 rounded-xl bg-[hsl(220,33%,97%)] p-3 ring-1 ring-black/5">
+            <div className="mt-6 rounded-2xl bg-white/70 p-3 ring-1 ring-black/5">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground/80">
                 <Star className="h-3.5 w-3.5 text-amber-500" /> Templates
               </div>
@@ -550,74 +525,29 @@ function DatabasePage() {
         )}
 
         {/* Main */}
-        <main className="min-w-0 flex-1">
-          {/* Tabs row: tables */}
-          <div className="flex items-center gap-1 border-b border-black/5 bg-white px-3 py-1.5">
-            {activeBase.tables.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTableId(t.id)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm transition",
-                  t.id === activeTable.id
-                    ? "bg-stone-100 font-medium text-foreground"
-                    : "text-foreground/70 hover:bg-stone-50",
-                )}
-              >
-                <span className="mr-1.5 text-muted-foreground">{t.icon}</span>
-                {t.name}
-              </button>
-            ))}
-            <button
-              onClick={addTable}
-              className="ml-1 rounded-md p-1.5 text-muted-foreground hover:bg-stone-50"
-              aria-label="Add table"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+        <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="min-w-0 overflow-x-auto">{tableTabs}</div>
           </div>
 
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-1 border-b border-black/5 bg-white px-3 py-1.5">
-            <div className="flex items-center gap-1 rounded-md bg-[hsl(220,33%,97%)] p-0.5">
-              {VIEWS.map((v) => {
-                const active = view === v.id;
-                return (
-                  <button
-                    key={v.id}
-                    onClick={() => setView(v.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs transition",
-                      active
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <v.icon className="h-3.5 w-3.5" />
-                    {v.label}
-                  </button>
-                );
-              })}
+          <section>
+            {/* Toolbar */}
+            <div className="mb-3 flex flex-wrap items-center gap-1 px-1">
+              <ToolbarBtn icon={EyeOff} label="Hide fields" />
+              <ToolbarBtn icon={Filter} label="Filter" />
+              <ToolbarBtn icon={LayoutGrid} label="Group" />
+              <ToolbarBtn icon={ArrowDownUp} label="Sort" />
+              <ToolbarBtn icon={Share2} label="Share view" />
+
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {filteredRows.length} of {activeTable.rows.length} records
+                </span>
+              </div>
             </div>
 
-            <div className="mx-2 h-5 w-px bg-black/5" />
-
-            <ToolbarBtn icon={EyeOff} label="Hide fields" />
-            <ToolbarBtn icon={Filter} label="Filter" />
-            <ToolbarBtn icon={LayoutGrid} label="Group" />
-            <ToolbarBtn icon={ArrowDownUp} label="Sort" />
-            <ToolbarBtn icon={Share2} label="Share view" />
-
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {filteredRows.length} of {activeTable.rows.length} records
-              </span>
-            </div>
-          </div>
-
-          {/* View body */}
-          <div className="p-3 md:p-4">
-            {view === "grid" && (
+            {/* View body */}
+            <div className="bg-white">
               <GridView
                 table={activeTable}
                 rows={filteredRows}
@@ -626,11 +556,8 @@ function DatabasePage() {
                 onAddRow={addRow}
                 onAddField={addField}
               />
-            )}
-            {view === "kanban" && <KanbanView table={activeTable} rows={filteredRows} />}
-            {view === "calendar" && <CalendarView table={activeTable} rows={filteredRows} />}
-            {view === "gallery" && <GalleryView table={activeTable} rows={filteredRows} />}
-          </div>
+            </div>
+          </section>
         </main>
       </div>
     </div>
@@ -641,7 +568,7 @@ function DatabasePage() {
 
 function ToolbarBtn({ icon: Icon, label }: { icon: typeof Filter; label: string }) {
   return (
-    <button className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-foreground/80 transition hover:bg-stone-50">
+    <button className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-foreground/80 transition hover:bg-stone-50">
       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       {label}
     </button>
@@ -665,8 +592,10 @@ function GridView({
   onAddRow: () => void;
   onAddField: () => void;
 }) {
+  const titleField = table.fields[0];
+
   return (
-    <div className="overflow-auto rounded-xl bg-white ring-1 ring-black/5">
+    <div className="overflow-auto rounded-xl border border-black/5">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="bg-[hsl(220,33%,98%)] text-left">
@@ -701,20 +630,38 @@ function GridView({
               <td className="sticky left-0 z-10 w-10 border-b border-r border-black/5 bg-white px-2 py-1.5 text-xs text-muted-foreground group-hover:bg-sky-50/40">
                 <div className="flex items-center gap-1">
                   <span className="group-hover:hidden">{idx + 1}</span>
-                  <button
-                    onClick={() => onDeleteRow(r.id)}
-                    className="hidden text-rose-500 group-hover:inline"
-                    aria-label="Delete row"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        className="hidden text-rose-500 group-hover:inline"
+                        aria-label="Delete row"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-2xl">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Delete “{String(r.cells[titleField.id] ?? "this record")}”? This action
+                          cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-full">No</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => onDeleteRow(r.id)}
+                          className="rounded-full bg-rose-600 text-white hover:bg-rose-700"
+                        >
+                          Yes
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </td>
               {table.fields.map((f) => (
-                <td
-                  key={f.id}
-                  className="border-b border-r border-black/5 px-2 py-1 align-middle"
-                >
+                <td key={f.id} className="border-b border-r border-black/5 px-2 py-1 align-middle">
                   <Cell field={f} value={r.cells[f.id]} onChange={(v) => onUpdate(r.id, f.id, v)} />
                 </td>
               ))}
@@ -722,10 +669,7 @@ function GridView({
             </tr>
           ))}
           <tr>
-            <td
-              colSpan={table.fields.length + 2}
-              className="border-b border-black/5 px-2 py-1.5"
-            >
+            <td colSpan={table.fields.length + 2} className="border-b border-black/5 px-2 py-1.5">
               <button
                 onClick={onAddRow}
                 className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-sky-50 hover:text-sky-700"
@@ -874,7 +818,7 @@ function KanbanView({ table, rows }: { table: TableDef; rows: Row[] }) {
         return (
           <div
             key={g.value}
-            className="w-72 shrink-0 rounded-xl bg-white p-3 ring-1 ring-black/5"
+            className="w-72 shrink-0 rounded-xl bg-[hsl(220,33%,97%)] p-3 ring-1 ring-black/5"
           >
             <div className="mb-2 flex items-center justify-between">
               <span
@@ -891,7 +835,7 @@ function KanbanView({ table, rows }: { table: TableDef; rows: Row[] }) {
               {items.map((r) => (
                 <div
                   key={r.id}
-                  className="rounded-lg border border-black/5 bg-[hsl(220,33%,98%)] p-3 text-sm shadow-sm hover:bg-white"
+                  className="rounded-lg border border-black/5 bg-white p-3 text-sm shadow-sm transition hover:shadow-md"
                 >
                   <div className="font-medium">{String(r.cells[titleField.id] ?? "Untitled")}</div>
                   <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
@@ -901,7 +845,7 @@ function KanbanView({ table, rows }: { table: TableDef; rows: Row[] }) {
                       .map((f) => (
                         <span
                           key={f.id}
-                          className="rounded bg-white px-1.5 py-0.5 ring-1 ring-black/5"
+                          className="rounded bg-stone-50 px-1.5 py-0.5 ring-1 ring-black/5"
                         >
                           {f.name}: {String(r.cells[f.id] ?? "—")}
                         </span>
@@ -964,7 +908,7 @@ function CalendarView({ table, rows }: { table: TableDef; rows: Row[] }) {
   }
 
   return (
-    <div className="rounded-xl bg-white p-3 ring-1 ring-black/5">
+    <div className="rounded-xl border border-black/5 p-3">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium">
           {now.toLocaleString(undefined, { month: "long", year: "numeric" })}
@@ -1013,7 +957,7 @@ function GalleryView({ table, rows }: { table: TableDef; rows: Row[] }) {
       {rows.map((r) => (
         <div
           key={r.id}
-          className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
+          className="rounded-xl bg-[hsl(220,33%,98%)] p-4 shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
         >
           <div className="mb-3 flex h-20 items-center justify-center rounded-lg bg-gradient-to-br from-sky-100 via-violet-100 to-rose-100 text-2xl text-foreground/40">
             {table.icon}
@@ -1035,7 +979,7 @@ function GalleryView({ table, rows }: { table: TableDef; rows: Row[] }) {
 
 function EmptyState({ title, message }: { title: string; message: string }) {
   return (
-    <div className="rounded-xl bg-white p-10 text-center ring-1 ring-black/5">
+    <div className="rounded-2xl border border-dashed border-black/10 py-12 text-center">
       <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-[hsl(220,33%,97%)]">
         <X className="h-5 w-5 text-muted-foreground" />
       </div>
