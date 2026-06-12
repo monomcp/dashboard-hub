@@ -31,6 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { AppsMenu } from "@/components/apps-menu";
+import { AccountMenu } from "@/components/account-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -431,9 +432,7 @@ function TasksPage() {
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
           <AppsMenu />
-          <div className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white">
-            C
-          </div>
+          <AccountMenu />
         </div>
       </header>
 

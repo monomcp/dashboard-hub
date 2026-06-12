@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AppsMenu } from "@/components/apps-menu";
+import { AccountMenu } from "@/components/account-menu";
 import { ContentIdeasBoard } from "@/components/content-ideas-board";
 import { ContentCalendarList } from "@/components/content-calendar-list";
 import { ContentStrategyPanel } from "@/components/content-strategy-panel";
@@ -261,9 +262,7 @@ function ContentPage() {
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
           <AppsMenu />
-          <div className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white">
-            C
-          </div>
+          <AccountMenu />
         </div>
       </header>
 

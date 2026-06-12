@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AppsMenu } from "@/components/apps-menu";
+import { AccountMenu } from "@/components/account-menu";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -375,9 +376,7 @@ function CompanyPage() {
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
           <AppsMenu />
-          <div className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white">
-            C
-          </div>
+          <AccountMenu />
         </div>
       </header>
 

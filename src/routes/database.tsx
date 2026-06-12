@@ -12,7 +12,6 @@ import {
   ArrowDownUp,
   EyeOff,
   Share2,
-  Users,
   Star,
   MoreHorizontal,
   Trash2,
@@ -33,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AppsMenu } from "@/components/apps-menu";
+import { AccountMenu } from "@/components/account-menu";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/database")({
@@ -377,7 +377,7 @@ function DatabasePage() {
           key={t.id}
           onClick={() => setActiveTableId(t.id)}
           className={cn(
-            "rounded-full px-5 py-1.5 text-sm transition",
+            "cursor-pointer rounded-full px-5 py-1.5 text-sm transition",
             t.id === activeTable.id
               ? "bg-white text-foreground shadow-sm"
               : "text-foreground/60 hover:text-foreground",
@@ -388,7 +388,7 @@ function DatabasePage() {
       ))}
       <button
         onClick={addTable}
-        className="grid h-8 w-9 place-items-center rounded-full text-foreground/60 transition hover:bg-white/60 hover:text-foreground"
+        className="grid h-8 w-9 cursor-pointer place-items-center rounded-full text-foreground/60 transition hover:bg-white/60 hover:text-foreground"
         aria-label="Add table"
       >
         <Plus className="h-4 w-4" />
@@ -438,13 +438,6 @@ function DatabasePage() {
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="sm"
-            className="hidden rounded-full text-foreground/70 md:inline-flex"
-          >
-            <Users className="h-4 w-4" /> Share
-          </Button>
-          <Button
-            variant="ghost"
             size="icon"
             className="rounded-full"
             aria-label="Search"
@@ -459,9 +452,7 @@ function DatabasePage() {
             <SettingsIcon className="h-5 w-5 text-muted-foreground" />
           </Button>
           <AppsMenu />
-          <div className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white">
-            C
-          </div>
+          <AccountMenu />
         </div>
       </header>
 
@@ -480,7 +471,7 @@ function DatabasePage() {
               <span>Tables</span>
               <button
                 onClick={addBase}
-                className="grid h-6 w-6 place-items-center rounded-full hover:bg-white/60"
+                className="grid h-6 w-6 cursor-pointer place-items-center rounded-full hover:bg-white/60"
                 aria-label="Add base"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -498,7 +489,7 @@ function DatabasePage() {
                       setActiveTableId(b.tables[0].id);
                     }}
                     className={cn(
-                      "flex w-full items-center rounded-full px-3 py-2 text-sm transition",
+                      "flex w-full cursor-pointer items-center rounded-full px-3 py-2 text-sm transition",
                       baseActive
                         ? "bg-sky-100 font-medium text-sky-900"
                         : "text-foreground/80 hover:bg-white/60",
@@ -547,7 +538,7 @@ function DatabasePage() {
             </div>
 
             {/* View body */}
-            <div className="bg-white">
+            <div>
               <GridView
                 table={activeTable}
                 rows={filteredRows}
@@ -595,107 +586,98 @@ function GridView({
   const titleField = table.fields[0];
 
   return (
-    <div className="overflow-auto rounded-xl border border-black/5">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-[hsl(220,33%,98%)] text-left">
-            <th className="sticky left-0 z-10 w-10 border-b border-r border-black/5 bg-[hsl(220,33%,98%)] px-2 py-2 text-xs font-medium text-muted-foreground">
-              #
-            </th>
-            {table.fields.map((f) => (
-              <th
-                key={f.id}
-                className="min-w-[160px] border-b border-r border-black/5 px-3 py-2 text-xs font-medium text-foreground/80"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate">{f.name}</span>
-                  <FieldTypeIcon type={f.type} />
-                </div>
+    <div className="overflow-hidden rounded-2xl border border-black/5 bg-[hsl(220,33%,95%)]">
+      <div className="overflow-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-[hsl(220,33%,95%)] text-left">
+              <th className="sticky left-0 z-10 w-10 border-b border-r border-black/5 bg-[hsl(220,33%,95%)] px-2 py-2 text-xs font-medium text-muted-foreground">
+                #
               </th>
-            ))}
-            <th className="w-12 border-b border-black/5 px-2 py-2">
-              <button
-                onClick={onAddField}
-                className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-sky-50 hover:text-sky-700"
-                aria-label="Add field"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={r.id} className="group hover:bg-sky-50/40">
-              <td className="sticky left-0 z-10 w-10 border-b border-r border-black/5 bg-white px-2 py-1.5 text-xs text-muted-foreground group-hover:bg-sky-50/40">
-                <div className="flex items-center gap-1">
-                  <span className="group-hover:hidden">{idx + 1}</span>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button
-                        className="hidden text-rose-500 group-hover:inline"
-                        aria-label="Delete row"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="rounded-2xl">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Delete “{String(r.cells[titleField.id] ?? "this record")}”? This action
-                          cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel className="rounded-full">No</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => onDeleteRow(r.id)}
-                          className="rounded-full bg-rose-600 text-white hover:bg-rose-700"
-                        >
-                          Yes
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </td>
               {table.fields.map((f) => (
-                <td key={f.id} className="border-b border-r border-black/5 px-2 py-1 align-middle">
-                  <Cell field={f} value={r.cells[f.id]} onChange={(v) => onUpdate(r.id, f.id, v)} />
-                </td>
+                <th
+                  key={f.id}
+                  className="min-w-[160px] border-b border-r border-black/5 px-3 py-2 text-xs font-medium text-foreground/80"
+                >
+                  <span className="truncate">{f.name}</span>
+                </th>
               ))}
-              <td className="border-b border-black/5" />
+              <th className="w-12 border-b border-black/5 px-2 py-2">
+                <button
+                  onClick={onAddField}
+                  className="grid h-6 w-6 place-items-center rounded text-muted-foreground hover:bg-sky-50 hover:text-sky-700"
+                  aria-label="Add field"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </th>
             </tr>
-          ))}
-          <tr>
-            <td colSpan={table.fields.length + 2} className="border-b border-black/5 px-2 py-1.5">
-              <button
-                onClick={onAddRow}
-                className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-sky-50 hover:text-sky-700"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add record
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="bg-white">
+            {rows.map((r, idx) => (
+              <tr key={r.id} className="group bg-white hover:bg-sky-50/40">
+                <td className="sticky left-0 z-10 w-10 border-b border-r border-black/5 bg-white px-2 py-1.5 text-xs text-muted-foreground group-hover:bg-sky-50/40">
+                  <div className="flex items-center gap-1">
+                    <span className="group-hover:hidden">{idx + 1}</span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="hidden text-rose-500 group-hover:inline"
+                          aria-label="Delete row"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-2xl">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Delete “{String(r.cells[titleField.id] ?? "this record")}”? This action
+                            cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="rounded-full">No</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => onDeleteRow(r.id)}
+                            className="rounded-full bg-rose-600 text-white hover:bg-rose-700"
+                          >
+                            Yes
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </td>
+                {table.fields.map((f) => (
+                  <td
+                    key={f.id}
+                    className="border-b border-r border-black/5 bg-white px-2 py-1 align-middle group-hover:bg-sky-50/40"
+                  >
+                    <Cell
+                      field={f}
+                      value={r.cells[f.id]}
+                      onChange={(v) => onUpdate(r.id, f.id, v)}
+                    />
+                  </td>
+                ))}
+                <td className="border-b border-black/5" />
+              </tr>
+            ))}
+            <tr>
+              <td colSpan={table.fields.length + 2} className="px-2 py-1.5">
+                <button
+                  onClick={onAddRow}
+                  className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-sky-50 hover:text-sky-700"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add record
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-  );
-}
-
-function FieldTypeIcon({ type }: { type: FieldType }) {
-  const map: Record<FieldType, string> = {
-    text: "A",
-    number: "#",
-    select: "▾",
-    checkbox: "☑",
-    date: "📅",
-  };
-  return (
-    <span className="grid h-4 w-4 place-items-center rounded text-[10px] text-muted-foreground">
-      {map[type]}
-    </span>
   );
 }
 
