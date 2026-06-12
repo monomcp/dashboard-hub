@@ -5,7 +5,6 @@ import {
   Search,
   HelpCircle,
   Settings as SettingsIcon,
-  Flame,
   LayoutDashboard,
   Sparkles,
   Download,
@@ -118,12 +117,23 @@ const UPTIME_BARS: ("up" | "warn" | "slow" | "down")[] = Array.from({ length: 90
   return "up";
 });
 
+function FirecrawlIcon({ className }: { className?: string }) {
+  return (
+    <svg fill="none" viewBox="0 0 20 20" className={className} aria-hidden="true">
+      <path
+        d="M13.7605 6.61389C13.138 6.79867 12.6687 7.21667 12.3251 7.67073C12.2513 7.76819 12.0975 7.69495 12.1268 7.57552C12.7848 4.86978 11.9155 2.6209 9.20582 1.51393C9.06836 1.4576 8.92527 1.58097 8.96132 1.72519C10.1939 6.67417 5.00941 6.25673 5.66459 11.8671C5.67585 11.9634 5.56769 12.0293 5.48882 11.973C5.2432 11.7967 4.96885 11.4288 4.78069 11.1702C4.72548 11.0942 4.60605 11.1156 4.5807 11.2063C4.43085 11.7482 4.35986 12.2586 4.35986 12.7656C4.35986 14.7373 5.37333 16.473 6.90734 17.4791C6.99522 17.5366 7.10789 17.4543 7.07804 17.3535C6.99917 17.0887 6.95466 16.8093 6.95128 16.5203C6.95128 16.3429 6.96255 16.1615 6.99015 15.9925C7.05438 15.5677 7.20197 15.1632 7.44985 14.7948C8.29995 13.5188 10.0041 12.2862 9.73199 10.6125C9.71453 10.5066 9.83959 10.4368 9.91846 10.5094C11.119 11.6063 11.3567 13.0817 11.1595 14.405C11.1426 14.5199 11.2868 14.5813 11.3595 14.4912C11.5432 14.2613 11.7674 14.0596 12.0113 13.9081C12.0722 13.8703 12.1533 13.8991 12.1764 13.9667C12.3121 14.3616 12.5138 14.7323 12.7042 15.1029C12.9318 15.5485 13.0529 16.0573 13.0338 16.5958C13.0242 16.8578 12.9808 17.1113 12.9082 17.3524C12.8772 17.4543 12.9887 17.5394 13.0783 17.4808C14.6134 16.4747 15.6275 14.739 15.6275 12.7662C15.6275 12.0806 15.5075 11.4085 15.2804 10.7787C14.8044 9.45766 13.5966 8.46561 13.9019 6.74403C13.9166 6.66178 13.8405 6.59023 13.7605 6.61389Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 const RESPONSE_POINTS = [
-  300, 340, 320, 360, 310, 305, 6100, 380, 360, 340, 350, 330, 360, 380, 1900, 360, 340, 320,
-  360, 340, 320, 310, 350, 360, 340, 360, 320, 310, 1100, 340, 360, 320, 340, 380, 340, 350,
-  340, 320, 360, 340, 320, 340, 360, 340, 360, 380, 340, 360, 340, 360, 340, 360, 380, 340,
-  360, 340, 360, 340, 360, 340, 360, 340, 360, 340, 360, 340, 380, 360, 340, 360, 340, 360,
-  340, 360, 340, 360, 340, 360, 340, 360, 340, 380, 360, 1700, 380, 2000, 380, 360, 340,
+  300, 340, 320, 360, 310, 305, 6100, 380, 360, 340, 350, 330, 360, 380, 1900, 360, 340, 320, 360,
+  340, 320, 310, 350, 360, 340, 360, 320, 310, 1100, 340, 360, 320, 340, 380, 340, 350, 340, 320,
+  360, 340, 320, 340, 360, 340, 360, 380, 340, 360, 340, 360, 340, 360, 380, 340, 360, 340, 360,
+  340, 360, 340, 360, 340, 360, 340, 360, 340, 380, 360, 340, 360, 340, 360, 340, 360, 340, 360,
+  340, 360, 340, 360, 340, 380, 360, 1700, 380, 2000, 380, 360, 340,
 ];
 
 function Field({
@@ -144,12 +154,7 @@ function Field({
         {pill ? (
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", pill)}>{value}</span>
         ) : (
-          <span
-            className={cn(
-              "text-sm text-foreground/90",
-              mono && "font-mono text-[13px]",
-            )}
-          >
+          <span className={cn("text-sm text-foreground/90", mono && "font-mono text-[13px]")}>
             {value}
           </span>
         )}
@@ -163,10 +168,10 @@ function UptimeBar({ kind }: { kind: "up" | "warn" | "slow" | "down" }) {
     kind === "down"
       ? "bg-rose-500"
       : kind === "warn"
-      ? "bg-amber-400"
-      : kind === "slow"
-      ? "bg-emerald-200"
-      : "bg-emerald-500";
+        ? "bg-amber-400"
+        : kind === "slow"
+          ? "bg-emerald-200"
+          : "bg-emerald-500";
   return <span className={cn("h-10 w-[3px] rounded-sm", color)} />;
 }
 
@@ -206,7 +211,11 @@ function CodeBlock({ code }: { code: string }) {
         }}
         className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs text-foreground/70 ring-1 ring-black/5 hover:bg-sky-50"
       >
-        {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
         {copied ? "Copied" : "Copy"}
       </button>
     </div>
@@ -267,11 +276,11 @@ function FirecrawlPage() {
           </Button>
           <Link to="/" className="flex items-center gap-2">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-orange-500 to-rose-600 shadow-sm">
-              <Flame className="h-4 w-4 text-white" />
+              <FirecrawlIcon className="h-5 w-5 text-white" />
             </div>
             <div className="leading-tight">
               <div className="text-xl font-medium tracking-tight">Firecrawl</div>
-              <div className="text-xs text-muted-foreground">MCP tool</div>
+              <div className="text-xs text-muted-foreground">v1.0.0 · active</div>
             </div>
           </Link>
         </div>
@@ -315,18 +324,6 @@ function FirecrawlPage() {
       <div className="flex">
         {sidebarOpen && (
           <aside className="hidden w-[240px] shrink-0 px-3 md:block">
-            <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-              <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-rose-600 text-white shadow">
-                  <Flame className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">Firecrawl</div>
-                  <div className="truncate text-xs text-muted-foreground">v1.0.0 · active</div>
-                </div>
-              </div>
-            </div>
-
             <nav className="space-y-1">
               {filteredNav.map((n) => {
                 const active = section === n.id;
@@ -336,9 +333,7 @@ function FirecrawlPage() {
                     onClick={() => setSection(n.id)}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
-                      active
-                        ? "bg-sky-100 text-sky-900"
-                        : "text-foreground/80 hover:bg-white/60",
+                      active ? "bg-sky-100 text-sky-900" : "text-foreground/80 hover:bg-white/60",
                     )}
                   >
                     <n.icon className="h-5 w-5 text-foreground/70" />
@@ -547,9 +542,7 @@ function FirecrawlPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-medium">Recent activity</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Latest MCP calls for this tool.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Latest MCP calls for this tool.</p>
                 </div>
                 <Link
                   to="/audit"
@@ -684,9 +677,24 @@ function FirecrawlPage() {
                   {[
                     { icon: Mail, name: "Email", desc: "Sent to admin@monomcp.dev", on: true },
                     { icon: Bell, name: "In-app", desc: "Shows in the bell menu.", on: true },
-                    { icon: Send, name: "Telegram", desc: "Direct message from MonoMCP bot.", soon: true },
-                    { icon: MessageSquare, name: "Slack", desc: "Posted to a workspace channel.", soon: true },
-                    { icon: Phone, name: "WhatsApp", desc: "Sent via WhatsApp Business.", soon: true },
+                    {
+                      icon: Send,
+                      name: "Telegram",
+                      desc: "Direct message from MonoMCP bot.",
+                      soon: true,
+                    },
+                    {
+                      icon: MessageSquare,
+                      name: "Slack",
+                      desc: "Posted to a workspace channel.",
+                      soon: true,
+                    },
+                    {
+                      icon: Phone,
+                      name: "WhatsApp",
+                      desc: "Sent via WhatsApp Business.",
+                      soon: true,
+                    },
                   ].map((c) => (
                     <li key={c.name} className="flex items-center gap-3 py-3">
                       <div className="grid h-9 w-9 place-items-center rounded-lg bg-[hsl(220,33%,97%)] text-foreground/70 ring-1 ring-black/5">
