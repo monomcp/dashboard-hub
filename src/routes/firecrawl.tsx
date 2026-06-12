@@ -172,7 +172,7 @@ function UptimeBar({ kind }: { kind: "up" | "warn" | "slow" | "down" }) {
         : kind === "slow"
           ? "bg-emerald-200"
           : "bg-emerald-500";
-  return <span className={cn("h-10 w-[3px] rounded-sm", color)} />;
+  return <span className={cn("h-10 w-full rounded-sm", color)} />;
 }
 
 function ResponseChart() {
@@ -606,7 +606,7 @@ function FirecrawlPage() {
                   </a>
                 </div>
                 <div className="mb-2 text-sm font-medium text-emerald-600">99.924%</div>
-                <div className="flex items-end gap-[2px]">
+                <div className="grid grid-cols-[repeat(90,minmax(0,1fr))] items-end gap-[2px]">
                   {UPTIME_BARS.map((k, i) => (
                     <UptimeBar key={i} kind={k} />
                   ))}
