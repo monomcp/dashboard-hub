@@ -1638,7 +1638,7 @@ function ChipList({
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
       {clean.map((item) => (
-        <span key={item} className="rounded-full bg-[#454935] px-3 py-1 text-xs text-[#e8eadb]">
+        <span key={item} className="rounded-xl bg-[#454935] px-3 py-1 text-xs text-[#e8eadb]">
           {item}
         </span>
       ))}
