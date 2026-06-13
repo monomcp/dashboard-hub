@@ -242,9 +242,28 @@ function MiniBars({ values, color }: { values: number[]; color: string }) {
 function EmailPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [view, setView] = useState<View>("metrics");
+  const [view, setView] = useState<View>("inbox");
   const [query, setQuery] = useState("");
   const [domainQuery, setDomainQuery] = useState("");
+  const [category, setCategory] = useState<Category>("primary");
+  const [openMsgId, setOpenMsgId] = useState<string | null>(null);
+  const [starred, setStarred] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(MESSAGES.map((m) => [m.id, m.starred])),
+  );
+  const [readIds, setReadIds] = useState<Set<string>>(
+    () => new Set(MESSAGES.filter((m) => !m.unread).map((m) => m.id)),
+  );
+
+  const visibleMessages = useMemo(
+    () => MESSAGES.filter((m) => m.category === category),
+    [category],
+  );
+  const openMsg = openMsgId ? MESSAGES.find((m) => m.id === openMsgId) ?? null : null;
+  const toggleStar = (id: string) => setStarred((s) => ({ ...s, [id]: !s[id] }));
+  const openMessage = (id: string) => {
+    setOpenMsgId(id);
+    setReadIds((r) => new Set(r).add(id));
+  };
 
   const filteredLogs = useMemo(() => {
     const q = query.trim().toLowerCase();
