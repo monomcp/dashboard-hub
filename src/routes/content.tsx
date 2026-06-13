@@ -29,6 +29,7 @@ import { ContentStrategyPanel } from "@/components/content-strategy-panel";
 import { SocialIdeasBoard } from "@/components/social-ideas-board";
 import { SocialCalendarList } from "@/components/social-calendar-list";
 import { SocialStrategyPanel } from "@/components/social-strategy-panel";
+import { SocialTemplateGallery } from "@/components/social-template-gallery";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { Page } from "@/lib/content-types";
@@ -351,6 +352,8 @@ function ContentPage() {
                 </Button>
               </div>
             )}
+
+            {businessId && mode === "social" && <SocialTemplateGallery />}
 
             {businessId && mode === "content" && section === "ideas" && (
               <ContentIdeasBoard

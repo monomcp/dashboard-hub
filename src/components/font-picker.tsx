@@ -81,14 +81,14 @@ export function FontPicker({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[var(--radix-popover-trigger-width)] border-white/10 bg-[#202318] p-0 text-[#e8eadb]"
+        className="max-h-[min(420px,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] overflow-hidden border-white/10 bg-[#202318] p-0 text-[#e8eadb]"
       >
-        <Command className="bg-transparent">
+        <Command className="max-h-[inherit] bg-transparent">
           <CommandInput
             placeholder="Search fonts…"
             className="text-[#e8eadb] placeholder:text-[#c4c8b0]/45"
           />
-          <CommandList>
+          <CommandList className="max-h-none flex-1">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-[#c4c8b0]">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading fonts…
