@@ -379,6 +379,183 @@ function EmailPage() {
 
         <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
           <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
+            {view === "inbox" && !openMsg && (
+              <>
+                <div className="mb-3 flex items-center gap-1 border-b border-black/5 pb-2">
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Refresh">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="More">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                  <div className="ml-auto text-xs text-muted-foreground">
+                    1–{visibleMessages.length} of {visibleMessages.length}
+                  </div>
+                </div>
+
+                <div className="mb-1 flex border-b border-black/5">
+                  {CATEGORIES.map((c) => {
+                    const active = c.id === category;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setCategory(c.id)}
+                        className={cn(
+                          "flex flex-1 items-center justify-center gap-2 border-b-2 px-3 py-3 text-sm transition",
+                          active
+                            ? "border-sky-600 text-sky-700"
+                            : "border-transparent text-foreground/70 hover:bg-[hsl(220,33%,97%)]",
+                        )}
+                      >
+                        <c.icon className={cn("h-4 w-4", active ? "text-sky-700" : "text-foreground/60")} />
+                        <span className="font-medium">{c.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <ul className="divide-y divide-black/5">
+                  {visibleMessages.map((m) => {
+                    const isUnread = !readIds.has(m.id);
+                    return (
+                      <li
+                        key={m.id}
+                        onClick={() => openMessage(m.id)}
+                        className={cn(
+                          "group flex cursor-pointer items-center gap-3 px-2 py-2.5 hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] hover:bg-white",
+                          isUnread ? "bg-white" : "bg-[hsl(220,33%,98%)]",
+                        )}
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleStar(m.id); }}
+                          className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-amber-500"
+                          aria-label="Star"
+                        >
+                          <Star
+                            className={cn("h-4 w-4", starred[m.id] && "fill-amber-400 text-amber-500")}
+                          />
+                        </button>
+                        <div
+                          className={cn(
+                            "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white",
+                            m.avatarColor,
+                          )}
+                        >
+                          {m.sender[0]}
+                        </div>
+                        <div
+                          className={cn(
+                            "w-[180px] shrink-0 truncate text-sm",
+                            isUnread ? "font-semibold text-foreground" : "text-foreground/80",
+                          )}
+                        >
+                          {m.sender}
+                        </div>
+                        <div className="min-w-0 flex-1 truncate text-sm">
+                          <span className={cn(isUnread ? "font-semibold text-foreground" : "text-foreground/80")}>
+                            {m.subject}
+                          </span>
+                          <span className="text-muted-foreground"> - {m.snippet}</span>
+                        </div>
+                        <div
+                          className={cn(
+                            "w-16 shrink-0 text-right text-xs",
+                            isUnread ? "font-semibold text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {m.date}
+                        </div>
+                      </li>
+                    );
+                  })}
+                  {visibleMessages.length === 0 && (
+                    <li className="px-4 py-12 text-center text-muted-foreground">
+                      No messages in {category}.
+                    </li>
+                  )}
+                </ul>
+              </>
+            )}
+
+            {view === "inbox" && openMsg && (
+              <>
+                <div className="mb-2 flex items-center gap-1 border-b border-black/5 pb-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    aria-label="Back"
+                    onClick={() => setOpenMsgId(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Archive">
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Delete">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Print">
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                  <div className="ml-auto text-xs text-muted-foreground">
+                    {MESSAGES.findIndex((x) => x.id === openMsg.id) + 1} of {MESSAGES.length}
+                  </div>
+                </div>
+
+                <div className="mb-4 flex items-start gap-3">
+                  <h1 className="flex-1 text-2xl font-normal tracking-tight">{openMsg.subject}</h1>
+                  <span className="rounded-md bg-[hsl(220,33%,95%)] px-2 py-0.5 text-xs text-foreground/70">
+                    Inbox
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      "grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-semibold text-white",
+                      openMsg.avatarColor,
+                    )}
+                  >
+                    {openMsg.sender[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="font-medium">{openMsg.sender}</span>
+                      <span className="text-xs text-muted-foreground">&lt;{openMsg.email}&gt;</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">to me</div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>{openMsg.date}</span>
+                    <button
+                      onClick={() => toggleStar(openMsg.id)}
+                      className="rounded-full p-1 hover:text-amber-500"
+                      aria-label="Star"
+                    >
+                      <Star className={cn("h-4 w-4", starred[openMsg.id] && "fill-amber-400 text-amber-500")} />
+                    </button>
+                    <Button variant="ghost" size="icon" className="rounded-full" aria-label="Reply">
+                      <Reply className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-6 whitespace-pre-line text-sm leading-7 text-foreground/90">
+                  {openMsg.body}
+                </div>
+
+                <div className="mt-8 flex gap-2">
+                  <Button variant="outline" className="gap-2 rounded-full">
+                    <Reply className="h-4 w-4" /> Reply
+                  </Button>
+                  <Button variant="outline" className="gap-2 rounded-full">
+                    <Forward className="h-4 w-4" /> Forward
+                  </Button>
+                </div>
+              </>
+            )}
+
             {view === "metrics" && (
               <>
                 <div className="mb-5 flex items-center justify-between">
