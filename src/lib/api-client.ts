@@ -21,7 +21,9 @@ function buildHeaders(init: RequestInit): Headers {
   const organizationId = localStorage.getItem("organization_id");
   const headers = new Headers(init.headers);
 
-  if (!headers.has("Content-Type") && init.body) {
+  // FormData sets its own multipart Content-Type (with boundary); forcing JSON
+  // here would corrupt the request, so only default JSON for other bodies.
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (accessToken) {
