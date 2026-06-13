@@ -642,7 +642,7 @@ function DnaBoard({
   return (
     <div className="grid gap-4 lg:grid-cols-[1.8fr_1fr]">
       <div className="grid content-start gap-4">
-        <div className={card}>
+        <div className={cn(card, "group")}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-4xl font-normal tracking-tight text-white">{profile.name}</h1>
@@ -677,7 +677,7 @@ function DnaBoard({
               </span>
             )}
           </div>
-          <div className={card}>
+          <div className={cn(card, "group")}>
             <div className="flex items-center justify-between gap-3">
               <h2 className={cardTitle}>Fonts</h2>
               <IconButton label="Edit visual identity" onClick={onEditVisual}>
@@ -700,7 +700,7 @@ function DnaBoard({
           </div>
         </div>
 
-        <div className={card}>
+        <div className={cn(card, "group")}>
           <div className="flex items-center justify-between gap-3">
             <h2 className={cardTitle}>Colors</h2>
             <IconButton label="Edit visual identity" onClick={onEditVisual}>
@@ -747,7 +747,7 @@ function DnaBoard({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className={card}>
+          <div className={cn(card, "group")}>
             <div className="flex items-center justify-between gap-3">
               <h2 className={cardTitle}>Tone of voice</h2>
               <IconButton label="Edit tone of voice" onClick={onEditTone}>
@@ -925,7 +925,7 @@ function CompetitorsView({
           competitors.map((competitor) => (
             <div
               key={competitor.id}
-              className="grid gap-3 border-b border-white/5 p-4 last:border-b-0 md:grid-cols-[1fr_1fr_1.4fr_auto]"
+              className="group grid gap-3 border-b border-white/5 p-4 last:border-b-0 md:grid-cols-[1fr_1fr_1.4fr_auto]"
             >
               <div>
                 <div className="text-sm font-medium text-white">{competitor.name}</div>
@@ -1664,11 +1664,13 @@ function IconButton({
   children,
   onClick,
   disabled,
+  className,
 }: {
   label: string;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  className?: string;
 }) {
   return (
     <Button
@@ -1679,7 +1681,11 @@ function IconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="h-9 w-9 rounded-full text-[#c4c8b0] hover:bg-white/10 hover:text-white"
+      className={cn(
+        "h-9 w-9 rounded-full text-[#c4c8b0] hover:bg-white/10 hover:text-white",
+        "opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100",
+        className,
+      )}
     >
       {children}
     </Button>
