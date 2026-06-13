@@ -88,7 +88,7 @@ export function FontPicker({
             placeholder="Search fonts…"
             className="text-[#e8eadb] placeholder:text-[#c4c8b0]/45"
           />
-          <CommandList className="max-h-[min(320px,calc(var(--radix-popover-content-available-height)-44px))] overflow-y-auto">
+          <CommandList className="max-h-[320px] overflow-y-auto overscroll-contain">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-[#c4c8b0]">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading fonts…
