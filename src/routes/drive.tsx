@@ -18,6 +18,7 @@ import {
   List,
   Grid3x3,
   Sparkles,
+  Settings,
   Trash2,
   RotateCcw,
   Star,
@@ -62,7 +63,7 @@ export const Route = createFileRoute("/drive")({
 });
 
 type DriveFileKind = "document" | "image" | "video" | "pdf" | "other";
-type DriveViewFilter = "my-drive" | "starred" | "trash";
+type DriveViewFilter = "my-drive" | "starred" | "system" | "trash";
 
 type Page<T> = {
   items: T[];
@@ -78,6 +79,7 @@ type DriveFolderResponse = {
   name: string;
   starred: boolean;
   is_trashed: boolean;
+  is_system: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -93,6 +95,7 @@ type DriveFileResponse = {
   storage_status: "pending_upload" | "ready" | "failed";
   starred: boolean;
   is_trashed: boolean;
+  is_system: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -109,6 +112,7 @@ const TEMPLATES = [
 const DRIVE_NAV = [
   { id: "my-drive", label: "My Drive", icon: Folder },
   { id: "starred", label: "Starred", icon: Sparkles },
+  { id: "system", label: "System", icon: Settings },
   { id: "trash", label: "Trash", icon: Trash2 },
 ] satisfies { id: DriveViewFilter; label: string; icon: typeof Folder }[];
 
@@ -196,7 +200,12 @@ function buildListPath(
   if (query.trim()) params.set("q", query.trim());
   if (filter === "starred") params.set("starred", "true");
   if (filter === "trash") params.set("trashed", "true");
-  if (filter === "my-drive" && folderId) {
+  // System view lists backend-managed folders; files only surface once you open
+  // one, so the flag is folders-only.
+  if (filter === "system" && base === "/api/v1/drive-folders" && !folderId) {
+    params.set("system", "true");
+  }
+  if ((filter === "my-drive" || filter === "system") && folderId) {
     params.set(base === "/api/v1/drive-folders" ? "parent_folder_id" : "folder_id", folderId);
   }
   return `${base}?${params.toString()}`;
@@ -304,6 +313,7 @@ function DrivePage() {
 
   const currentTitle = useMemo(() => {
     if (filter === "starred") return "Starred";
+    if (filter === "system") return "System";
     if (filter === "trash") return "Trash";
     return "My Drive";
   }, [filter]);
@@ -552,7 +562,7 @@ function DrivePage() {
               <DropdownMenuTrigger asChild>
                 <Button
                   className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
-                  disabled={mutating || filter === "trash"}
+                  disabled={mutating || filter === "trash" || filter === "system"}
                 >
                   <Plus className="mr-1 h-5 w-5" /> New
                 </Button>
@@ -766,6 +776,7 @@ function DrivePage() {
                       <DriveActions
                         trashed={filter === "trash"}
                         starred={folder.starred}
+                        system={folder.is_system}
                         disabled={mutating}
                         onToggleStar={() => updateFolder(folder, { starred: !folder.starred })}
                         onTrash={() => trashFolder(folder)}
@@ -814,6 +825,7 @@ function DrivePage() {
                         <DriveActions
                           trashed={filter === "trash"}
                           starred={file.starred}
+                          system={file.is_system}
                           disabled={mutating}
                           onToggleStar={() => updateFile(file, { starred: !file.starred })}
                           onTrash={() => trashFile(file)}
@@ -856,6 +868,7 @@ function DrivePage() {
                       <DriveActions
                         trashed={filter === "trash"}
                         starred={file.starred}
+                        system={file.is_system}
                         disabled={mutating}
                         onToggleStar={() => updateFile(file, { starred: !file.starred })}
                         onTrash={() => trashFile(file)}
@@ -876,7 +889,9 @@ function DrivePage() {
                   ? `No results for "${query}"`
                   : filter === "trash"
                     ? "Trash is empty"
-                    : "Drive is empty"}
+                    : filter === "system"
+                      ? "No system files yet"
+                      : "Drive is empty"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {query ? "Try a different keyword." : "Create a folder or document to get started."}
@@ -931,6 +946,7 @@ function DrivePage() {
 function DriveActions({
   trashed,
   starred,
+  system = false,
   disabled,
   onToggleStar,
   onTrash,
@@ -938,6 +954,7 @@ function DriveActions({
 }: {
   trashed: boolean;
   starred: boolean;
+  system?: boolean;
   disabled: boolean;
   onToggleStar: () => void;
   onTrash: () => void;
@@ -966,9 +983,11 @@ function DriveActions({
               <Star className={`h-4 w-4 ${starred ? "fill-yellow-400 text-yellow-400" : ""}`} />{" "}
               {starred ? "Unstar" : "Star"}
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 rounded-lg text-destructive" onSelect={onTrash}>
-              <Trash2 className="h-4 w-4" /> Move to trash
-            </DropdownMenuItem>
+            {!system && (
+              <DropdownMenuItem className="gap-2 rounded-lg text-destructive" onSelect={onTrash}>
+                <Trash2 className="h-4 w-4" /> Move to trash
+              </DropdownMenuItem>
+            )}
           </>
         )}
       </DropdownMenuContent>

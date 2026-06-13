@@ -12,9 +12,7 @@ const FAVOURITE_APPS: App[] = [
   { name: "Contacts", color: "bg-gradient-to-br from-sky-400 to-blue-600", letter: "C", to: "/contacts" },
   { name: "Tasks", color: "bg-gradient-to-br from-sky-400 to-indigo-500", letter: "✓", to: "/" },
   { name: "Email", color: "bg-gradient-to-br from-rose-500 via-amber-400 to-rose-400", letter: "✉", to: "/email" },
-  { name: "YouTube", color: "bg-red-500", letter: "▶" },
   { name: "Gemini", color: "bg-gradient-to-br from-blue-500 via-fuchsia-500 to-amber-400", letter: "✦" },
-  { name: "Maps", color: "bg-gradient-to-br from-green-500 via-yellow-400 to-red-500", letter: "◉" },
   { name: "Search", color: "bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500", letter: "G" },
   { name: "Calendar", color: "bg-sky-500", letter: "31", to: "/calendar" },
   { name: "CMS", color: "bg-gradient-to-br from-indigo-500 to-violet-600", letter: "✎", to: "/cms" },
@@ -29,10 +27,7 @@ const FAVOURITE_APPS: App[] = [
 const MORE_APPS: App[] = [
   { name: "News", color: "bg-blue-500", letter: "N" },
   { name: "Photos", color: "bg-gradient-to-br from-red-400 via-yellow-400 to-green-400", letter: "✿" },
-  { name: "Meet", color: "bg-amber-400", letter: "▶" },
   { name: "Translate", color: "bg-gradient-to-br from-blue-500 to-sky-400", letter: "文" },
-  { name: "Play", color: "bg-gradient-to-br from-indigo-500 to-violet-500", letter: "▷" },
-  { name: "Keep", color: "bg-emerald-500", letter: "+" },
 ];
 
 export function AppsMenu() {
