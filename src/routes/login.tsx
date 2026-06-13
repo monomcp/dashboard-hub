@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Apple, Mail } from "lucide-react";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,49 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  "118505185427-o25l1un5e065ls98l4c4t2nl9kmn2bi4.apps.googleusercontent.com";
+const GIS_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
+
+type GoogleCredentialResponse = { credential?: string };
+
+type GoogleAccountsId = {
+  initialize: (config: {
+    client_id: string;
+    callback: (response: GoogleCredentialResponse) => void;
+  }) => void;
+  prompt: () => void;
+  renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+};
+
+declare global {
+  interface Window {
+    google?: { accounts?: { id?: GoogleAccountsId } };
+  }
+}
+
+function loadGoogleIdentityScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.id) {
+      resolve();
+      return;
+    }
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${GIS_SCRIPT_SRC}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load Google sign-in")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = GIS_SCRIPT_SRC;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google sign-in"));
+    document.head.appendChild(script);
+  });
+}
 
 type MagicLinkResponse = {
   message: string;
@@ -31,19 +74,80 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-function GoogleMark() {
-  return (
-    <span className="grid h-4 w-4 place-items-center rounded-full text-sm font-semibold leading-none">
-      <span className="text-blue-600">G</span>
-    </span>
-  );
-}
-
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "verified" | "error">("idle");
   const [message, setMessage] = useState("");
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+
+  const persistTokens = useCallback(
+    async (tokens: TokenResponse) => {
+      localStorage.setItem("access_token", tokens.access_token);
+      localStorage.setItem("refresh_token", tokens.refresh_token);
+      localStorage.setItem("token_type", tokens.token_type);
+      setStatus("verified");
+      await navigate({ to: "/" });
+    },
+    [navigate],
+  );
+
+  const handleGoogleCredential = useCallback(
+    async (response: GoogleCredentialResponse) => {
+      if (!response.credential) {
+        setStatus("error");
+        setMessage("Google sign-in was cancelled. Please try again.");
+        return;
+      }
+      setStatus("sending");
+      setMessage("");
+      try {
+        const result = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: response.credential }),
+        });
+        const body = (await result.json().catch(() => ({}))) as TokenResponse & {
+          detail?: string;
+        };
+        if (!result.ok) {
+          throw new Error(body.detail || "Unable to sign in with Google. Please try again.");
+        }
+        await persistTokens(body);
+      } catch (error) {
+        setStatus("error");
+        setMessage(
+          error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        );
+      }
+    },
+    [persistTokens],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadGoogleIdentityScript()
+      .then(() => {
+        const id = window.google?.accounts?.id;
+        if (cancelled || !id || !googleButtonRef.current) return;
+        id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+        id.renderButton(googleButtonRef.current, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          text: "continue_with",
+          shape: "rectangular",
+          logo_alignment: "left",
+          width: 396,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setMessage("Google sign-in is unavailable right now.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [handleGoogleCredential]);
 
   const submitMagicLink = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -83,11 +187,7 @@ function LoginPage() {
           throw new Error(tokenBody.detail || "Unable to verify magic link. Please try again.");
         }
 
-        localStorage.setItem("access_token", tokenBody.access_token);
-        localStorage.setItem("refresh_token", tokenBody.refresh_token);
-        localStorage.setItem("token_type", tokenBody.token_type);
-        setStatus("verified");
-        await navigate({ to: "/" });
+        await persistTokens(tokenBody);
         return;
       }
 
@@ -163,10 +263,10 @@ function LoginPage() {
           </div>
 
           <div className="space-y-3">
-            <Button type="button" variant="outline" className="h-11 w-full rounded-lg bg-card">
-              <GoogleMark />
-              Continue with Google
-            </Button>
+            <div
+              ref={googleButtonRef}
+              className="flex min-h-11 w-full justify-center [color-scheme:light]"
+            />
             <Button type="button" variant="outline" className="h-11 w-full rounded-lg bg-card">
               <Apple className="h-4 w-4" aria-hidden="true" />
               Continue with Apple
