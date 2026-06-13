@@ -83,12 +83,12 @@ export function FontPicker({
         align="start"
         className="max-h-[min(420px,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] overflow-hidden border-white/10 bg-[#202318] p-0 text-[#e8eadb]"
       >
-        <Command className="max-h-[inherit] bg-transparent">
+        <Command className="bg-transparent">
           <CommandInput
             placeholder="Search fonts…"
             className="text-[#e8eadb] placeholder:text-[#c4c8b0]/45"
           />
-          <CommandList className="max-h-none flex-1">
+          <CommandList className="max-h-[min(320px,calc(var(--radix-popover-content-available-height)-44px))] overflow-y-auto">
             {loading && (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-[#c4c8b0]">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading fonts…

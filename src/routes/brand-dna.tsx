@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import type {
@@ -1464,10 +1465,98 @@ function NeedsProfile({ onSetup }: { onSetup: () => void }) {
 
 function LoadingState() {
   return (
-    <div className="grid min-h-80 place-items-center">
-      <Loader2 className="h-8 w-8 animate-spin text-[#cfe09a]" />
+    <div className="grid gap-4 lg:grid-cols-[1.8fr_1fr]" aria-label="Loading Brand DNA">
+      <div className="grid content-start gap-4">
+        <div className={card}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="w-full max-w-md space-y-4">
+              <BrandSkeleton className="h-12 w-64 max-w-full" />
+              <BrandSkeleton className="h-5 w-44" />
+            </div>
+            <BrandSkeleton className="h-9 w-9 rounded-full" />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
+          <div className="grid min-h-40 place-items-center rounded-3xl bg-[#f6f4ea]/90 p-6">
+            <BrandSkeleton className="h-20 w-20 rounded-full bg-[#1f2118]/15" />
+          </div>
+          <div className={card}>
+            <div className="flex items-center justify-between gap-3">
+              <BrandSkeleton className="h-5 w-20" />
+              <BrandSkeleton className="h-9 w-9 rounded-full" />
+            </div>
+            <div className="mt-6 flex gap-10">
+              <div className="space-y-3">
+                <BrandSkeleton className="h-10 w-14" />
+                <BrandSkeleton className="h-4 w-24" />
+              </div>
+              <div className="space-y-3">
+                <BrandSkeleton className="h-10 w-14" />
+                <BrandSkeleton className="h-4 w-32" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={card}>
+          <div className="flex items-center justify-between gap-3">
+            <BrandSkeleton className="h-5 w-20" />
+            <BrandSkeleton className="h-9 w-9 rounded-full" />
+          </div>
+          <div className="mt-5 flex flex-wrap gap-8">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="space-y-3">
+                <BrandSkeleton className="h-16 w-16 rounded-full" />
+                <BrandSkeleton className="h-3 w-14" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SkeletonTextCard lines={3} />
+          <SkeletonTextCard lines={2} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SkeletonTextCard lines={4} />
+          <SkeletonTextCard lines={3} />
+        </div>
+      </div>
+
+      <div className="grid content-start gap-4">
+        <div className={card}>
+          <BrandSkeleton className="h-5 w-24" />
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <BrandSkeleton className="aspect-square rounded-2xl" />
+            <BrandSkeleton className="aspect-square rounded-2xl" />
+          </div>
+        </div>
+        <SkeletonTextCard lines={5} />
+        <SkeletonTextCard lines={4} />
+      </div>
     </div>
   );
+}
+
+function SkeletonTextCard({ lines }: { lines: number }) {
+  return (
+    <div className={card}>
+      <BrandSkeleton className="h-5 w-28" />
+      <div className="mt-4 space-y-3">
+        {Array.from({ length: lines }).map((_, index) => (
+          <BrandSkeleton
+            key={index}
+            className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BrandSkeleton({ className }: { className?: string }) {
+  return <Skeleton className={cn("bg-[#c4c8b0]/12", className)} />;
 }
 
 function TextCard({
