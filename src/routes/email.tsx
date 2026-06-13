@@ -337,8 +337,9 @@ function EmailPage() {
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <Button
               className="mb-4 h-14 w-[160px] gap-2 rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
+              onClick={() => setView("inbox")}
             >
-              <Plus className="h-5 w-5" /> Send email
+              <Pencil className="h-5 w-5" /> Compose
             </Button>
 
             <nav className="space-y-1">
@@ -347,14 +348,17 @@ function EmailPage() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => setView(n.id)}
+                    onClick={() => { setView(n.id); setOpenMsgId(null); }}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
+                      "flex w-full items-center gap-3 rounded-r-full px-4 py-2 text-sm font-medium transition",
                       active ? "bg-rose-100 text-rose-900" : "text-foreground/80 hover:bg-white/60",
                     )}
                   >
                     <n.icon className="h-5 w-5 text-foreground/70" />
                     <span className="flex-1 truncate text-left">{n.label}</span>
+                    {n.count !== undefined && (
+                      <span className="text-xs text-foreground/70">{n.count}</span>
+                    )}
                   </button>
                 );
               })}
