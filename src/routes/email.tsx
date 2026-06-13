@@ -14,6 +14,19 @@ import {
   Download,
   CheckCircle2,
   ChevronDown,
+  Inbox,
+  Star,
+  Archive,
+  Trash2,
+  Reply,
+  Forward,
+  ArrowLeft,
+  Tag,
+  Users,
+  Info,
+  RefreshCw,
+  Printer,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,15 +37,15 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/email")({
   head: () => ({
     meta: [
-      { title: "Email — Metrics, Domains & Logs" },
+      { title: "Email — Inbox, Metrics, Domains & Logs" },
       {
         name: "description",
-        content: "Monitor email deliverability, manage sender domains, and inspect every send log.",
+        content: "Read your inbox, monitor email deliverability, manage sender domains, and inspect every send log.",
       },
-      { property: "og:title", content: "Email — Metrics, Domains & Logs" },
+      { property: "og:title", content: "Email — Inbox, Metrics, Domains & Logs" },
       {
         property: "og:description",
-        content: "Monitor email deliverability, manage sender domains, and inspect every send log.",
+        content: "Read your inbox, monitor email deliverability, manage sender domains, and inspect every send log.",
       },
     ],
     links: [{ rel: "canonical", href: "/email" }],
@@ -40,12 +53,51 @@ export const Route = createFileRoute("/email")({
   component: EmailPage,
 });
 
-type View = "metrics" | "domains" | "logs";
+type View = "inbox" | "metrics" | "domains" | "logs";
 
-const NAV: { id: View; label: string; icon: typeof BarChart3 }[] = [
+const NAV: { id: View; label: string; icon: typeof BarChart3; count?: number }[] = [
+  { id: "inbox", label: "Inbox", icon: Inbox, count: 17 },
   { id: "metrics", label: "Metrics", icon: BarChart3 },
   { id: "domains", label: "Domains", icon: Globe },
   { id: "logs", label: "Logs", icon: ScrollText },
+];
+
+type Category = "primary" | "promotions" | "social" | "updates";
+type Message = {
+  id: string;
+  sender: string;
+  email: string;
+  avatarColor: string;
+  subject: string;
+  snippet: string;
+  date: string;
+  unread: boolean;
+  starred: boolean;
+  category: Category;
+  body: string;
+};
+
+const MESSAGES: Message[] = [
+  { id: "m1", sender: "Google Search Console", email: "no-reply@google.com", avatarColor: "bg-blue-500", subject: "Congrats on reaching 3K clicks in 28 days!", snippet: "Google Search impact 3K layoff.today Congratulations! Your site rea…", date: "12 Jun", unread: true, starred: false, category: "primary", body: "Congratulations! Your site reached 3,000 clicks in the last 28 days. Keep up the great work — here's a breakdown of your top-performing queries and pages." },
+  { id: "m2", sender: "Reddit", email: "noreply@redditmail.com", avatarColor: "bg-orange-500", subject: "u/srch4aheartofgold replied to your post in r/Agentic_SEO", snippet: "what are you using for automation and how • Compl…", date: "12 Jun", unread: true, starred: false, category: "primary", body: "u/srch4aheartofgold replied to your post:\n\n\"What are you using for automation and how complex is your stack?\"\n\nView the full thread on Reddit." },
+  { id: "m3", sender: "stanley.ig@stanwith.me", email: "stanley.ig@stanwith.me", avatarColor: "bg-violet-500", subject: "Your Instagram already has the answers — want the plan?", snippet: "A faster way to decide what to post next", date: "12 Jun", unread: false, starred: true, category: "primary", body: "Hi Cooper,\n\nIf you've been meaning to revisit Stanley, here's the simplest way to make it instantly worth it: use it once to turn your recent Instagram performance into an actionable plan for what to post next.\n\n— Stanley" },
+  { id: "m4", sender: "Adi from AgentMail", email: "adi@agentmail.io", avatarColor: "bg-emerald-500", subject: "The customers without heartbeats - AgentNews#15", snippet: "Companies are shipping MCP servers before they even ship…", date: "11 Jun", unread: false, starred: false, category: "primary", body: "Companies are shipping MCP servers before they even ship a landing page. Here's why that matters for you — and what AgentMail is doing about it." },
+  { id: "m5", sender: "Alex, Pressmaster", email: "alex@pressmaster.ai", avatarColor: "bg-pink-500", subject: "Introducing your Thought Leadership Agent", snippet: "Hi Cooper, Today we're launching the thing we've been building to…", date: "11 Jun", unread: false, starred: false, category: "primary", body: "Hi Cooper,\n\nToday we're launching the thing we've been building toward for months: a Thought Leadership Agent that turns your raw notes into publish-ready articles." },
+  { id: "m6", sender: "AI SaaS Launchpad", email: "no-reply@skool.com", avatarColor: "bg-indigo-500", subject: "Willyam launch-SaaS posted \"👋 Introduce yourself, who's building with us?\"", snippet: "AI SaaS Launchpad skool logo Wil…", date: "11 Jun", unread: false, starred: false, category: "social", body: "Willyam launch-SaaS posted in AI SaaS Launchpad. Tap in and introduce yourself to the community." },
+  { id: "m7", sender: "Marie at Tally", email: "marie@tally.so", avatarColor: "bg-teal-500", subject: "New formula editor in Tally", snippet: "Plus: submission PDFs in emails and integrations Hi Cooper AI, The updates we're pr…", date: "11 Jun", unread: false, starred: false, category: "updates", body: "Hi Cooper,\n\nThe updates we're proudest of this month: a new formula editor, submission PDFs delivered in your notification emails, and three new integrations." },
+  { id: "m8", sender: "Growth.Design", email: "hi@growth.design", avatarColor: "bg-yellow-500", subject: "🚀 UX in 60 seconds", snippet: "#036: Signs it was built with AI…", date: "11 Jun", unread: false, starred: false, category: "promotions", body: "#036: Signs it was built with AI — and the design moves that make it feel handcrafted instead." },
+  { id: "m9", sender: "Reddit", email: "noreply@redditmail.com", avatarColor: "bg-orange-500", subject: "\"The UI trap that could cost you $1,000\"", snippet: "r/lovable: The UI trap that could cost you $1000 …", date: "10 Jun", unread: false, starred: false, category: "primary", body: "From r/lovable: The UI trap that could cost you $1,000 — a quick read on the most common pitfalls." },
+  { id: "m10", sender: "daily.dev", email: "hello@daily.dev", avatarColor: "bg-slate-700", subject: "Cooper, your personal update from daily.dev is ready", snippet: "Here's what developers in your topics are reading and bo…", date: "10 Jun", unread: false, starred: false, category: "updates", body: "Here's what developers in your topics are reading and bookmarking this week. Top picks tailored to your feed." },
+  { id: "m11", sender: "Reddit", email: "noreply@redditmail.com", avatarColor: "bg-orange-500", subject: "\"How my private Lovable App Generated a $4,000 Bill in ~2 Hours\"", snippet: "r/lovable: How my private Lovable App Gen…", date: "9 Jun", unread: false, starred: false, category: "primary", body: "From r/lovable: How my private Lovable App Generated a $4,000 Bill in ~2 Hours — a cautionary tale and a postmortem." },
+  { id: "m12", sender: "RareBody", email: "team@rarebody.co", avatarColor: "bg-rose-500", subject: "Now Live! Booked and Busy in App NOW 💪", snippet: "It's live. Booked and Busy is open now, your 4-week shred starts to…", date: "7 Jun", unread: false, starred: false, category: "promotions", body: "It's live. Booked and Busy is open now — your 4-week shred starts today. Join the cohort." },
+  { id: "m13", sender: "Supabase", email: "news@supabase.com", avatarColor: "bg-emerald-600", subject: "Supa Update June 2026", snippet: "Everything that happened in the last month at Supabase", date: "6 Jun", unread: false, starred: false, category: "updates", body: "Everything that happened in the last month at Supabase — new launches, deep dives, and community highlights." },
+];
+
+const CATEGORIES: { id: Category; label: string; icon: typeof Inbox }[] = [
+  { id: "primary", label: "Primary", icon: Inbox },
+  { id: "promotions", label: "Promotions", icon: Tag },
+  { id: "social", label: "Social", icon: Users },
+  { id: "updates", label: "Updates", icon: Info },
 ];
 
 // ───────────────────────── Metrics data ─────────────────────────
@@ -190,9 +242,28 @@ function MiniBars({ values, color }: { values: number[]; color: string }) {
 function EmailPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [view, setView] = useState<View>("metrics");
+  const [view, setView] = useState<View>("inbox");
   const [query, setQuery] = useState("");
   const [domainQuery, setDomainQuery] = useState("");
+  const [category, setCategory] = useState<Category>("primary");
+  const [openMsgId, setOpenMsgId] = useState<string | null>(null);
+  const [starred, setStarred] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(MESSAGES.map((m) => [m.id, m.starred])),
+  );
+  const [readIds, setReadIds] = useState<Set<string>>(
+    () => new Set(MESSAGES.filter((m) => !m.unread).map((m) => m.id)),
+  );
+
+  const visibleMessages = useMemo(
+    () => MESSAGES.filter((m) => m.category === category),
+    [category],
+  );
+  const openMsg = openMsgId ? MESSAGES.find((m) => m.id === openMsgId) ?? null : null;
+  const toggleStar = (id: string) => setStarred((s) => ({ ...s, [id]: !s[id] }));
+  const openMessage = (id: string) => {
+    setOpenMsgId(id);
+    setReadIds((r) => new Set(r).add(id));
+  };
 
   const filteredLogs = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -266,8 +337,9 @@ function EmailPage() {
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <Button
               className="mb-4 h-14 w-[160px] gap-2 rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
+              onClick={() => setView("inbox")}
             >
-              <Plus className="h-5 w-5" /> Send email
+              <Pencil className="h-5 w-5" /> Compose
             </Button>
 
             <nav className="space-y-1">
@@ -276,14 +348,17 @@ function EmailPage() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => setView(n.id)}
+                    onClick={() => { setView(n.id); setOpenMsgId(null); }}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
+                      "flex w-full items-center gap-3 rounded-r-full px-4 py-2 text-sm font-medium transition",
                       active ? "bg-rose-100 text-rose-900" : "text-foreground/80 hover:bg-white/60",
                     )}
                   >
                     <n.icon className="h-5 w-5 text-foreground/70" />
                     <span className="flex-1 truncate text-left">{n.label}</span>
+                    {n.count !== undefined && (
+                      <span className="text-xs text-foreground/70">{n.count}</span>
+                    )}
                   </button>
                 );
               })}
@@ -304,6 +379,183 @@ function EmailPage() {
 
         <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
           <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
+            {view === "inbox" && !openMsg && (
+              <>
+                <div className="mb-3 flex items-center gap-1 border-b border-black/5 pb-2">
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Refresh">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="More">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                  <div className="ml-auto text-xs text-muted-foreground">
+                    1–{visibleMessages.length} of {visibleMessages.length}
+                  </div>
+                </div>
+
+                <div className="mb-1 flex border-b border-black/5">
+                  {CATEGORIES.map((c) => {
+                    const active = c.id === category;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setCategory(c.id)}
+                        className={cn(
+                          "flex flex-1 items-center justify-center gap-2 border-b-2 px-3 py-3 text-sm transition",
+                          active
+                            ? "border-sky-600 text-sky-700"
+                            : "border-transparent text-foreground/70 hover:bg-[hsl(220,33%,97%)]",
+                        )}
+                      >
+                        <c.icon className={cn("h-4 w-4", active ? "text-sky-700" : "text-foreground/60")} />
+                        <span className="font-medium">{c.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <ul className="divide-y divide-black/5">
+                  {visibleMessages.map((m) => {
+                    const isUnread = !readIds.has(m.id);
+                    return (
+                      <li
+                        key={m.id}
+                        onClick={() => openMessage(m.id)}
+                        className={cn(
+                          "group flex cursor-pointer items-center gap-3 px-2 py-2.5 hover:shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] hover:bg-white",
+                          isUnread ? "bg-white" : "bg-[hsl(220,33%,98%)]",
+                        )}
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleStar(m.id); }}
+                          className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-amber-500"
+                          aria-label="Star"
+                        >
+                          <Star
+                            className={cn("h-4 w-4", starred[m.id] && "fill-amber-400 text-amber-500")}
+                          />
+                        </button>
+                        <div
+                          className={cn(
+                            "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white",
+                            m.avatarColor,
+                          )}
+                        >
+                          {m.sender[0]}
+                        </div>
+                        <div
+                          className={cn(
+                            "w-[180px] shrink-0 truncate text-sm",
+                            isUnread ? "font-semibold text-foreground" : "text-foreground/80",
+                          )}
+                        >
+                          {m.sender}
+                        </div>
+                        <div className="min-w-0 flex-1 truncate text-sm">
+                          <span className={cn(isUnread ? "font-semibold text-foreground" : "text-foreground/80")}>
+                            {m.subject}
+                          </span>
+                          <span className="text-muted-foreground"> - {m.snippet}</span>
+                        </div>
+                        <div
+                          className={cn(
+                            "w-16 shrink-0 text-right text-xs",
+                            isUnread ? "font-semibold text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {m.date}
+                        </div>
+                      </li>
+                    );
+                  })}
+                  {visibleMessages.length === 0 && (
+                    <li className="px-4 py-12 text-center text-muted-foreground">
+                      No messages in {category}.
+                    </li>
+                  )}
+                </ul>
+              </>
+            )}
+
+            {view === "inbox" && openMsg && (
+              <>
+                <div className="mb-2 flex items-center gap-1 border-b border-black/5 pb-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    aria-label="Back"
+                    onClick={() => setOpenMsgId(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Archive">
+                    <Archive className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Delete">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="rounded-full" aria-label="Print">
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                  <div className="ml-auto text-xs text-muted-foreground">
+                    {MESSAGES.findIndex((x) => x.id === openMsg.id) + 1} of {MESSAGES.length}
+                  </div>
+                </div>
+
+                <div className="mb-4 flex items-start gap-3">
+                  <h1 className="flex-1 text-2xl font-normal tracking-tight">{openMsg.subject}</h1>
+                  <span className="rounded-md bg-[hsl(220,33%,95%)] px-2 py-0.5 text-xs text-foreground/70">
+                    Inbox
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      "grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-semibold text-white",
+                      openMsg.avatarColor,
+                    )}
+                  >
+                    {openMsg.sender[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="font-medium">{openMsg.sender}</span>
+                      <span className="text-xs text-muted-foreground">&lt;{openMsg.email}&gt;</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">to me</div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>{openMsg.date}</span>
+                    <button
+                      onClick={() => toggleStar(openMsg.id)}
+                      className="rounded-full p-1 hover:text-amber-500"
+                      aria-label="Star"
+                    >
+                      <Star className={cn("h-4 w-4", starred[openMsg.id] && "fill-amber-400 text-amber-500")} />
+                    </button>
+                    <Button variant="ghost" size="icon" className="rounded-full" aria-label="Reply">
+                      <Reply className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-6 whitespace-pre-line text-sm leading-7 text-foreground/90">
+                  {openMsg.body}
+                </div>
+
+                <div className="mt-8 flex gap-2">
+                  <Button variant="outline" className="gap-2 rounded-full">
+                    <Reply className="h-4 w-4" /> Reply
+                  </Button>
+                  <Button variant="outline" className="gap-2 rounded-full">
+                    <Forward className="h-4 w-4" /> Forward
+                  </Button>
+                </div>
+              </>
+            )}
+
             {view === "metrics" && (
               <>
                 <div className="mb-5 flex items-center justify-between">
