@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
@@ -33,6 +34,11 @@ const TermsRoute = TermsRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
 }
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
 }
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
 }
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/firecrawl'
     | '/login'
+    | '/mcp'
     | '/privacy'
     | '/terms'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/firecrawl'
     | '/login'
+    | '/mcp'
     | '/privacy'
     | '/terms'
   id:
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/firecrawl'
     | '/login'
+    | '/mcp'
     | '/privacy'
     | '/terms'
   fileRoutesById: FileRoutesById
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
   LoginRoute: typeof LoginRoute
+  McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
 }
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
   LoginRoute: LoginRoute,
+  McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
 }

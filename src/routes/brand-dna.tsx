@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
   Dna,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
+import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { FontPicker } from "@/components/font-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +56,7 @@ import {
   uploadBrandImage,
 } from "@/lib/drive-system";
 import { fontStack, useGoogleFonts } from "@/lib/fonts";
+import type { CatalogServer } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/brand-dna")({
@@ -203,6 +206,15 @@ function BrandDnaPage() {
   const [toneForm, setToneForm] = useState<ToneForm>(EMPTY_TONE_FORM);
   const [visualForm, setVisualForm] = useState<VisualForm>(EMPTY_VISUAL_FORM);
   const [competitorForm, setCompetitorForm] = useState<CompetitorForm>(EMPTY_COMPETITOR_FORM);
+
+  // Enable-state of the "brand" MCP server for this org (drives the header
+  // "Enable this MCP server" control). The enable mutation invalidates this key.
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 60 * 1000,
+  });
+  const brandServer = catalog?.find((s) => s.slug === "brand");
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "Brand request failed") => {
@@ -492,6 +504,15 @@ function BrandDnaPage() {
           </Link>
         </div>
         <div className="flex items-center gap-1">
+          {brandServer && (
+            <div className="mr-1">
+              <EnableMcpServerButton
+                serverSlug="brand"
+                enabled={brandServer.enabled}
+                toolkitIds={brandServer.toolkit_ids}
+              />
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"

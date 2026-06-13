@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   Menu,
@@ -27,6 +28,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppsMenu } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
+import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
+import { apiRequest } from "@/lib/api-client";
+import type { CatalogServer } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/firecrawl")({
@@ -262,6 +266,13 @@ function FirecrawlPage() {
     return NAV.filter((n) => n.label.toLowerCase().includes(q));
   }, [query]);
 
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 60 * 1000,
+  });
+  const server = catalog?.find((s) => s.slug === "firecrawl");
+
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
       <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
@@ -300,6 +311,15 @@ function FirecrawlPage() {
           </div>
         )}
         <div className="flex items-center gap-1">
+          {server && (
+            <div className="mr-1">
+              <EnableMcpServerButton
+                serverSlug="firecrawl"
+                enabled={server.enabled}
+                toolkitIds={server.toolkit_ids}
+              />
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
