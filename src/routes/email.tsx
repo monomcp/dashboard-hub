@@ -377,7 +377,12 @@ function EmailPage() {
           </aside>
         )}
 
-        <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
+        <main
+          className={cn(
+            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
+            sidebarOpen ? "md:pl-0" : "md:pl-6",
+          )}
+        >
           <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
             {view === "inbox" && !openMsg && (
               <>
