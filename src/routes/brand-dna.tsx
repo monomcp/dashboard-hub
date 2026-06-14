@@ -1,6 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  type FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Dna,
   ExternalLink,
@@ -12,6 +20,7 @@ import {
   MessageSquareQuote,
   MousePointerClick,
   Pencil,
+  Plug,
   Plus,
   Save,
   Search,
@@ -21,7 +30,6 @@ import {
   Swords,
   Trash2,
   Upload,
-  Wrench,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
@@ -108,6 +116,8 @@ type RequestLogDetail = RequestLogSummary & {
   response_body: unknown;
   meta: Record<string, unknown>;
 };
+
+const ACTIVITY_PAGE_SIZE = 50;
 
 type Page<T> = {
   items: T[];
@@ -610,10 +620,7 @@ function BrandDnaPage() {
         )}
 
         <main
-          className={cn(
-            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
-            sidebarOpen ? "md:pl-0" : "md:pl-6",
-          )}
+          className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
           {error && (
             <div className="mb-4 rounded-2xl bg-rose-950/70 px-4 py-3 text-sm text-rose-100 ring-1 ring-rose-300/20">
@@ -1040,27 +1047,59 @@ function CompetitorsView({
 
 function ActivityView({ onApiError }: { onApiError: (err: unknown, fallback?: string) => void }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["brand-activity"],
-    queryFn: () =>
-      apiRequest<Page<RequestLogSummary>>("/api/v1/request-logs?limit=200"),
-    staleTime: 30 * 1000,
-  });
+  const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, error } =
+    useInfiniteQuery({
+      queryKey: ["brand-activity"],
+      queryFn: ({ pageParam }) =>
+        apiRequest<Page<RequestLogSummary>>(
+          `/api/v1/request-logs?limit=${ACTIVITY_PAGE_SIZE}&offset=${pageParam}&sort=created_at&direction=desc`,
+        ),
+      initialPageParam: 0,
+      getNextPageParam: (lastPage) => {
+        const nextOffset = lastPage.offset + lastPage.items.length;
+        return nextOffset < lastPage.total ? nextOffset : undefined;
+      },
+      staleTime: 30 * 1000,
+    });
 
   useEffect(() => {
     if (error) onApiError(error, "Could not load activity");
   }, [error, onApiError]);
 
   // Brand DNA only: UI calls hit /api/v1/brand/*, MCP calls use brand_* tools.
-  const logs = (data?.items ?? []).filter(isBrandLog);
+  const logs = useMemo(
+    () =>
+      (data?.pages.flatMap((page) => page.items) ?? [])
+        .filter(isBrandLog)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [data],
+  );
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasNextPage) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "240px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   return (
     <div className="grid content-start gap-4">
       <div className={card}>
         <h1 className="text-2xl font-normal tracking-tight text-white">Activity</h1>
         <p className={cn("mt-2", mutedText)}>
-          Every change made through the dashboard (UI) and via MCP tool calls.
+          Every change made through Console and via MCP tool calls.
         </p>
       </div>
 
@@ -1092,7 +1131,7 @@ function ActivityView({ onApiError }: { onApiError: (err: unknown, fallback?: st
                   <td className="px-4 py-3">
                     <div className="font-medium text-white">{eventLabel(log)}</div>
                     <div className="mt-0.5 truncate text-xs text-[#e8eadb]/55">
-                      {log.tool_name ? log.path ?? log.method : log.path}
+                      {log.tool_name ? (log.path ?? log.method) : log.path}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -1121,6 +1160,11 @@ function ActivityView({ onApiError }: { onApiError: (err: unknown, fallback?: st
             )}
           </tbody>
         </table>
+      </div>
+
+      <div ref={loadMoreRef} className="grid min-h-8 place-items-center text-sm text-[#e8eadb]/55">
+        {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin" />}
+        {!isFetchingNextPage && hasNextPage && "Loading more activity..."}
       </div>
 
       <ActivityDetailDialog
@@ -1167,7 +1211,7 @@ function ActivityDetailDialog({
         ) : (
           <div className="mt-4 grid gap-4">
             <dl className="grid grid-cols-2 gap-3 text-sm">
-              <Detail label="Source" value={data.source === "mcp" ? "MCP" : "UI"} />
+              <Detail label="Source" value={data.source === "mcp" ? "MCP" : "Console"} />
               <Detail label="Status" value={data.outcome ?? statusLabel(data.status_code)} />
               <Detail label="When" value={new Date(data.created_at).toLocaleString()} />
               <Detail
@@ -1215,9 +1259,7 @@ function JsonBlock({ value, truncated }: { value: unknown; truncated?: boolean }
       <pre className="overflow-auto rounded-xl bg-[#202318] p-3 text-xs leading-relaxed text-[#e8eadb]/90 ring-1 ring-white/5">
         {value == null ? "—" : JSON.stringify(value, null, 2)}
       </pre>
-      {truncated && (
-        <p className="mt-1 text-xs text-[#e8eadb]/45">Payload truncated.</p>
-      )}
+      {truncated && <p className="mt-1 text-xs text-[#e8eadb]/45">Payload truncated.</p>}
     </div>
   );
 }
@@ -1231,8 +1273,8 @@ function SourceBadge({ source }: { source: RequestLogSource }) {
         mcp ? "bg-violet-500/20 text-violet-200" : "bg-sky-500/20 text-sky-200",
       )}
     >
-      {mcp ? <Wrench className="h-3 w-3" /> : <MousePointerClick className="h-3 w-3" />}
-      {mcp ? "MCP" : "UI"}
+      {mcp ? <Plug className="h-3 w-3" /> : <MousePointerClick className="h-3 w-3" />}
+      {mcp ? "MCP" : "Console"}
     </span>
   );
 }
