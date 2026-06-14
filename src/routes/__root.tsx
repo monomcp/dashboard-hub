@@ -122,10 +122,11 @@ function RootComponent() {
   const [canRender, setCanRender] = useState(false);
 
   useEffect(() => {
-    const isLoginPage = location.pathname === "/login";
+    const publicPaths = ["/login", "/auth/magic-link/confirm"];
+    const isPublicPage = publicPaths.includes(location.pathname);
     const hasAccessToken = Boolean(localStorage.getItem("access_token"));
 
-    if (!isLoginPage && !hasAccessToken) {
+    if (!isPublicPage && !hasAccessToken) {
       void navigate({ to: "/login", replace: true });
       setCanRender(false);
       return;
