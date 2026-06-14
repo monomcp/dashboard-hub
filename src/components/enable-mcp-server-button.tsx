@@ -1,14 +1,20 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Loader2, Plus, Power } from "lucide-react";
+import { Check, Copy, Loader2, Plus, Power, PowerOff } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ApiError, apiRequest } from "@/lib/api-client";
 import {
   type EnableServerRequest,
@@ -48,23 +54,18 @@ function useActiveOrgSlug(): string | null {
   const memberships = data?.memberships ?? [];
   const storedOrgId =
     typeof window !== "undefined" ? localStorage.getItem("organization_id") : null;
-  const active =
-    memberships.find((m) => m.organization_id === storedOrgId) ?? memberships[0];
+  const active = memberships.find((m) => m.organization_id === storedOrgId) ?? memberships[0];
   return active?.organization_slug ?? null;
 }
 
-export function EnableMcpServerButton({
-  serverSlug,
-  enabled,
-  toolkitIds,
-  onEnabled,
-}: Props) {
+export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
   const queryClient = useQueryClient();
   const orgSlug = useActiveOrgSlug();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string>("default");
   const [newName, setNewName] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmDisable, setConfirmDisable] = useState(false);
 
   const { data: toolkitPage } = useQuery({
     queryKey: ["toolkits"],
@@ -91,6 +92,19 @@ export function EnableMcpServerButton({
       queryClient.invalidateQueries({ queryKey: ["toolkits"] });
       setOpen(false);
       setNewName("");
+      onEnabled?.();
+    },
+  });
+
+  const disableMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<void>(`/api/v1/mcp-catalog/${serverSlug}/disable`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mcp-catalog"] });
+      queryClient.invalidateQueries({ queryKey: ["toolkits"] });
+      setConfirmDisable(false);
       onEnabled?.();
     },
   });
@@ -179,15 +193,9 @@ export function EnableMcpServerButton({
         className="mt-4 w-full rounded-full"
         size="sm"
         onClick={submit}
-        disabled={
-          enableMutation.isPending || (selected === NEW_TOOLKIT && !newName.trim())
-        }
+        disabled={enableMutation.isPending || (selected === NEW_TOOLKIT && !newName.trim())}
       >
-        {enableMutation.isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          "Enable"
-        )}
+        {enableMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enable"}
       </Button>
     </PopoverContent>
   );
@@ -223,6 +231,47 @@ export function EnableMcpServerButton({
           </PopoverTrigger>
           {picker}
         </Popover>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full text-destructive hover:text-destructive"
+          onClick={() => setConfirmDisable(true)}
+        >
+          <PowerOff className="h-4 w-4" />
+          Disable
+        </Button>
+
+        <AlertDialog open={confirmDisable} onOpenChange={setConfirmDisable}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes this MCP server's tools from your toolkits. Clients using the gateway
+                endpoint will no longer see these tools. You can re-enable it anytime.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {disableMutation.error && (
+              <p className="text-xs text-destructive">
+                {disableMutation.error instanceof ApiError
+                  ? disableMutation.error.message
+                  : "Failed to disable. Please try again."}
+              </p>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={disableMutation.isPending}>No</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  disableMutation.mutate();
+                }}
+                disabled={disableMutation.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {disableMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yes"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
