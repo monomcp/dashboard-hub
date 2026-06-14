@@ -1044,7 +1044,7 @@ function ActivityView({ onApiError }: { onApiError: (err: unknown, fallback?: st
   const { data, isLoading, error } = useQuery({
     queryKey: ["brand-activity"],
     queryFn: () =>
-      apiRequest<Page<RequestLogSummary>>("/api/v1/request-logs?limit=100"),
+      apiRequest<Page<RequestLogSummary>>("/api/v1/request-logs?limit=200"),
     staleTime: 30 * 1000,
   });
 
@@ -1052,7 +1052,8 @@ function ActivityView({ onApiError }: { onApiError: (err: unknown, fallback?: st
     if (error) onApiError(error, "Could not load activity");
   }, [error, onApiError]);
 
-  const logs = data?.items ?? [];
+  // Brand DNA only: UI calls hit /api/v1/brand/*, MCP calls use brand_* tools.
+  const logs = (data?.items ?? []).filter(isBrandLog);
 
   return (
     <div className="grid content-start gap-4">
@@ -1243,6 +1244,11 @@ function StatusDot({ outcome }: { outcome: string | null }) {
       className={cn("inline-block h-2 w-2 rounded-full", ok ? "bg-emerald-400" : "bg-rose-400")}
     />
   );
+}
+
+function isBrandLog(log: RequestLogSummary) {
+  if (log.tool_name) return log.tool_name.startsWith("brand_");
+  return Boolean(log.path?.startsWith("/api/v1/brand"));
 }
 
 function eventLabel(log: RequestLogSummary) {
