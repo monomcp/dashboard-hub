@@ -10,15 +10,18 @@ import {
   Loader2,
   Menu,
   MessageSquareQuote,
+  MousePointerClick,
   Pencil,
   Plus,
   Save,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Swords,
   Trash2,
   Upload,
+  Wrench,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
@@ -78,7 +81,40 @@ export const Route = createFileRoute("/brand-dna")({
   component: BrandDnaPage,
 });
 
-type BrandView = "dna" | "tov" | "competitors";
+type BrandView = "dna" | "tov" | "competitors" | "activity";
+
+type RequestLogSource = "api" | "mcp";
+
+type RequestLogSummary = {
+  id: string;
+  organization_id: string | null;
+  source: RequestLogSource;
+  method: string | null;
+  path: string | null;
+  tool_name: string | null;
+  status_code: number | null;
+  outcome: string | null;
+  duration_ms: number | null;
+  actor_user_id: string | null;
+  api_key_id: string | null;
+  request_truncated: boolean;
+  response_truncated: boolean;
+  ip: string | null;
+  created_at: string;
+};
+
+type RequestLogDetail = RequestLogSummary & {
+  request_body: unknown;
+  response_body: unknown;
+  meta: Record<string, unknown>;
+};
+
+type Page<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
 
 type ProfileForm = {
   name: string;
@@ -126,6 +162,7 @@ const NAV = [
   { id: "dna", label: "Brand DNA", icon: Dna },
   { id: "tov", label: "ToV", icon: MessageSquareQuote },
   { id: "competitors", label: "Competitors", icon: Swords },
+  { id: "activity", label: "Activity", icon: ShieldCheck },
 ] satisfies { id: BrandView; label: string; icon: typeof Dna }[];
 
 const EMPTY_PROFILE_FORM: ProfileForm = {
@@ -469,6 +506,8 @@ function BrandDnaPage() {
     ) : (
       <NeedsProfile onSetup={openProfileDialog} />
     );
+  } else if (!loading && view === "activity") {
+    viewContent = <ActivityView onApiError={handleApiError} />;
   } else if (!loading) {
     viewContent = profile ? (
       <CompetitorsView
@@ -997,6 +1036,234 @@ function CompetitorsView({
       </div>
     </div>
   );
+}
+
+function ActivityView({ onApiError }: { onApiError: (err: unknown, fallback?: string) => void }) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["brand-activity"],
+    queryFn: () =>
+      apiRequest<Page<RequestLogSummary>>("/api/v1/request-logs?limit=100"),
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    if (error) onApiError(error, "Could not load activity");
+  }, [error, onApiError]);
+
+  const logs = data?.items ?? [];
+
+  return (
+    <div className="grid content-start gap-4">
+      <div className={card}>
+        <h1 className="text-2xl font-normal tracking-tight text-white">Activity</h1>
+        <p className={cn("mt-2", mutedText)}>
+          Every change made through the dashboard (UI) and via MCP tool calls.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl bg-[#33362a] ring-1 ring-white/5">
+        <table className="w-full text-sm">
+          <thead className="bg-[#2d3024] text-xs uppercase tracking-wide text-[#c4c8b0]/70">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Event</th>
+              <th className="px-4 py-3 text-left font-medium">Source</th>
+              <th className="px-4 py-3 text-left font-medium">When</th>
+              <th className="px-4 py-3 text-left font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && (
+              <tr>
+                <td colSpan={4} className="px-4 py-10 text-center text-[#e8eadb]/60">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                </td>
+              </tr>
+            )}
+            {!isLoading &&
+              logs.map((log) => (
+                <tr
+                  key={log.id}
+                  onClick={() => setSelectedId(log.id)}
+                  className="cursor-pointer border-t border-white/5 transition hover:bg-white/5"
+                >
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-white">{eventLabel(log)}</div>
+                    <div className="mt-0.5 truncate text-xs text-[#e8eadb]/55">
+                      {log.tool_name ? log.path ?? log.method : log.path}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <SourceBadge source={log.source} />
+                  </td>
+                  <td className="px-4 py-3 text-[#e8eadb]/65">{timeAgo(log.created_at)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <StatusDot outcome={log.outcome} />
+                      <span className="capitalize text-[#e8eadb]/80">
+                        {log.outcome ?? statusLabel(log.status_code)}
+                      </span>
+                      {log.duration_ms != null && (
+                        <span className="text-xs text-[#e8eadb]/45">· {log.duration_ms}ms</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            {!isLoading && logs.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-10 text-center text-[#e8eadb]/60">
+                  No activity recorded yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <ActivityDetailDialog
+        logId={selectedId}
+        onOpenChange={(open) => !open && setSelectedId(null)}
+        onApiError={onApiError}
+      />
+    </div>
+  );
+}
+
+function ActivityDetailDialog({
+  logId,
+  onOpenChange,
+  onApiError,
+}: {
+  logId: string | null;
+  onOpenChange: (open: boolean) => void;
+  onApiError: (err: unknown, fallback?: string) => void;
+}) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["brand-activity", logId],
+    queryFn: () => apiRequest<RequestLogDetail>(`/api/v1/request-logs/${logId}`),
+    enabled: Boolean(logId),
+  });
+
+  useEffect(() => {
+    if (error) onApiError(error, "Could not load activity detail");
+  }, [error, onApiError]);
+
+  return (
+    <Dialog open={Boolean(logId)} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl bg-[#272a1f] text-[#e8eadb] sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {data && <SourceBadge source={data.source} />}
+            {data ? eventLabel(data) : "Activity detail"}
+          </DialogTitle>
+        </DialogHeader>
+        {isLoading || !data ? (
+          <div className="grid place-items-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-[#e8eadb]/60" />
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-4">
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <Detail label="Source" value={data.source === "mcp" ? "MCP" : "UI"} />
+              <Detail label="Status" value={data.outcome ?? statusLabel(data.status_code)} />
+              <Detail label="When" value={new Date(data.created_at).toLocaleString()} />
+              <Detail
+                label="Duration"
+                value={data.duration_ms != null ? `${data.duration_ms} ms` : "—"}
+              />
+              {data.method && <Detail label="Method" value={data.method} />}
+              {data.status_code != null && (
+                <Detail label="Status code" value={String(data.status_code)} />
+              )}
+              {data.tool_name && <Detail label="Tool" value={data.tool_name} />}
+              {data.path && <Detail label="Path" value={data.path} />}
+            </dl>
+            <div>
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#c4c8b0]/70">
+                Request
+              </h3>
+              <JsonBlock value={data.request_body} truncated={data.request_truncated} />
+            </div>
+            <div>
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[#c4c8b0]/70">
+                Response
+              </h3>
+              <JsonBlock value={data.response_body} truncated={data.response_truncated} />
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs uppercase text-[#c4c8b0]/70">{label}</dt>
+      <dd className="mt-1 break-words text-[#e8eadb]">{value}</dd>
+    </div>
+  );
+}
+
+function JsonBlock({ value, truncated }: { value: unknown; truncated?: boolean }) {
+  return (
+    <div>
+      <pre className="overflow-auto rounded-xl bg-[#202318] p-3 text-xs leading-relaxed text-[#e8eadb]/90 ring-1 ring-white/5">
+        {value == null ? "—" : JSON.stringify(value, null, 2)}
+      </pre>
+      {truncated && (
+        <p className="mt-1 text-xs text-[#e8eadb]/45">Payload truncated.</p>
+      )}
+    </div>
+  );
+}
+
+function SourceBadge({ source }: { source: RequestLogSource }) {
+  const mcp = source === "mcp";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        mcp ? "bg-violet-500/20 text-violet-200" : "bg-sky-500/20 text-sky-200",
+      )}
+    >
+      {mcp ? <Wrench className="h-3 w-3" /> : <MousePointerClick className="h-3 w-3" />}
+      {mcp ? "MCP" : "UI"}
+    </span>
+  );
+}
+
+function StatusDot({ outcome }: { outcome: string | null }) {
+  const ok = outcome == null || outcome === "success" || outcome === "ok";
+  return (
+    <span
+      className={cn("inline-block h-2 w-2 rounded-full", ok ? "bg-emerald-400" : "bg-rose-400")}
+    />
+  );
+}
+
+function eventLabel(log: RequestLogSummary) {
+  if (log.tool_name) return log.tool_name;
+  if (log.method && log.path) return `${log.method} ${log.path}`;
+  return log.path ?? log.method ?? "request";
+}
+
+function statusLabel(statusCode: number | null) {
+  if (statusCode == null) return "unknown";
+  return statusCode < 400 ? "success" : "error";
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function ProfileDialog({
