@@ -325,23 +325,6 @@ function DatabasePage() {
     mutateTable((t) => ({ ...t, fields: [...t.fields, { id, name, type: "text" }] }));
   }
 
-  function addTable() {
-    const name = prompt("Table name");
-    if (!name) return;
-    const id = `t${Date.now()}`;
-    const newTable: TableDef = {
-      id,
-      name,
-      icon: "▦",
-      fields: [{ id: "f1", name: "Name", type: "text" }],
-      rows: [],
-    };
-    setBases((prev) =>
-      prev.map((b) => (b.id === activeBaseId ? { ...b, tables: [...b.tables, newTable] } : b)),
-    );
-    setActiveTableId(id);
-  }
-
   function addBase() {
     const name = prompt("Base name");
     if (!name) return;
@@ -370,31 +353,6 @@ function DatabasePage() {
     setActiveTableId("t1");
   }
 
-  const tableTabs = (
-    <div className="flex items-center rounded-full bg-[hsl(220,33%,95%)] p-1">
-      {activeBase.tables.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => setActiveTableId(t.id)}
-          className={cn(
-            "cursor-pointer rounded-full px-5 py-1.5 text-sm transition",
-            t.id === activeTable.id
-              ? "bg-white text-foreground shadow-sm"
-              : "text-foreground/60 hover:text-foreground",
-          )}
-        >
-          {t.name}
-        </button>
-      ))}
-      <button
-        onClick={addTable}
-        className="grid h-8 w-9 cursor-pointer place-items-center rounded-full text-foreground/60 transition hover:bg-white/60 hover:text-foreground"
-        aria-label="Add table"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -517,10 +475,6 @@ function DatabasePage() {
 
         {/* Main */}
         <main className="min-w-0 flex-1 px-4 pb-16 md:px-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="min-w-0 overflow-x-auto">{tableTabs}</div>
-          </div>
-
           <section>
             {/* Toolbar */}
             <div className="mb-3 flex flex-wrap items-center gap-1 px-1">
