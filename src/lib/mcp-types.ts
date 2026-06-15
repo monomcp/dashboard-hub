@@ -39,6 +39,52 @@ export type Page<T> = {
   offset: number;
 };
 
+// ── Toolkit access matrix (GET /api/v1/toolkits/{id}/access-matrix) ──────────
+// Mirrors api/app/modules/mcp/schemas.py ToolkitAccessMatrixResponse.
+
+export type PrincipalType = "user" | "agent" | "service_account" | "api_client";
+export type PrincipalStatus = "active" | "disabled" | "archived";
+export type ToolkitAccessMode = "full" | "restricted";
+
+// Effective per-(principal, tool) outcome — same resolution the gateway applies.
+export type AccessCell = "allowed" | "needs_approval" | "blocked" | "denied" | "no_access";
+
+export type AccessEffect = "allow" | "deny";
+export type ToolPermission = "always_allow" | "needs_approval" | "blocked";
+
+export type AccessMatrixTool = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+
+export type AccessRuleInfo = {
+  effect: AccessEffect;
+  permission: ToolPermission | null;
+};
+
+export type AccessMatrixPrincipal = {
+  id: string;
+  name: string;
+  type: PrincipalType;
+  status: PrincipalStatus;
+  auth_user_id: string | null;
+  has_toolkit_access: boolean;
+  access_mode: ToolkitAccessMode | null;
+  enabled: boolean;
+  tools: Record<string, AccessCell>;
+  // tool_id → the raw rule, present only for tools that have one.
+  rules: Record<string, AccessRuleInfo>;
+};
+
+export type ToolkitAccessMatrix = {
+  toolkit_id: string;
+  toolkit_name: string;
+  toolkit_slug: string;
+  tools: AccessMatrixTool[];
+  principals: AccessMatrixPrincipal[];
+};
+
 export type NewToolkit = {
   name: string;
   slug?: string;
@@ -51,6 +97,13 @@ export type EnableServerRequest = {
 };
 
 export type EnableServerResponse = Toolkit;
+
+// Reconcile the exact set of toolkits exposing a server's tools
+// (PUT /api/v1/mcp-catalog/{slug}/toolkits). An empty result disables the server.
+export type SetServerToolkitsRequest = {
+  toolkit_ids?: string[];
+  new_toolkits?: NewToolkit[];
+};
 
 // Base URL of the MCP gateway (separate service from the API). Override per
 // environment with VITE_GATEWAY_URL; defaults to the hosted stage gateway.

@@ -775,6 +775,14 @@ function getNextPageParam(options, { pages, pageParams }) {
 function getPreviousPageParam(options, { pages, pageParams }) {
   return pages.length > 0 ? options.getPreviousPageParam?.(pages[0], pages, pageParams[0], pageParams) : void 0;
 }
+function hasNextPage(options, data) {
+  if (!data) return false;
+  return getNextPageParam(options, data) != null;
+}
+function hasPreviousPage(options, data) {
+  if (!data || !options.getPreviousPageParam) return false;
+  return getPreviousPageParam(options, data) != null;
+}
 var Query = class extends Removable {
   #queryType;
   #initialState;
@@ -1650,6 +1658,64 @@ function shouldAssignObserverCurrentProperties(observer, optimisticResult) {
   }
   return false;
 }
+var InfiniteQueryObserver = class extends QueryObserver {
+  constructor(client, options) {
+    super(client, options);
+  }
+  bindMethods() {
+    super.bindMethods();
+    this.fetchNextPage = this.fetchNextPage.bind(this);
+    this.fetchPreviousPage = this.fetchPreviousPage.bind(this);
+  }
+  setOptions(options) {
+    options._type = "infinite";
+    super.setOptions(options);
+  }
+  getOptimisticResult(options) {
+    options._type = "infinite";
+    return super.getOptimisticResult(options);
+  }
+  fetchNextPage(options) {
+    return this.fetch({
+      ...options,
+      meta: {
+        fetchMore: { direction: "forward" }
+      }
+    });
+  }
+  fetchPreviousPage(options) {
+    return this.fetch({
+      ...options,
+      meta: {
+        fetchMore: { direction: "backward" }
+      }
+    });
+  }
+  createResult(query, options) {
+    const { state } = query;
+    const parentResult = super.createResult(query, options);
+    const { isFetching, isRefetching, isError, isRefetchError } = parentResult;
+    const fetchDirection = state.fetchMeta?.fetchMore?.direction;
+    const isFetchNextPageError = isError && fetchDirection === "forward";
+    const isFetchingNextPage = isFetching && fetchDirection === "forward";
+    const isFetchPreviousPageError = isError && fetchDirection === "backward";
+    const isFetchingPreviousPage = isFetching && fetchDirection === "backward";
+    const result = {
+      ...parentResult,
+      fetchNextPage: this.fetchNextPage,
+      fetchPreviousPage: this.fetchPreviousPage,
+      hasNextPage: hasNextPage(options, state.data),
+      hasPreviousPage: hasPreviousPage(options, state.data),
+      isFetchNextPageError,
+      isFetchingNextPage,
+      isFetchPreviousPageError,
+      isFetchingPreviousPage,
+      isRefetchError: isRefetchError && !isFetchNextPageError && !isFetchPreviousPageError,
+      isRefetching: isRefetching && !isFetchingNextPage && !isFetchingPreviousPage
+    };
+    return result;
+  }
+};
 var Mutation = class extends Removable {
   #client;
   #observers;
@@ -2542,6 +2608,7 @@ var QueryClient = class {
   }
 };
 export {
+  InfiniteQueryObserver as I,
   MutationObserver as M,
   QueryObserver as Q,
   noop as a,

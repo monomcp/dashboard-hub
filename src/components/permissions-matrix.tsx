@@ -1,0 +1,644 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Ban,
+  Bot,
+  Check,
+  ChevronDown,
+  Clock,
+  KeyRound,
+  Loader2,
+  Minus,
+  User as UserIcon,
+  X,
+} from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ApiError, apiRequest } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
+import type {
+  AccessCell,
+  AccessMatrixPrincipal,
+  AccessRuleInfo,
+  PrincipalType,
+  ToolkitAccessMatrix,
+} from "@/lib/mcp-types";
+import { lightPermissionsTheme, type PermissionsTheme } from "@/lib/permissions-theme";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared toolkit-permissions matrix.
+//
+// One component, two looks: Brand DNA (dark) and Content (light) both render this
+// with a different `theme` and a different toolkit source. All the access logic —
+// grant/revoke, per-tool allow / needs-approval / deny / inherit, the admin (403)
+// handling, the "only with access" filter — lives here once.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ThemeContext = createContext<PermissionsTheme>(lightPermissionsTheme);
+const useTheme = () => useContext(ThemeContext);
+
+const ACCESS_META: Record<AccessCell, { label: string; icon: typeof Check }> = {
+  allowed: { label: "Allowed", icon: Check },
+  needs_approval: { label: "Needs approval", icon: Clock },
+  blocked: { label: "Blocked", icon: Ban },
+  denied: { label: "Denied", icon: X },
+  no_access: { label: "No access", icon: Minus },
+};
+
+const PRINCIPAL_META: Record<PrincipalType, { label: string; icon: typeof UserIcon }> = {
+  user: { label: "User", icon: UserIcon },
+  agent: { label: "Agent", icon: Bot },
+  service_account: { label: "Service", icon: Bot },
+  api_client: { label: "API client", icon: KeyRound },
+};
+
+function AccessCellBadge({ value }: { value: AccessCell }) {
+  const theme = useTheme();
+  const meta = ACCESS_META[value];
+  const Icon = meta.icon;
+  return (
+    <span className="grid place-items-center" title={meta.label} aria-label={meta.label}>
+      <Icon className={cn("h-4 w-4", theme.access[value])} />
+    </span>
+  );
+}
+
+function hasAnyAccess(principal: AccessMatrixPrincipal): boolean {
+  return (
+    principal.has_toolkit_access &&
+    Object.values(principal.tools).some((cell) => cell !== "no_access")
+  );
+}
+
+type ToolRuleChoice = "inherit" | "allow" | "needs_approval" | "deny";
+
+function ruleChoice(rule: AccessRuleInfo | undefined): ToolRuleChoice {
+  if (!rule) return "inherit";
+  if (rule.effect === "deny") return "deny";
+  if (rule.permission === "needs_approval") return "needs_approval";
+  return "allow";
+}
+
+function MenuButton({
+  icon: Icon,
+  iconClass,
+  label,
+  hint,
+  active,
+  danger,
+  onClick,
+}: {
+  icon: typeof Check;
+  iconClass?: string;
+  label: string;
+  hint?: string;
+  active?: boolean;
+  danger?: boolean;
+  onClick: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition",
+        theme.menuHover,
+        active && theme.menuActiveBg,
+        danger && theme.menuDanger,
+      )}
+    >
+      <Icon className={cn("h-4 w-4 shrink-0", iconClass)} />
+      <span className="flex-1">{label}</span>
+      {hint && <span className={cn("text-xs", theme.principalSub)}>{hint}</span>}
+      {active && <Check className={cn("h-3.5 w-3.5", theme.menuCheck)} />}
+    </button>
+  );
+}
+
+function GrantControl({
+  principal,
+  busy,
+  onSet,
+  onRevoke,
+}: {
+  principal: AccessMatrixPrincipal;
+  busy: boolean;
+  onSet: (mode: "full" | "restricted") => void;
+  onRevoke: () => void;
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  const pick = (fn: () => void) => {
+    setOpen(false);
+    fn();
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={busy}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs capitalize transition disabled:opacity-50",
+            principal.has_toolkit_access ? theme.grantHas : theme.grantNone,
+          )}
+        >
+          {busy ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <>
+              {principal.has_toolkit_access
+                ? `${principal.access_mode}${principal.enabled ? "" : " · off"}`
+                : "Grant access"}
+              <ChevronDown className="h-3 w-3" />
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className={theme.menuPanel}>
+        <div
+          className={cn("px-2.5 pb-1 pt-1.5 text-xs uppercase tracking-wide", theme.principalSub)}
+        >
+          Toolkit access
+        </div>
+        <MenuButton
+          icon={Check}
+          iconClass={theme.menuIcon.allow}
+          label="Full access"
+          hint="all tools"
+          active={principal.has_toolkit_access && principal.access_mode === "full"}
+          onClick={() => pick(() => onSet("full"))}
+        />
+        <MenuButton
+          icon={KeyRound}
+          iconClass={theme.menuIcon.needs}
+          label="Restricted"
+          hint="allowed only"
+          active={principal.has_toolkit_access && principal.access_mode === "restricted"}
+          onClick={() => pick(() => onSet("restricted"))}
+        />
+        {principal.has_toolkit_access && (
+          <>
+            <div className={cn("my-1 h-px", theme.menuDivider)} />
+            <MenuButton icon={X} label="Revoke access" danger onClick={() => pick(onRevoke)} />
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ToolAccessCell({
+  rule,
+  value,
+  busy,
+  editable,
+  onChoose,
+}: {
+  rule: AccessRuleInfo | undefined;
+  value: AccessCell;
+  busy: boolean;
+  editable: boolean;
+  onChoose: (choice: ToolRuleChoice) => void;
+}) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  if (!editable) {
+    return (
+      <span title="Grant toolkit access first" className="opacity-60">
+        <AccessCellBadge value={value} />
+      </span>
+    );
+  }
+  const current = ruleChoice(rule);
+  const pick = (choice: ToolRuleChoice) => {
+    setOpen(false);
+    onChoose(choice);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={busy}
+          className={cn(
+            "grid h-7 w-7 place-items-center rounded-lg transition disabled:opacity-50",
+            theme.cellHover,
+          )}
+        >
+          {busy ? (
+            <Loader2 className={cn("h-4 w-4 animate-spin", theme.loader)} />
+          ) : (
+            <AccessCellBadge value={value} />
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className={theme.menuPanel}>
+        <MenuButton
+          icon={Check}
+          iconClass={theme.menuIcon.allow}
+          label="Allow"
+          active={current === "allow"}
+          onClick={() => pick("allow")}
+        />
+        <MenuButton
+          icon={Clock}
+          iconClass={theme.menuIcon.needs}
+          label="Needs approval"
+          active={current === "needs_approval"}
+          onClick={() => pick("needs_approval")}
+        />
+        <MenuButton
+          icon={X}
+          iconClass={theme.menuIcon.deny}
+          label="Deny"
+          active={current === "deny"}
+          onClick={() => pick("deny")}
+        />
+        {rule && (
+          <>
+            <div className={cn("my-1 h-px", theme.menuDivider)} />
+            <MenuButton
+              icon={Minus}
+              iconClass={theme.menuIcon.muted}
+              label="Inherit default"
+              onClick={() => pick("inherit")}
+            />
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export type PermissionsMatrixProps = {
+  /** Toolkits whose access this matrix manages. Union of one or more servers. */
+  toolkitIds: string[];
+  /** Whether at least one backing MCP server is enabled. */
+  enabled: boolean;
+  theme: PermissionsTheme;
+  /** Noun for the intro copy, e.g. "Brand DNA" or "Content". */
+  toolsNoun: string;
+  /** Stripped from tool column headers, e.g. /^brand_/ or /^(cms|smm)_/. */
+  stripToolPrefix: RegExp;
+  /** Paragraph shown under the heading when nothing is enabled/connected. */
+  disabledHint: string;
+  /** Centered text in the empty-state card. */
+  connectHint: string;
+  onApiError: (err: unknown, fallback?: string) => void;
+};
+
+export function PermissionsMatrix({
+  toolkitIds,
+  enabled,
+  theme,
+  toolsNoun,
+  stripToolPrefix,
+  disabledHint,
+  connectHint,
+  onApiError,
+}: PermissionsMatrixProps) {
+  const [toolkitId, setToolkitId] = useState<string | null>(null);
+  const [onlyWithAccess, setOnlyWithAccess] = useState(true);
+
+  // Default to the first toolkit and keep the selection valid as data loads.
+  useEffect(() => {
+    if (toolkitIds.length > 0 && (!toolkitId || !toolkitIds.includes(toolkitId))) {
+      setToolkitId(toolkitIds[0]);
+    }
+  }, [toolkitIds, toolkitId]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["toolkit-access-matrix", toolkitId],
+    queryFn: () => apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${toolkitId}/access-matrix`),
+    enabled: Boolean(toolkitId),
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    if (error) onApiError(error, "Could not load permissions");
+  }, [error, onApiError]);
+
+  const tools = data?.tools ?? [];
+  const principals = useMemo(() => {
+    const list = data?.principals ?? [];
+    return onlyWithAccess ? list.filter(hasAnyAccess) : list;
+  }, [data, onlyWithAccess]);
+
+  const withAccessCount = useMemo(
+    () => (data?.principals ?? []).filter(hasAnyAccess).length,
+    [data],
+  );
+
+  const queryClient = useQueryClient();
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Run a grant/revoke call, then refetch the matrix. A 403 means the caller
+  // isn't an admin — surface it inline rather than logging them out (only a
+  // genuinely invalid token, 401, triggers the logout path).
+  const runAction = useCallback(
+    async (key: string, fn: () => Promise<unknown>) => {
+      setBusyKey(key);
+      setActionError(null);
+      try {
+        await fn();
+        await queryClient.invalidateQueries({ queryKey: ["toolkit-access-matrix", toolkitId] });
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          onApiError(err);
+          return;
+        }
+        setActionError(
+          err instanceof ApiError && err.status === 403
+            ? "You need admin access to change permissions."
+            : err instanceof Error
+              ? err.message
+              : "Could not update access.",
+        );
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [queryClient, toolkitId, onApiError],
+  );
+
+  const setToolkitGrant = (principalId: string, mode: "full" | "restricted") =>
+    runAction(`tk:${principalId}`, () =>
+      apiRequest<unknown>(`/api/v1/principals/${principalId}/toolkit-access`, {
+        method: "PUT",
+        body: JSON.stringify({ toolkit_id: toolkitId, access_mode: mode, enabled: true }),
+      }),
+    );
+
+  const revokeToolkitGrant = (principalId: string) =>
+    runAction(`tk:${principalId}`, () =>
+      apiRequest<unknown>(`/api/v1/principals/${principalId}/toolkit-access/${toolkitId}`, {
+        method: "DELETE",
+      }),
+    );
+
+  const setToolRule = (principalId: string, toolId: string, choice: ToolRuleChoice) =>
+    runAction(`tr:${principalId}:${toolId}`, () => {
+      if (choice === "inherit") {
+        return apiRequest<unknown>(`/api/v1/principals/${principalId}/tool-rules/${toolId}`, {
+          method: "DELETE",
+        });
+      }
+      const body =
+        choice === "deny"
+          ? { mcp_tool_id: toolId, effect: "deny" }
+          : {
+              mcp_tool_id: toolId,
+              effect: "allow",
+              permission: choice === "needs_approval" ? "needs_approval" : "always_allow",
+            };
+      return apiRequest<unknown>(`/api/v1/principals/${principalId}/tool-rules`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+    });
+
+  if (!enabled || toolkitIds.length === 0) {
+    return (
+      <ThemeContext.Provider value={theme}>
+        <div className="grid content-start gap-4">
+          <div className={theme.card}>
+            <h1 className={cn("text-2xl font-normal tracking-tight", theme.headingText)}>
+              Permissions
+            </h1>
+            <p className={cn("mt-2", theme.mutedText)}>{disabledHint}</p>
+          </div>
+          <div className={cn(theme.card, "grid place-items-center gap-2 py-12 text-center")}>
+            <KeyRound className={cn("h-8 w-8", theme.emptyIcon)} />
+            <p className={theme.mutedText}>{connectHint}</p>
+          </div>
+        </div>
+      </ThemeContext.Provider>
+    );
+  }
+
+  if (!toolkitId || isLoading) {
+    return <PermissionsMatrixLoading theme={theme} />;
+  }
+
+  return (
+    <ThemeContext.Provider value={theme}>
+      <div className="grid content-start gap-4">
+        <div className={theme.card}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className={cn("text-2xl font-normal tracking-tight", theme.headingText)}>
+                Permissions
+              </h1>
+              <p className={cn("mt-2", theme.mutedText)}>
+                Who can use the {toolsNoun} tools inside{" "}
+                <span className={theme.accentText}>{data?.toolkit_name ?? "this toolkit"}</span>,
+                and how each call is gated.
+              </p>
+            </div>
+            {toolkitIds.length > 1 && (
+              <select
+                value={toolkitId ?? ""}
+                onChange={(e) => setToolkitId(e.target.value)}
+                className={cn("rounded-full px-3 py-1.5 text-sm outline-none", theme.selector)}
+                aria-label="Select toolkit"
+              >
+                {toolkitIds.map((id) => (
+                  <option key={id} value={id}>
+                    {data && data.toolkit_id === id ? data.toolkit_name : id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div
+            className={cn(
+              "mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs",
+              theme.legendText,
+            )}
+          >
+            {(Object.keys(ACCESS_META) as AccessCell[]).map((key) => {
+              const meta = ACCESS_META[key];
+              const Icon = meta.icon;
+              return (
+                <span key={key} className="inline-flex items-center gap-1.5">
+                  <Icon className={cn("h-3.5 w-3.5", theme.access[key])} />
+                  {meta.label}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <p className={cn("text-sm", theme.countText)}>
+            {withAccessCount} of {data?.principals.length ?? 0} principals have access
+          </p>
+          <button
+            type="button"
+            onClick={() => setOnlyWithAccess((v) => !v)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-xs transition",
+              onlyWithAccess ? theme.toggleActive : theme.toggleInactive,
+            )}
+          >
+            {onlyWithAccess ? "Showing with access" : "Showing everyone"}
+          </button>
+        </div>
+
+        {actionError && (
+          <div className={cn("rounded-2xl px-4 py-3 text-sm", theme.actionError)}>
+            {actionError}
+          </div>
+        )}
+
+        <div className={cn("overflow-x-auto rounded-3xl", theme.tableWrap)}>
+          <table className="w-full border-collapse text-sm">
+            <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
+              <tr>
+                <th
+                  className={cn(
+                    "sticky left-0 z-10 px-4 py-3 text-left font-medium",
+                    theme.headerStickyBg,
+                  )}
+                >
+                  Principal
+                </th>
+                {tools.map((tool) => (
+                  <th
+                    key={tool.id}
+                    className="px-3 py-3 text-center font-medium"
+                    title={tool.description ?? tool.name}
+                  >
+                    <span className="block max-w-[120px] truncate normal-case">
+                      {tool.name.replace(stripToolPrefix, "")}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {principals.map((principal) => {
+                const meta = PRINCIPAL_META[principal.type];
+                const PIcon = meta.icon;
+                return (
+                  <tr key={principal.id} className={cn("border-t", theme.rowBorder)}>
+                    <td className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}>
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={cn(
+                            "grid h-8 w-8 shrink-0 place-items-center rounded-full",
+                            theme.avatarBg,
+                          )}
+                        >
+                          <PIcon className={cn("h-4 w-4", theme.principalIcon)} />
+                        </span>
+                        <div className="min-w-0">
+                          <div className={cn("truncate font-medium", theme.principalName)}>
+                            {principal.name}
+                          </div>
+                          <div
+                            className={cn(
+                              "mt-0.5 flex items-center gap-1.5 text-xs",
+                              theme.principalSub,
+                            )}
+                          >
+                            <span>{meta.label}</span>
+                            <GrantControl
+                              principal={principal}
+                              busy={busyKey === `tk:${principal.id}`}
+                              onSet={(mode) => setToolkitGrant(principal.id, mode)}
+                              onRevoke={() => revokeToolkitGrant(principal.id)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    {tools.map((tool) => (
+                      <td key={tool.id} className="px-3 py-3 text-center">
+                        <div className="flex justify-center">
+                          <ToolAccessCell
+                            rule={principal.rules[tool.id]}
+                            value={principal.tools[tool.id] ?? "no_access"}
+                            busy={busyKey === `tr:${principal.id}:${tool.id}`}
+                            editable={principal.has_toolkit_access}
+                            onChoose={(choice) => setToolRule(principal.id, tool.id, choice)}
+                          />
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+              {principals.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={tools.length + 1}
+                    className={cn("px-4 py-10 text-center", theme.emptyText)}
+                  >
+                    {onlyWithAccess
+                      ? "No principal has access to these tools yet."
+                      : "No principals in this organization yet."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </ThemeContext.Provider>
+  );
+}
+
+export function PermissionsMatrixLoading({ theme }: { theme: PermissionsTheme }) {
+  const sk = (className: string) => <Skeleton className={cn(theme.skeleton, className)} />;
+  return (
+    <div className="grid content-start gap-4" aria-label="Loading permissions">
+      <div className={theme.card}>
+        {sk("h-7 w-44 rounded-full")}
+        <div className="mt-3">{sk("h-4 w-96 max-w-full rounded-full")}</div>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        {sk("h-4 w-40 rounded-full")}
+        {sk("h-8 w-36 rounded-full")}
+      </div>
+      <div className={cn("overflow-x-auto rounded-3xl", theme.tableWrap)}>
+        <table className="w-full border-collapse text-sm">
+          <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Principal</th>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <th key={index} className="px-3 py-3 text-center font-medium">
+                  {sk("mx-auto h-4 w-20 rounded-full")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 4 }).map((_, rowIndex) => (
+              <tr key={rowIndex} className={cn("border-t", theme.rowBorder)}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    {sk("h-8 w-8 rounded-full")}
+                    <div className="space-y-2">
+                      {sk("h-4 w-36 rounded-full")}
+                      {sk("h-3 w-24 rounded-full")}
+                    </div>
+                  </div>
+                </td>
+                {Array.from({ length: 5 }).map((_, cellIndex) => (
+                  <td key={cellIndex} className="px-3 py-3">
+                    {sk("mx-auto h-4 w-4 rounded-full")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

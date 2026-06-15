@@ -1,4 +1,4 @@
-// Shared types for the Brand DNA module (/brand-dna).
+// Shared types for the Brand DNA module (/brand).
 
 export type VocabularyRules = {
   point_of_view: string | null;

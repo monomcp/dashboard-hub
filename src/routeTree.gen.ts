@@ -22,9 +22,11 @@ import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as CompanyRouteImport } from './routes/company'
 import { Route as CmsRouteImport } from './routes/cms'
 import { Route as CalendarRouteImport } from './routes/calendar'
-import { Route as BrandDnaRouteImport } from './routes/brand-dna'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BrandIndexRouteImport } from './routes/brand.index'
+import { Route as ContentViewRouteImport } from './routes/content.$view'
+import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
 
 const TermsRoute = TermsRouteImport.update({
@@ -92,11 +94,6 @@ const CalendarRoute = CalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BrandDnaRoute = BrandDnaRouteImport.update({
-  id: '/brand-dna',
-  path: '/brand-dna',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -105,6 +102,21 @@ const AuditRoute = AuditRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrandIndexRoute = BrandIndexRouteImport.update({
+  id: '/brand/',
+  path: '/brand/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentViewRoute = ContentViewRouteImport.update({
+  id: '/$view',
+  path: '/$view',
+  getParentRoute: () => ContentRoute,
+} as any)
+const BrandViewRoute = BrandViewRouteImport.update({
+  id: '/brand/$view',
+  path: '/brand/$view',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthMagicLinkConfirmRoute = AuthMagicLinkConfirmRouteImport.update({
@@ -116,12 +128,11 @@ const AuthMagicLinkConfirmRoute = AuthMagicLinkConfirmRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
-  '/brand-dna': typeof BrandDnaRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
-  '/content': typeof ContentRoute
+  '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
@@ -130,17 +141,19 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/brand/$view': typeof BrandViewRoute
+  '/content/$view': typeof ContentViewRoute
+  '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
-  '/brand-dna': typeof BrandDnaRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
-  '/content': typeof ContentRoute
+  '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
@@ -149,18 +162,20 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/brand/$view': typeof BrandViewRoute
+  '/content/$view': typeof ContentViewRoute
+  '/brand': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
-  '/brand-dna': typeof BrandDnaRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
   '/company': typeof CompanyRoute
   '/contacts': typeof ContactsRoute
-  '/content': typeof ContentRoute
+  '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
@@ -169,6 +184,9 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/brand/$view': typeof BrandViewRoute
+  '/content/$view': typeof ContentViewRoute
+  '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
 export interface FileRouteTypes {
@@ -176,7 +194,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audit'
-    | '/brand-dna'
     | '/calendar'
     | '/cms'
     | '/company'
@@ -190,12 +207,14 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/privacy'
     | '/terms'
+    | '/brand/$view'
+    | '/content/$view'
+    | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/audit'
-    | '/brand-dna'
     | '/calendar'
     | '/cms'
     | '/company'
@@ -209,12 +228,14 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/privacy'
     | '/terms'
+    | '/brand/$view'
+    | '/content/$view'
+    | '/brand'
     | '/auth/magic-link/confirm'
   id:
     | '__root__'
     | '/'
     | '/audit'
-    | '/brand-dna'
     | '/calendar'
     | '/cms'
     | '/company'
@@ -228,18 +249,20 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/privacy'
     | '/terms'
+    | '/brand/$view'
+    | '/content/$view'
+    | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
-  BrandDnaRoute: typeof BrandDnaRoute
   CalendarRoute: typeof CalendarRoute
   CmsRoute: typeof CmsRoute
   CompanyRoute: typeof CompanyRoute
   ContactsRoute: typeof ContactsRoute
-  ContentRoute: typeof ContentRoute
+  ContentRoute: typeof ContentRouteWithChildren
   DatabaseRoute: typeof DatabaseRoute
   DriveRoute: typeof DriveRoute
   EmailRoute: typeof EmailRoute
@@ -248,6 +271,8 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  BrandViewRoute: typeof BrandViewRoute
+  BrandIndexRoute: typeof BrandIndexRoute
   AuthMagicLinkConfirmRoute: typeof AuthMagicLinkConfirmRoute
 }
 
@@ -344,13 +369,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/brand-dna': {
-      id: '/brand-dna'
-      path: '/brand-dna'
-      fullPath: '/brand-dna'
-      preLoaderRoute: typeof BrandDnaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/audit': {
       id: '/audit'
       path: '/audit'
@@ -365,6 +383,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brand/': {
+      id: '/brand/'
+      path: '/brand'
+      fullPath: '/brand/'
+      preLoaderRoute: typeof BrandIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content/$view': {
+      id: '/content/$view'
+      path: '/$view'
+      fullPath: '/content/$view'
+      preLoaderRoute: typeof ContentViewRouteImport
+      parentRoute: typeof ContentRoute
+    }
+    '/brand/$view': {
+      id: '/brand/$view'
+      path: '/brand/$view'
+      fullPath: '/brand/$view'
+      preLoaderRoute: typeof BrandViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/magic-link/confirm': {
       id: '/auth/magic-link/confirm'
       path: '/auth/magic-link/confirm'
@@ -375,15 +414,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ContentRouteChildren {
+  ContentViewRoute: typeof ContentViewRoute
+}
+
+const ContentRouteChildren: ContentRouteChildren = {
+  ContentViewRoute: ContentViewRoute,
+}
+
+const ContentRouteWithChildren =
+  ContentRoute._addFileChildren(ContentRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
-  BrandDnaRoute: BrandDnaRoute,
   CalendarRoute: CalendarRoute,
   CmsRoute: CmsRoute,
   CompanyRoute: CompanyRoute,
   ContactsRoute: ContactsRoute,
-  ContentRoute: ContentRoute,
+  ContentRoute: ContentRouteWithChildren,
   DatabaseRoute: DatabaseRoute,
   DriveRoute: DriveRoute,
   EmailRoute: EmailRoute,
@@ -392,6 +441,8 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  BrandViewRoute: BrandViewRoute,
+  BrandIndexRoute: BrandIndexRoute,
   AuthMagicLinkConfirmRoute: AuthMagicLinkConfirmRoute,
 }
 export const routeTree = rootRouteImport

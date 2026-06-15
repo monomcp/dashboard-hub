@@ -1,5 +1,5 @@
 import { r as reactExports, j as jsxRuntimeExports } from "./react.mjs";
-import { s as shouldThrowError, n as notifyManager, a as noop, e as environmentManager, Q as QueryObserver, M as MutationObserver } from "./tanstack__query-core.mjs";
+import { s as shouldThrowError, n as notifyManager, a as noop, e as environmentManager, Q as QueryObserver, M as MutationObserver, I as InfiniteQueryObserver } from "./tanstack__query-core.mjs";
 var QueryClientContext = reactExports.createContext(
   void 0
 );
@@ -183,9 +183,16 @@ function useMutation(options, queryClient) {
   }
   return { ...result, mutate, mutateAsync: result.mutate };
 }
+function useInfiniteQuery(options, queryClient) {
+  return useBaseQuery(
+    options,
+    InfiniteQueryObserver
+  );
+}
 export {
   QueryClientProvider as Q,
   useQueryClient as a,
-  useMutation as b,
+  useInfiniteQuery as b,
+  useMutation as c,
   useQuery as u
 };
