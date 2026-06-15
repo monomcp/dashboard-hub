@@ -11,7 +11,6 @@ import {
   MoreVertical,
   Circle,
   CheckCircle,
-  X,
   Clock,
   AlignLeft,
   ListChecks,
@@ -48,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DatePicker } from "@/components/date-picker";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -764,13 +764,6 @@ function TasksPage() {
       {/* Task dialog */}
       <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
         <DialogContent className="rounded-2xl sm:max-w-xl">
-          <button
-            onClick={() => setTaskDialogOpen(false)}
-            className="absolute right-4 top-4 rounded-full p-1 hover:bg-stone-100"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
           <Input
             autoFocus
             placeholder="Add title"
@@ -783,11 +776,11 @@ function TasksPage() {
               <Clock className="mt-2 h-5 w-5 text-muted-foreground" />
               <div className="flex-1 space-y-2">
                 <div className="flex gap-2">
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={taskDate}
-                    onChange={(e) => setTaskDate(e.target.value)}
-                    className="bg-stone-100 border-0 rounded-lg"
+                    onChange={setTaskDate}
+                    placeholder="Pick a date"
+                    className="flex-1"
                   />
                   {!taskAllDay && (
                     <Input

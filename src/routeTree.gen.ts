@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
@@ -25,6 +26,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrandIndexRouteImport } from './routes/brand.index'
+import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
@@ -37,6 +39,11 @@ const TermsRoute = TermsRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PermissionsRoute = PermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -109,6 +116,11 @@ const BrandIndexRoute = BrandIndexRouteImport.update({
   path: '/brand/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PermissionsToolkitIdRoute = PermissionsToolkitIdRouteImport.update({
+  id: '/$toolkitId',
+  path: '/$toolkitId',
+  getParentRoute: () => PermissionsRoute,
+} as any)
 const ContentViewRoute = ContentViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -139,10 +151,12 @@ export interface FileRoutesByFullPath {
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/permissions': typeof PermissionsRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -160,10 +174,12 @@ export interface FileRoutesByTo {
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/permissions': typeof PermissionsRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/brand': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -182,10 +198,12 @@ export interface FileRoutesById {
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/permissions': typeof PermissionsRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -205,10 +223,12 @@ export interface FileRouteTypes {
     | '/firecrawl'
     | '/login'
     | '/mcp'
+    | '/permissions'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/permissions/$toolkitId'
     | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesByTo: FileRoutesByTo
@@ -226,10 +246,12 @@ export interface FileRouteTypes {
     | '/firecrawl'
     | '/login'
     | '/mcp'
+    | '/permissions'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/permissions/$toolkitId'
     | '/brand'
     | '/auth/magic-link/confirm'
   id:
@@ -247,10 +269,12 @@ export interface FileRouteTypes {
     | '/firecrawl'
     | '/login'
     | '/mcp'
+    | '/permissions'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/permissions/$toolkitId'
     | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesById: FileRoutesById
@@ -269,6 +293,7 @@ export interface RootRouteChildren {
   FirecrawlRoute: typeof FirecrawlRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
+  PermissionsRoute: typeof PermissionsRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
@@ -290,6 +315,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/permissions': {
+      id: '/permissions'
+      path: '/permissions'
+      fullPath: '/permissions'
+      preLoaderRoute: typeof PermissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -390,6 +422,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrandIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/permissions/$toolkitId': {
+      id: '/permissions/$toolkitId'
+      path: '/$toolkitId'
+      fullPath: '/permissions/$toolkitId'
+      preLoaderRoute: typeof PermissionsToolkitIdRouteImport
+      parentRoute: typeof PermissionsRoute
+    }
     '/content/$view': {
       id: '/content/$view'
       path: '/$view'
@@ -425,6 +464,18 @@ const ContentRouteChildren: ContentRouteChildren = {
 const ContentRouteWithChildren =
   ContentRoute._addFileChildren(ContentRouteChildren)
 
+interface PermissionsRouteChildren {
+  PermissionsToolkitIdRoute: typeof PermissionsToolkitIdRoute
+}
+
+const PermissionsRouteChildren: PermissionsRouteChildren = {
+  PermissionsToolkitIdRoute: PermissionsToolkitIdRoute,
+}
+
+const PermissionsRouteWithChildren = PermissionsRoute._addFileChildren(
+  PermissionsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
@@ -439,6 +490,7 @@ const rootRouteChildren: RootRouteChildren = {
   FirecrawlRoute: FirecrawlRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
+  PermissionsRoute: PermissionsRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,

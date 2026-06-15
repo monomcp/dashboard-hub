@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Menu,
@@ -27,6 +28,8 @@ import {
   Bot,
   Sparkles,
   FileStack,
+  KeyRound,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,8 +61,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AppsMenu } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
+import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
+import type { CatalogServer } from "@/lib/mcp-types";
 import { SitemapView } from "@/components/cms-sitemap-view";
 import { LlmsFullView, LlmsView, RobotsView } from "@/components/cms-discovery-views";
+import { PermissionsMatrix } from "@/components/permissions-matrix";
+import { lightPermissionsTheme } from "@/lib/permissions-theme";
+import { ActivityLog } from "@/components/activity-log";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -242,7 +250,9 @@ type View =
   | { kind: "sitemap" }
   | { kind: "robots" }
   | { kind: "llms" }
-  | { kind: "llms-full" };
+  | { kind: "llms-full" }
+  | { kind: "permissions" }
+  | { kind: "activity" };
 
 type EntryRow = EntryResponse & {
   primaryLocale: EntryLocaleResponse | null;
@@ -388,6 +398,15 @@ function CmsPage() {
   const [componentCategory, setComponentCategory] = useState("blocks");
   const [componentDescription, setComponentDescription] = useState("");
   const [creatingComponent, setCreatingComponent] = useState(false);
+
+  // CMS tools live under the "cms" catalog server — the header enable button
+  // mirrors the one shown on Content/Brand.
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 30 * 1000,
+  });
+  const cmsServer = catalog?.find((s) => s.slug === "cms");
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "CMS request failed") => {
@@ -678,6 +697,15 @@ function CmsPage() {
           <div className="hidden min-w-0 max-w-2xl flex-1 md:block">{searchField}</div>
         )}
         <div className="flex items-center gap-1">
+          {cmsServer && (
+            <div className="mr-1">
+              <EnableMcpServerButton
+                serverSlug={cmsServer.slug}
+                enabled={cmsServer.enabled}
+                toolkitIds={cmsServer.toolkit_ids}
+              />
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -879,6 +907,54 @@ function CmsPage() {
                   })}
                 </div>
               )}
+
+              {!loading && (
+                <div>
+                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Access
+                  </div>
+                  <button
+                    onClick={() => {
+                      setView({ kind: "permissions" });
+                      setSelected([]);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                      view.kind === "permissions"
+                        ? "bg-indigo-50 font-semibold text-indigo-700"
+                        : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <KeyRound
+                      className={cn(
+                        "h-4 w-4",
+                        view.kind === "permissions" ? "text-indigo-600" : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="truncate text-left">Permissions</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView({ kind: "activity" });
+                      setSelected([]);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                      view.kind === "activity"
+                        ? "bg-indigo-50 font-semibold text-indigo-700"
+                        : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <Activity
+                      className={cn(
+                        "h-4 w-4",
+                        view.kind === "activity" ? "text-indigo-600" : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="truncate text-left">Activity</span>
+                  </button>
+                </div>
+              )}
             </nav>
           </aside>
         )}
@@ -1006,6 +1082,32 @@ function CmsPage() {
                 display_name: type.display_name,
               }))}
               onError={handleApiError}
+            />
+          )}
+
+          {!loading && view.kind === "permissions" && (
+            <PermissionsMatrix
+              toolkitIds={cmsServer?.toolkit_ids ?? []}
+              enabled={cmsServer?.enabled ?? false}
+              theme={lightPermissionsTheme}
+              toolsNoun="CMS"
+              stripToolPrefix={/^cms_/}
+              disabledHint="Who can use the CMS tools, and how. Enable the Content (CMS) MCP server first to start granting access."
+              connectHint="No toolkit is connected yet — enable the Content (CMS) MCP server from the MCP catalog."
+              onApiError={handleApiError}
+            />
+          )}
+
+          {!loading && view.kind === "activity" && (
+            <ActivityLog
+              onApiError={handleApiError}
+              nameServerSlugs={["cms"]}
+              logFilter={(log) =>
+                log.tool_name
+                  ? log.tool_name.startsWith("cms_")
+                  : Boolean(log.path?.startsWith("/api/v1/cms"))
+              }
+              description="Every change made to your content through Console and via CMS tool calls."
             />
           )}
         </main>

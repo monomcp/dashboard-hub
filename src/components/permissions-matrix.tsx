@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type {
   AccessCell,
   AccessMatrixPrincipal,
+  AccessMatrixTool,
   AccessRuleInfo,
   PrincipalType,
   ToolkitAccessMatrix,
@@ -71,6 +72,7 @@ function hasAnyAccess(principal: AccessMatrixPrincipal): boolean {
 }
 
 type ToolRuleChoice = "inherit" | "allow" | "needs_approval" | "deny";
+type MatrixOrientation = "principals" | "tools";
 
 function ruleChoice(rule: AccessRuleInfo | undefined): ToolRuleChoice {
   if (!rule) return "inherit";
@@ -156,7 +158,7 @@ function GrantControl({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className={theme.menuPanel}>
+      <PopoverContent align="start" className={cn(theme.menuPanel, "space-y-px")}>
         <div
           className={cn("px-2.5 pb-1 pt-1.5 text-xs uppercase tracking-wide", theme.principalSub)}
         >
@@ -272,20 +274,52 @@ function ToolAccessCell({
   );
 }
 
+// Principal identity + its toolkit-grant pill. Shown as a row label in the
+// "principals" orientation and as a column header in the "tools" orientation.
+function PrincipalLabel({
+  principal,
+  busy,
+  onSet,
+  onRevoke,
+}: {
+  principal: AccessMatrixPrincipal;
+  busy: boolean;
+  onSet: (mode: "full" | "restricted") => void;
+  onRevoke: () => void;
+}) {
+  const theme = useTheme();
+  const meta = PRINCIPAL_META[principal.type];
+  const PIcon = meta.icon;
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full", theme.avatarBg)}>
+        <PIcon className={cn("h-4 w-4", theme.principalIcon)} />
+      </span>
+      <div className="min-w-0">
+        <div className={cn("truncate font-medium", theme.principalName)}>{principal.name}</div>
+        <div className={cn("mt-0.5 flex items-center gap-1.5 text-xs", theme.principalSub)}>
+          <span>{meta.label}</span>
+          <GrantControl principal={principal} busy={busy} onSet={onSet} onRevoke={onRevoke} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export type PermissionsMatrixProps = {
   /** Toolkits whose access this matrix manages. Union of one or more servers. */
   toolkitIds: string[];
   /** Whether at least one backing MCP server is enabled. */
   enabled: boolean;
   theme: PermissionsTheme;
-  /** Noun for the intro copy, e.g. "Brand DNA" or "Content". */
-  toolsNoun: string;
-  /** Stripped from tool column headers, e.g. /^brand_/ or /^(cms|smm)_/. */
-  stripToolPrefix: RegExp;
+  /** Noun for the intro copy, e.g. "Brand DNA" or "Content". Omit for a generic toolkit page. */
+  toolsNoun?: string;
+  /** Stripped from tool headers, e.g. /^brand_/ or /^(cms|smm)_/. Omit to keep full names. */
+  stripToolPrefix?: RegExp;
   /** Paragraph shown under the heading when nothing is enabled/connected. */
-  disabledHint: string;
+  disabledHint?: string;
   /** Centered text in the empty-state card. */
-  connectHint: string;
+  connectHint?: string;
   onApiError: (err: unknown, fallback?: string) => void;
 };
 
@@ -295,12 +329,15 @@ export function PermissionsMatrix({
   theme,
   toolsNoun,
   stripToolPrefix,
-  disabledHint,
-  connectHint,
+  disabledHint = "No tools are available for this toolkit yet.",
+  connectHint = "No toolkit is connected yet — enable an MCP server from the catalog.",
   onApiError,
 }: PermissionsMatrixProps) {
   const [toolkitId, setToolkitId] = useState<string | null>(null);
   const [onlyWithAccess, setOnlyWithAccess] = useState(true);
+  // "principals" → principals as rows, tools as columns (default).
+  // "tools" → transposed: tools as rows, principals as columns.
+  const [orientation, setOrientation] = useState<MatrixOrientation>("principals");
 
   // Default to the first toolkit and keep the selection valid as data loads.
   useEffect(() => {
@@ -400,6 +437,22 @@ export function PermissionsMatrix({
       });
     });
 
+  const toolLabel = (tool: AccessMatrixTool) =>
+    stripToolPrefix ? tool.name.replace(stripToolPrefix, "") : tool.name;
+
+  // One (principal, tool) access cell — identical in both orientations.
+  const renderToolCell = (principal: AccessMatrixPrincipal, tool: AccessMatrixTool) => (
+    <div className="flex justify-center">
+      <ToolAccessCell
+        rule={principal.rules[tool.id]}
+        value={principal.tools[tool.id] ?? "no_access"}
+        busy={busyKey === `tr:${principal.id}:${tool.id}`}
+        editable={principal.has_toolkit_access}
+        onChoose={(choice) => setToolRule(principal.id, tool.id, choice)}
+      />
+    </div>
+  );
+
   if (!enabled || toolkitIds.length === 0) {
     return (
       <ThemeContext.Provider value={theme}>
@@ -473,20 +526,47 @@ export function PermissionsMatrix({
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className={cn("text-sm", theme.countText)}>
             {withAccessCount} of {data?.principals.length ?? 0} principals have access
           </p>
-          <button
-            type="button"
-            onClick={() => setOnlyWithAccess((v) => !v)}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-xs transition",
-              onlyWithAccess ? theme.toggleActive : theme.toggleInactive,
-            )}
-          >
-            {onlyWithAccess ? "Showing with access" : "Showing everyone"}
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {(
+                [
+                  { id: "principals", label: "By principal" },
+                  { id: "tools", label: "By tool" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setOrientation(opt.id)}
+                  title={
+                    opt.id === "principals"
+                      ? "Principals as rows, tools as columns"
+                      : "Tools as rows, principals as columns"
+                  }
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs transition",
+                    orientation === opt.id ? theme.toggleActive : theme.toggleInactive,
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setOnlyWithAccess((v) => !v)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs transition",
+                onlyWithAccess ? theme.toggleActive : theme.toggleInactive,
+              )}
+            >
+              {onlyWithAccess ? "Showing with access" : "Showing everyone"}
+            </button>
+          </div>
         </div>
 
         {actionError && (
@@ -497,95 +577,131 @@ export function PermissionsMatrix({
 
         <div className={cn("overflow-x-auto rounded-3xl", theme.tableWrap)}>
           <table className="w-full border-collapse text-sm">
-            <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
-              <tr>
-                <th
-                  className={cn(
-                    "sticky left-0 z-10 px-4 py-3 text-left font-medium",
-                    theme.headerStickyBg,
-                  )}
-                >
-                  Principal
-                </th>
-                {tools.map((tool) => (
-                  <th
-                    key={tool.id}
-                    className="px-3 py-3 text-center font-medium"
-                    title={tool.description ?? tool.name}
-                  >
-                    <span className="block max-w-[120px] truncate normal-case">
-                      {tool.name.replace(stripToolPrefix, "")}
-                    </span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {principals.map((principal) => {
-                const meta = PRINCIPAL_META[principal.type];
-                const PIcon = meta.icon;
-                return (
-                  <tr key={principal.id} className={cn("border-t", theme.rowBorder)}>
-                    <td className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}>
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={cn(
-                            "grid h-8 w-8 shrink-0 place-items-center rounded-full",
-                            theme.avatarBg,
-                          )}
-                        >
-                          <PIcon className={cn("h-4 w-4", theme.principalIcon)} />
-                        </span>
-                        <div className="min-w-0">
-                          <div className={cn("truncate font-medium", theme.principalName)}>
-                            {principal.name}
-                          </div>
-                          <div
-                            className={cn(
-                              "mt-0.5 flex items-center gap-1.5 text-xs",
-                              theme.principalSub,
-                            )}
-                          >
-                            <span>{meta.label}</span>
-                            <GrantControl
-                              principal={principal}
-                              busy={busyKey === `tk:${principal.id}`}
-                              onSet={(mode) => setToolkitGrant(principal.id, mode)}
-                              onRevoke={() => revokeToolkitGrant(principal.id)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </td>
+            {orientation === "principals" ? (
+              <>
+                <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
+                  <tr>
+                    <th
+                      className={cn(
+                        "sticky left-0 z-10 px-4 py-3 text-left font-medium",
+                        theme.headerStickyBg,
+                      )}
+                    >
+                      Principal
+                    </th>
                     {tools.map((tool) => (
-                      <td key={tool.id} className="px-3 py-3 text-center">
-                        <div className="flex justify-center">
-                          <ToolAccessCell
-                            rule={principal.rules[tool.id]}
-                            value={principal.tools[tool.id] ?? "no_access"}
-                            busy={busyKey === `tr:${principal.id}:${tool.id}`}
-                            editable={principal.has_toolkit_access}
-                            onChoose={(choice) => setToolRule(principal.id, tool.id, choice)}
-                          />
-                        </div>
-                      </td>
+                      <th
+                        key={tool.id}
+                        className="px-3 py-3 text-center font-medium"
+                        title={tool.description ?? tool.name}
+                      >
+                        <span className="block max-w-[120px] truncate normal-case">
+                          {toolLabel(tool)}
+                        </span>
+                      </th>
                     ))}
                   </tr>
-                );
-              })}
-              {principals.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={tools.length + 1}
-                    className={cn("px-4 py-10 text-center", theme.emptyText)}
-                  >
-                    {onlyWithAccess
-                      ? "No principal has access to these tools yet."
-                      : "No principals in this organization yet."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
+                </thead>
+                <tbody>
+                  {principals.map((principal) => (
+                    <tr key={principal.id} className={cn("border-t", theme.rowBorder)}>
+                      <td className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}>
+                        <PrincipalLabel
+                          principal={principal}
+                          busy={busyKey === `tk:${principal.id}`}
+                          onSet={(mode) => setToolkitGrant(principal.id, mode)}
+                          onRevoke={() => revokeToolkitGrant(principal.id)}
+                        />
+                      </td>
+                      {tools.map((tool) => (
+                        <td key={tool.id} className="px-3 py-3 text-center">
+                          {renderToolCell(principal, tool)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {principals.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={tools.length + 1}
+                        className={cn("px-4 py-10 text-center", theme.emptyText)}
+                      >
+                        {onlyWithAccess
+                          ? "No principal has access to these tools yet."
+                          : "No principals in this organization yet."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </>
+            ) : (
+              <>
+                <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
+                  <tr>
+                    <th
+                      className={cn(
+                        "sticky left-0 z-10 px-4 py-3 text-left font-medium",
+                        theme.headerStickyBg,
+                      )}
+                    >
+                      Tool
+                    </th>
+                    {principals.map((principal) => (
+                      <th
+                        key={principal.id}
+                        className="min-w-[180px] px-3 py-3 text-left font-medium normal-case"
+                      >
+                        <PrincipalLabel
+                          principal={principal}
+                          busy={busyKey === `tk:${principal.id}`}
+                          onSet={(mode) => setToolkitGrant(principal.id, mode)}
+                          onRevoke={() => revokeToolkitGrant(principal.id)}
+                        />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {principals.length > 0 &&
+                    tools.map((tool) => (
+                      <tr key={tool.id} className={cn("border-t", theme.rowBorder)}>
+                        <td
+                          className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}
+                          title={tool.description ?? tool.name}
+                        >
+                          <span
+                            className={cn(
+                              "block max-w-[260px] truncate font-medium",
+                              theme.principalName,
+                            )}
+                          >
+                            {toolLabel(tool)}
+                          </span>
+                        </td>
+                        {principals.map((principal) => (
+                          <td key={principal.id} className="px-3 py-3 text-center">
+                            {renderToolCell(principal, tool)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  {(principals.length === 0 || tools.length === 0) && (
+                    <tr>
+                      <td
+                        colSpan={principals.length + 1}
+                        className={cn("px-4 py-10 text-center", theme.emptyText)}
+                      >
+                        {principals.length === 0
+                          ? onlyWithAccess
+                            ? "No principal has access to these tools yet."
+                            : "No principals in this organization yet."
+                          : "No tools in this toolkit yet."}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </>
+            )}
           </table>
         </div>
       </div>
