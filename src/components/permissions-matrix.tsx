@@ -309,6 +309,8 @@ function PrincipalLabel({
 export type PermissionsMatrixProps = {
   /** Toolkits whose access this matrix manages. Union of one or more servers. */
   toolkitIds: string[];
+  /** Optional catalog/module slugs to show inside the selected toolkit. Omit for all tools. */
+  moduleSlugs?: string[];
   /** Whether at least one backing MCP server is enabled. */
   enabled: boolean;
   theme: PermissionsTheme;
@@ -325,6 +327,7 @@ export type PermissionsMatrixProps = {
 
 export function PermissionsMatrix({
   toolkitIds,
+  moduleSlugs,
   enabled,
   theme,
   toolsNoun,
@@ -338,6 +341,25 @@ export function PermissionsMatrix({
   // "principals" → principals as rows, tools as columns (default).
   // "tools" → transposed: tools as rows, principals as columns.
   const [orientation, setOrientation] = useState<MatrixOrientation>("principals");
+  const moduleScope = useMemo(
+    () => [...new Set(moduleSlugs ?? [])].filter(Boolean).sort(),
+    [moduleSlugs],
+  );
+  const toolkitMatrixQueryKey = useMemo(
+    () => ["toolkit-access-matrix", toolkitId] as const,
+    [toolkitId],
+  );
+  const matrixQueryKey = useMemo(
+    () => [...toolkitMatrixQueryKey, moduleScope.join(",")] as const,
+    [toolkitMatrixQueryKey, moduleScope],
+  );
+  const matrixPath = useMemo(() => {
+    if (!toolkitId) return "";
+    const params = new URLSearchParams();
+    for (const slug of moduleScope) params.append("module_slug", slug);
+    const query = params.toString();
+    return `/api/v1/toolkits/${toolkitId}/access-matrix${query ? `?${query}` : ""}`;
+  }, [toolkitId, moduleScope]);
 
   // Default to the first toolkit and keep the selection valid as data loads.
   useEffect(() => {
@@ -347,8 +369,8 @@ export function PermissionsMatrix({
   }, [toolkitIds, toolkitId]);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["toolkit-access-matrix", toolkitId],
-    queryFn: () => apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${toolkitId}/access-matrix`),
+    queryKey: matrixQueryKey,
+    queryFn: () => apiRequest<ToolkitAccessMatrix>(matrixPath),
     enabled: Boolean(toolkitId),
     staleTime: 30 * 1000,
   });
@@ -381,7 +403,7 @@ export function PermissionsMatrix({
       setActionError(null);
       try {
         await fn();
-        await queryClient.invalidateQueries({ queryKey: ["toolkit-access-matrix", toolkitId] });
+        await queryClient.invalidateQueries({ queryKey: toolkitMatrixQueryKey });
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
           onApiError(err);
@@ -398,7 +420,7 @@ export function PermissionsMatrix({
         setBusyKey(null);
       }
     },
-    [queryClient, toolkitId, onApiError],
+    [queryClient, toolkitMatrixQueryKey, onApiError],
   );
 
   const setToolkitGrant = (principalId: string, mode: "full" | "restricted") =>

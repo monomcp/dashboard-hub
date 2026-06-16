@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, Pencil, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
+import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
-type App = { name: string; color: string; letter: string; to?: string };
+// `letter` is rendered inside the colored tile; pass `icon` to render a custom
+// glyph (e.g. a brand logo) instead.
+type App = { name: string; color: string; letter: string; icon?: ReactNode; to?: string };
 
 const FAVOURITE_APPS: App[] = [
   { name: "Account", color: "bg-stone-500", letter: "C" },
@@ -94,6 +97,13 @@ const FAVOURITE_APPS: App[] = [
     color: "bg-gradient-to-br from-sky-500 to-indigo-600",
     letter: "🔑",
     to: "/permissions",
+  },
+  {
+    name: "Pinterest",
+    color: "bg-white ring-1 ring-black/5",
+    letter: "P",
+    icon: <PinterestIcon className="h-6 w-6" />,
+    to: "/pinterest",
   },
 ];
 
@@ -184,11 +194,12 @@ export function AppsMenu() {
               const icon = (
                 <div
                   className={cn(
-                    "grid h-11 w-11 place-items-center rounded-full text-white font-semibold shadow-sm",
+                    "grid h-11 w-11 place-items-center rounded-full font-semibold shadow-sm",
+                    app.icon ? "" : "text-white",
                     app.color,
                   )}
                 >
-                  {app.letter}
+                  {app.icon ?? app.letter}
                 </div>
               );
               const label = <span className="text-xs text-foreground/80">{app.name}</span>;

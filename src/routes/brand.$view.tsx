@@ -1085,6 +1085,7 @@ function PermissionsView({
   return (
     <PermissionsMatrix
       toolkitIds={toolkitIds}
+      moduleSlugs={["brand"]}
       enabled={Boolean(brandServer?.enabled)}
       theme={darkPermissionsTheme}
       toolsNoun="Brand DNA"

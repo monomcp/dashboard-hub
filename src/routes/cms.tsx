@@ -1164,6 +1164,7 @@ function CmsPage() {
           {!loading && view.kind === "permissions" && (
             <PermissionsMatrix
               toolkitIds={cmsServer?.toolkit_ids ?? []}
+              moduleSlugs={["cms"]}
               enabled={cmsServer?.enabled ?? false}
               theme={lightPermissionsTheme}
               toolsNoun="CMS"

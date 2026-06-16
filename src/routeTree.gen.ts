@@ -27,6 +27,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrandIndexRouteImport } from './routes/brand.index'
+import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
@@ -122,6 +123,11 @@ const BrandIndexRoute = BrandIndexRouteImport.update({
   path: '/brand/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PinterestViewRoute = PinterestViewRouteImport.update({
+  id: '/$view',
+  path: '/$view',
+  getParentRoute: () => PinterestRoute,
+} as any)
 const PermissionsToolkitIdRoute = PermissionsToolkitIdRouteImport.update({
   id: '/$toolkitId',
   path: '/$toolkitId',
@@ -158,12 +164,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/permissions': typeof PermissionsRouteWithChildren
-  '/pinterest': typeof PinterestRoute
+  '/pinterest': typeof PinterestRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
+  '/pinterest/$view': typeof PinterestViewRoute
   '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -182,12 +189,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/permissions': typeof PermissionsRouteWithChildren
-  '/pinterest': typeof PinterestRoute
+  '/pinterest': typeof PinterestRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
+  '/pinterest/$view': typeof PinterestViewRoute
   '/brand': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -207,12 +215,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/permissions': typeof PermissionsRouteWithChildren
-  '/pinterest': typeof PinterestRoute
+  '/pinterest': typeof PinterestRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
+  '/pinterest/$view': typeof PinterestViewRoute
   '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/permissions/$toolkitId'
+    | '/pinterest/$view'
     | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesByTo: FileRoutesByTo
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/permissions/$toolkitId'
+    | '/pinterest/$view'
     | '/brand'
     | '/auth/magic-link/confirm'
   id:
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/permissions/$toolkitId'
+    | '/pinterest/$view'
     | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesById: FileRoutesById
@@ -306,7 +318,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   PermissionsRoute: typeof PermissionsRouteWithChildren
-  PinterestRoute: typeof PinterestRoute
+  PinterestRoute: typeof PinterestRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
@@ -442,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrandIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pinterest/$view': {
+      id: '/pinterest/$view'
+      path: '/$view'
+      fullPath: '/pinterest/$view'
+      preLoaderRoute: typeof PinterestViewRouteImport
+      parentRoute: typeof PinterestRoute
+    }
     '/permissions/$toolkitId': {
       id: '/permissions/$toolkitId'
       path: '/$toolkitId'
@@ -496,6 +515,18 @@ const PermissionsRouteWithChildren = PermissionsRoute._addFileChildren(
   PermissionsRouteChildren,
 )
 
+interface PinterestRouteChildren {
+  PinterestViewRoute: typeof PinterestViewRoute
+}
+
+const PinterestRouteChildren: PinterestRouteChildren = {
+  PinterestViewRoute: PinterestViewRoute,
+}
+
+const PinterestRouteWithChildren = PinterestRoute._addFileChildren(
+  PinterestRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
@@ -511,7 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   PermissionsRoute: PermissionsRouteWithChildren,
-  PinterestRoute: PinterestRoute,
+  PinterestRoute: PinterestRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,

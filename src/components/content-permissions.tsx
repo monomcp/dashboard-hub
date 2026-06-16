@@ -36,6 +36,7 @@ export function ContentPermissionsView({
   return (
     <PermissionsMatrix
       toolkitIds={toolkitIds}
+      moduleSlugs={["cms", "smm"]}
       enabled={anyEnabled}
       theme={lightPermissionsTheme}
       toolsNoun="Content"
