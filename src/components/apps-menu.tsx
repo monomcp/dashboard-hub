@@ -117,6 +117,8 @@ const MORE_APPS: App[] = [
   { name: "Translate", color: "bg-gradient-to-br from-blue-500 to-sky-400", letter: "文" },
 ];
 
+const PINNED_FAVOURITES = new Set(["Pinterest"]);
+
 type HiddenFavouritesResponse = { app_keys: string[] };
 
 const HIDDEN_FAVOURITES_KEY = ["preferences", "hidden-favourites"];
@@ -158,7 +160,9 @@ export function AppsMenu() {
     },
   });
 
-  const favourites = FAVOURITE_APPS.filter((app) => app.to !== pathname && !hidden.has(app.name));
+  const favourites = FAVOURITE_APPS.filter(
+    (app) => PINNED_FAVOURITES.has(app.name) || !hidden.has(app.name),
+  );
 
   return (
     <Popover onOpenChange={(open) => !open && setEditing(false)}>
@@ -204,7 +208,7 @@ export function AppsMenu() {
               );
               const label = <span className="text-xs text-foreground/80">{app.name}</span>;
 
-              const deleteButton = editing ? (
+              const deleteButton = editing && !PINNED_FAVOURITES.has(app.name) ? (
                 <button
                   type="button"
                   aria-label={`Remove ${app.name} from favourites`}
