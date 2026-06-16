@@ -8,7 +8,7 @@ import { D as Dialog, f as DialogTrigger, a as DialogContent, b as DialogHeader,
 import { D as DropdownMenu, a as DropdownMenuTrigger, b as DropdownMenuContent, c as DropdownMenuItem } from "./dropdown-menu-DmTKMmfc.mjs";
 import { A as AppsMenu, a as AccountMenu } from "./account-menu-3sxYre98.mjs";
 import { A as ApiError, c as clearAuthTokens, a as apiRequest } from "./api-client-CDT_AGSo.mjs";
-import { M as Menu, at as CalendarDays, au as ChevronLeft, W as ChevronRight, i as Search, a as CircleQuestionMark, b as Settings, H as Plus, av as SquareCheckBig, aw as MapPin } from "../_libs/lucide-react.mjs";
+import { M as Menu, au as CalendarDays, av as ChevronLeft, X as ChevronRight, a as Search, c as CircleQuestionMark, d as Settings, N as Plus, aw as SquareCheckBig, ax as MapPin } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";

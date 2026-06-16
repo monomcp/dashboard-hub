@@ -5,7 +5,7 @@ import { I as Input } from "./input-C0QjszdI.mjs";
 import { A as AlertDialog, a as AlertDialogTrigger, b as AlertDialogContent, c as AlertDialogHeader, d as AlertDialogTitle, e as AlertDialogDescription, f as AlertDialogFooter, g as AlertDialogCancel, h as AlertDialogAction } from "./alert-dialog-BqB4vy_S.mjs";
 import { A as AppsMenu, a as AccountMenu } from "./account-menu-3sxYre98.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { M as Menu, a2 as Database, i as Search, a as CircleQuestionMark, b as Settings, H as Plus, t as Star, a3 as EyeOff, a4 as Funnel, a5 as LayoutGrid, a6 as ArrowDownUp, a7 as Share2, w as Trash2, a8 as Check } from "../_libs/lucide-react.mjs";
+import { M as Menu, a3 as Database, a as Search, c as CircleQuestionMark, d as Settings, N as Plus, v as Star, a4 as EyeOff, a5 as Funnel, a6 as LayoutGrid, a7 as ArrowDownUp, a8 as Share2, y as Trash2, a9 as Check } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";

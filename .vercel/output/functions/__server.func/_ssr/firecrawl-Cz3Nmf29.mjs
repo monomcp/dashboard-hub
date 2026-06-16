@@ -1,13 +1,13 @@
 import { r as reactExports, j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { L as Link } from "../_libs/tanstack__react-router.mjs";
-import { u as useQuery } from "../_libs/tanstack__react-query.mjs";
+import { a as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { B as Button } from "./button-DA2gxxPy.mjs";
 import { I as Input } from "./input-C0QjszdI.mjs";
 import { A as AppsMenu, a as AccountMenu } from "./account-menu-3sxYre98.mjs";
 import { E as EnableMcpServerButton } from "./enable-mcp-server-button-DAqYzfXa.mjs";
 import { a as apiRequest } from "./api-client-CDT_AGSo.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { L as LayoutDashboard, e as Sparkles, D as Download, f as Lock, F as FileCodeCorner, S as ShieldCheck, g as Activity, h as SlidersHorizontal, M as Menu, i as Search, a as CircleQuestionMark, b as Settings, E as ExternalLink, j as EllipsisVertical, d as Mail, k as Bell, l as Send, m as MessageSquare, P as Phone, n as CircleCheck, o as Copy } from "../_libs/lucide-react.mjs";
+import { g as LayoutDashboard, h as Sparkles, D as Download, b as Lock, F as FileCodeCorner, S as ShieldCheck, i as Activity, j as SlidersHorizontal, M as Menu, a as Search, c as CircleQuestionMark, d as Settings, E as ExternalLink, k as EllipsisVertical, f as Mail, l as Bell, m as Send, n as MessageSquare, P as Phone, o as CircleCheck, p as Copy } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";

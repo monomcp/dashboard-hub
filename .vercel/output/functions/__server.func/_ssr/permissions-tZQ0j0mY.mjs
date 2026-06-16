@@ -1,13 +1,13 @@
 import { r as reactExports, j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { d as useNavigate, f as useParams, L as Link, O as Outlet } from "../_libs/tanstack__react-router.mjs";
-import { u as useQuery } from "../_libs/tanstack__react-query.mjs";
+import { a as useQuery } from "../_libs/tanstack__react-query.mjs";
 import { B as Button } from "./button-DA2gxxPy.mjs";
 import { S as Skeleton } from "./skeleton-CoUJiN10.mjs";
 import { A as AppsMenu, a as AccountMenu } from "./account-menu-3sxYre98.mjs";
 import { l as lightPermissionsTheme, P as PermissionsMatrixLoading } from "./permissions-matrix-C4zDV_et.mjs";
 import { a as apiRequest } from "./api-client-CDT_AGSo.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { M as Menu, K as KeyRound, a as CircleQuestionMark, b as Settings, c as Squircle } from "../_libs/lucide-react.mjs";
+import { M as Menu, K as KeyRound, c as CircleQuestionMark, d as Settings, e as Squircle } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";

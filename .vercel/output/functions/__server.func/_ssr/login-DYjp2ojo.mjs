@@ -4,7 +4,7 @@ import { B as Button } from "./button-DA2gxxPy.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
 import { I as Input } from "./input-C0QjszdI.mjs";
 import { L as Label } from "./label-JU3yqRBo.mjs";
-import { d as Mail, A as Apple } from "../_libs/lucide-react.mjs";
+import { f as Mail, A as Apple } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";

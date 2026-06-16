@@ -1,7 +1,7 @@
 import { r as reactExports, j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { C as Checkbox$1, a as CheckboxIndicator } from "../_libs/radix-ui__react-checkbox.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { a8 as Check } from "../_libs/lucide-react.mjs";
+import { a9 as Check } from "../_libs/lucide-react.mjs";
 const Checkbox = reactExports.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ jsxRuntimeExports.jsx(
   Checkbox$1,
   {

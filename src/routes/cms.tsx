@@ -30,11 +30,22 @@ import {
   FileStack,
   KeyRound,
   Activity,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -238,6 +249,25 @@ type EntryLocaleDetailResponse = {
   published_version: EntryVersionResponse | null;
 };
 
+type CmsApiTokenType = "read_only" | "full_access";
+
+type CmsApiTokenResponse = {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  token_type: CmsApiTokenType;
+  key_prefix: string;
+  created_by_user_id: string | null;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type CmsApiTokenCreated = CmsApiTokenResponse & {
+  secret: string;
+};
+
 type SidebarTarget =
   | { kind: "content-type"; id: string; group: "Collection Types" | "Single Types" }
   | { kind: "component"; id: string; group: "Components" };
@@ -252,7 +282,8 @@ type View =
   | { kind: "llms" }
   | { kind: "llms-full" }
   | { kind: "permissions" }
-  | { kind: "activity" };
+  | { kind: "activity" }
+  | { kind: "api-tokens" };
 
 type EntryRow = EntryResponse & {
   primaryLocale: EntryLocaleResponse | null;
@@ -334,6 +365,21 @@ function statusClass(status: EntryStatus) {
 function formatDate(value: string | null) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatTokenType(type: CmsApiTokenType) {
+  if (type === "full_access") return "Full access";
+  return "Read only";
 }
 
 function asString(value: unknown) {
@@ -955,6 +1001,36 @@ function CmsPage() {
                   </button>
                 </div>
               )}
+
+              {!loading && (
+                <div>
+                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Settings
+                  </div>
+                  <button
+                    onClick={() => {
+                      setView({ kind: "api-tokens" });
+                      setSelected([]);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                      view.kind === "api-tokens"
+                        ? "bg-indigo-50 font-semibold text-indigo-700"
+                        : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <KeyRound
+                      className={cn(
+                        "h-4 w-4",
+                        view.kind === "api-tokens"
+                          ? "text-indigo-600"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="truncate text-left">API Tokens</span>
+                  </button>
+                </div>
+              )}
             </nav>
           </aside>
         )}
@@ -1110,6 +1186,8 @@ function CmsPage() {
               description="Every change made to your content through Console and via CMS tool calls."
             />
           )}
+
+          {!loading && view.kind === "api-tokens" && <ApiTokensView onError={handleApiError} />}
         </main>
       </div>
 
@@ -1269,6 +1347,347 @@ function CmsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ApiTokensView({ onError }: { onError: (err: unknown, fallback?: string) => void }) {
+  const [tokens, setTokens] = useState<CmsApiTokenResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [tokenType, setTokenType] = useState<CmsApiTokenType>("read_only");
+  const [creating, setCreating] = useState(false);
+  const [createdSecret, setCreatedSecret] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<CmsApiTokenResponse | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const loadTokens = useCallback(async () => {
+    setLoading(true);
+    try {
+      const page = await apiRequest<Page<CmsApiTokenResponse>>(
+        "/api/v1/cms-api/tokens?limit=200",
+      );
+      setTokens(page.items);
+    } catch (err) {
+      onError(err, "Unable to load API tokens");
+    } finally {
+      setLoading(false);
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    void loadTokens();
+  }, [loadTokens]);
+
+  const openCreateDialog = () => {
+    setName("");
+    setDescription("");
+    setTokenType("read_only");
+    setCreateOpen(true);
+  };
+
+  const createToken = async () => {
+    const trimmedName = name.trim();
+    if (!trimmedName || tokenType !== "read_only") return;
+    setCreating(true);
+    try {
+      const next = await apiRequest<CmsApiTokenCreated>("/api/v1/cms-api/tokens", {
+        method: "POST",
+        body: JSON.stringify({
+          name: trimmedName,
+          description: description.trim() || null,
+          token_type: tokenType,
+        }),
+      });
+      setTokens((current) => [next, ...current]);
+      setCreatedSecret(next.secret);
+      setCopied(false);
+      setCreateOpen(false);
+    } catch (err) {
+      onError(err, "Unable to create API token");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const copySecret = async () => {
+    if (!createdSecret) return;
+    await navigator.clipboard.writeText(createdSecret);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const deleteToken = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      await apiRequest<void>(`/api/v1/cms-api/tokens/${pendingDelete.id}`, {
+        method: "DELETE",
+      });
+      setTokens((current) => current.filter((token) => token.id !== pendingDelete.id));
+      setPendingDelete(null);
+    } catch (err) {
+      onError(err, "Unable to delete API token");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <section className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold tracking-tight">API Tokens</h1>
+          <p className="mt-1 text-muted-foreground">List of generated tokens to consume the API</p>
+        </div>
+        <Button
+          className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+          onClick={openCreateDialog}
+        >
+          <Plus className="mr-1.5 h-4 w-4" /> Create new API Token
+        </Button>
+      </div>
+
+      {createdSecret && (
+        <div className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm ring-1 ring-black/5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Copy your API token</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This token is shown once. Store it somewhere secure before leaving this page.
+              </p>
+            </div>
+            <Button variant="outline" className="rounded-lg" onClick={copySecret}>
+              <Copy className="mr-1.5 h-4 w-4" />
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          <Input
+            readOnly
+            value={createdSecret}
+            className="mt-4 h-11 rounded-lg bg-[hsl(220,33%,98%)] font-mono text-sm"
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="px-6 py-4 text-xs font-semibold uppercase tracking-wide">
+                Name
+              </TableHead>
+              <TableHead className="px-6 py-4 text-xs font-semibold uppercase tracking-wide">
+                Description
+              </TableHead>
+              <TableHead className="px-6 py-4 text-xs font-semibold uppercase tracking-wide">
+                Type
+              </TableHead>
+              <TableHead className="px-6 py-4 text-xs font-semibold uppercase tracking-wide">
+                Created at
+              </TableHead>
+              <TableHead className="px-6 py-4 text-xs font-semibold uppercase tracking-wide">
+                Last used
+              </TableHead>
+              <TableHead className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="px-6 py-4">
+                    <Skeleton className="h-5 w-32" />
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <Skeleton className="h-5 w-60" />
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <Skeleton className="h-6 w-20 rounded-md" />
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <Skeleton className="h-5 w-24" />
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <Skeleton className="h-5 w-24" />
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="flex justify-end">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : tokens.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="px-6 py-8 text-sm text-muted-foreground">
+                  No API tokens created yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              tokens.map((token) => (
+                <TableRow key={token.id}>
+                  <TableCell className="px-6 py-4 font-semibold">{token.name}</TableCell>
+                  <TableCell className="max-w-[360px] truncate px-6 py-4 text-muted-foreground">
+                    {token.description || "-"}
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <Badge
+                      variant="outline"
+                      className="border-indigo-200 bg-indigo-50 text-indigo-700"
+                    >
+                      {formatTokenType(token.token_type)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-muted-foreground">
+                    {formatDateTime(token.created_at)}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-muted-foreground">
+                    {formatDateTime(token.last_used_at)}
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full text-muted-foreground hover:text-rose-600"
+                        aria-label={`Delete ${token.name}`}
+                        onClick={() => setPendingDelete(token)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create new API Token</DialogTitle>
+            <DialogDescription>
+              Generate a token for external clients that read published CMS content.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Name</label>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="h-11 rounded-lg"
+                placeholder="Website"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Description <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="min-h-24 rounded-lg"
+                placeholder="Used by the public website"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Token type</label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setTokenType("read_only")}
+                  className={cn(
+                    "rounded-xl border px-4 py-3 text-left transition",
+                    tokenType === "read_only"
+                      ? "border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100"
+                      : "border-black/10 bg-white hover:bg-[hsl(220,33%,98%)]",
+                  )}
+                >
+                  <span className="block text-sm font-semibold">Read only</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Access published content with GET requests.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="cursor-not-allowed rounded-xl border border-black/10 bg-[hsl(220,20%,96%)] px-4 py-3 text-left opacity-80"
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    Full access
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                      Soon
+                    </Badge>
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Write, edit, and delete APIs are not enabled yet.
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-lg"
+              disabled={creating}
+              onClick={() => setCreateOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
+              disabled={creating || !name.trim() || tokenType !== "read_only"}
+              onClick={createToken}
+            >
+              {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Create token
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => !open && !deleting && setPendingDelete(null)}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete API token?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `The token "${pendingDelete.name}" will stop working immediately.`
+                : "This token will stop working immediately."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting} className="rounded-lg">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="rounded-lg bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-300"
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteToken();
+              }}
+            >
+              {deleting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
 

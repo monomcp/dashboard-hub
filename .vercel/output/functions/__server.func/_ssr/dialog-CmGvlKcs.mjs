@@ -1,7 +1,7 @@
 import { r as reactExports, j as jsxRuntimeExports } from "../_libs/react.mjs";
 import { R as Root, T as Trigger, P as Portal, C as Content, b as Close, a as Title, D as Description, O as Overlay } from "../_libs/radix-ui__react-dialog.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { an as X } from "../_libs/lucide-react.mjs";
+import { ao as X } from "../_libs/lucide-react.mjs";
 const Dialog = Root;
 const DialogTrigger = Trigger;
 const DialogPortal = Portal;

@@ -4,6 +4,7 @@ import { Blocks, Menu } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
+import { PinterestIcon } from "@/components/pinterest-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
 import type { CatalogServer } from "@/lib/mcp-types";
@@ -57,8 +58,8 @@ function McpCatalogPage() {
         <div className="mb-6 mt-2">
           <h1 className="text-2xl font-medium tracking-tight">Enable MCP tools</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Pick a server to expose its tools through your MCP gateway. Enabling adds the
-            server's tools to a toolkit you choose (or a new one).
+            Pick a server to expose its tools through your MCP gateway. Enabling adds the server's
+            tools to a toolkit you choose (or a new one).
           </p>
         </div>
 
@@ -85,9 +86,15 @@ function McpCatalogPage() {
               className="flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5"
             >
               <div className="flex items-start justify-between">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-sm font-semibold uppercase text-white">
-                  {server.name.charAt(0)}
-                </div>
+                {server.slug === "pinterest" ? (
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
+                    <PinterestIcon className="h-6 w-6" />
+                  </div>
+                ) : (
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-sm font-semibold uppercase text-white">
+                    {server.name.charAt(0)}
+                  </div>
+                )}
                 <span className="text-xs text-muted-foreground">
                   {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
                 </span>
@@ -96,12 +103,20 @@ function McpCatalogPage() {
               <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
                 {server.description}
               </p>
-              <div className="mt-4">
+              <div className="mt-4 flex items-center gap-3">
                 <EnableMcpServerButton
                   serverSlug={server.slug}
                   enabled={server.enabled}
                   toolkitIds={server.toolkit_ids}
                 />
+                {server.slug === "pinterest" && (
+                  <Link
+                    to="/pinterest"
+                    className="text-sm font-medium text-[#E60023] hover:underline"
+                  >
+                    Configure →
+                  </Link>
+                )}
               </div>
             </div>
           ))}

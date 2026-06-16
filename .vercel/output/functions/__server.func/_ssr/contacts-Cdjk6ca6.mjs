@@ -9,7 +9,7 @@ import { D as DropdownMenu, a as DropdownMenuTrigger, b as DropdownMenuContent, 
 import { A as AppsMenu, a as AccountMenu } from "./account-menu-3sxYre98.mjs";
 import { A as ApiError, c as clearAuthTokens, a as apiRequest } from "./api-client-CDT_AGSo.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { M as Menu, a9 as User, i as Search, a as CircleQuestionMark, b as Settings, H as Plus, T as Tag, aa as Upload, ab as Clock, I as Inbox, ac as Wrench, w as Trash2, j as EllipsisVertical, d as Mail, P as Phone, a1 as RotateCcw, t as Star, ad as LoaderCircle } from "../_libs/lucide-react.mjs";
+import { M as Menu, aa as User, a as Search, c as CircleQuestionMark, d as Settings, N as Plus, T as Tag, ab as Upload, ac as Clock, r as Inbox, ad as Wrench, y as Trash2, k as EllipsisVertical, f as Mail, P as Phone, a2 as RotateCcw, v as Star, ae as LoaderCircle } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";

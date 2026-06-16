@@ -4,7 +4,7 @@ import { B as Button } from "./button-DA2gxxPy.mjs";
 import { I as Input } from "./input-C0QjszdI.mjs";
 import { A as AppsMenu, a as AccountMenu } from "./account-menu-3sxYre98.mjs";
 import { c as cn } from "./utils-H80jjgLf.mjs";
-import { M as Menu, d as Mail, i as Search, a as CircleQuestionMark, b as Settings, p as Pencil, I as Inbox, q as ChartColumn, G as Globe, r as ScrollText, R as RefreshCw, j as EllipsisVertical, T as Tag, U as Users, s as Info, t as Star, u as ArrowLeft, v as Archive, w as Trash2, x as Printer, y as Reply, z as Forward, H as Plus, D as Download, n as CircleCheck, J as ChevronDown } from "../_libs/lucide-react.mjs";
+import { M as Menu, f as Mail, a as Search, c as CircleQuestionMark, d as Settings, q as Pencil, r as Inbox, s as ChartColumn, G as Globe, t as ScrollText, R as RefreshCw, k as EllipsisVertical, T as Tag, U as Users, u as Info, v as Star, w as ArrowLeft, x as Archive, y as Trash2, z as Printer, H as Reply, J as Forward, N as Plus, D as Download, o as CircleCheck, O as ChevronDown } from "../_libs/lucide-react.mjs";
 import "../_libs/tanstack__router-core.mjs";
 import "../_libs/tanstack__history.mjs";
 import "../_libs/cookie-es.mjs";
