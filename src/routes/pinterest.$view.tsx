@@ -7,6 +7,7 @@ import {
   KeyRound,
   ListChecks,
   Lock,
+  Menu,
   Search,
   Settings,
 } from "lucide-react";
@@ -104,6 +105,7 @@ function PinterestPage() {
   const navigate = useNavigate();
   const view = Route.useParams().view as PinterestView;
   const queryClient = useQueryClient();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { data: fields, isLoading: fieldsLoading } = useQuery({
     queryKey: ["pinterest-fields"],
@@ -206,6 +208,15 @@ function PinterestPage() {
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
       <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Toggle menu"
+            onClick={() => setSidebarOpen((s) => !s)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <Link to="/mcp" className="flex items-center gap-2">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
               <PinterestIcon className="h-6 w-6" />
@@ -229,27 +240,29 @@ function PinterestPage() {
       </header>
 
       <div className="flex">
-        <aside className="hidden w-[260px] shrink-0 px-3 md:block">
-          <nav className="space-y-1">
-            {PINTEREST_NAV.map((item) => {
-              const active = view === item.id;
-              return (
-                <Link
-                  key={item.id}
-                  to="/pinterest/$view"
-                  params={{ view: item.id }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
-                    active ? "bg-red-50 text-[#B6001C]" : "text-foreground/80 hover:bg-white/60",
-                  )}
-                >
-                  <item.icon className="h-5 w-5 text-current/75" />
-                  <span className="flex-1 truncate text-left">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </aside>
+        {sidebarOpen && (
+          <aside className="hidden w-[260px] shrink-0 px-3 md:block">
+            <nav className="space-y-1">
+              {PINTEREST_NAV.map((item) => {
+                const active = view === item.id;
+                return (
+                  <Link
+                    key={item.id}
+                    to="/pinterest/$view"
+                    params={{ view: item.id }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm transition",
+                      active ? "bg-red-50 text-[#B6001C]" : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <item.icon className="h-5 w-5 text-current/75" />
+                    <span className="flex-1 truncate text-left">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
+        )}
 
         <main className="min-w-0 flex-1 px-4 pb-16 md:pr-6">
           {view === "settings" && (
