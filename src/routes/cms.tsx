@@ -58,6 +58,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -2540,6 +2541,8 @@ function EntriesView({
   const [createDocumentKey, setCreateDocumentKey] = useState("");
   const [createLocale, setCreateLocale] = useState("en");
   const [creating, setCreating] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<EntryRow | null>(null);
+  const [mutatingEntryId, setMutatingEntryId] = useState<string | null>(null);
 
   const loadEntries = useCallback(async () => {
     setLoading(true);
@@ -2618,6 +2621,40 @@ function EntriesView({
     }
   };
 
+  const unpublishEntry = async (entry: EntryRow) => {
+    if (!entry.primaryLocale) return;
+    setMutatingEntryId(entry.id);
+    try {
+      await apiRequest<EntryLocaleResponse>(
+        `/api/v1/cms/entry-locales/${entry.primaryLocale.id}/unpublish`,
+        {
+          method: "POST",
+        },
+      );
+      await loadEntries();
+    } catch (err) {
+      onError(err, "Unable to unpublish entry");
+    } finally {
+      setMutatingEntryId(null);
+    }
+  };
+
+  const confirmDeleteEntry = async () => {
+    if (!pendingDelete) return;
+    const entry = pendingDelete;
+    setMutatingEntryId(entry.id);
+    try {
+      await apiRequest<void>(`/api/v1/cms/entries/${entry.id}`, { method: "DELETE" });
+      setPendingDelete(null);
+      setSelected(selected.filter((id) => id !== entry.id));
+      await loadEntries();
+    } catch (err) {
+      onError(err, "Unable to delete entry");
+    } finally {
+      setMutatingEntryId(null);
+    }
+  };
+
   return (
     <section className="space-y-6">
       <button
@@ -2693,6 +2730,9 @@ function EntriesView({
           <ul>
             {entries.map((e) => {
               const checked = selected.includes(e.id);
+              const status = e.primaryLocale?.status ?? e.status;
+              const isPublished = status === "published";
+              const isMutating = mutatingEntryId === e.id;
               return (
                 <li
                   key={e.id}
@@ -2712,21 +2752,60 @@ function EntriesView({
                     <span
                       className={cn(
                         "rounded-md px-2.5 py-1 text-xs font-medium",
-                        statusClass(e.primaryLocale?.status ?? e.status),
+                        statusClass(status),
                       )}
                     >
-                      {formatStatus(e.primaryLocale?.status ?? e.status)}
+                      {formatStatus(status)}
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    aria-label="More"
-                    onClick={(ev) => ev.stopPropagation()}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <div onClick={(ev) => ev.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full"
+                          aria-label="More"
+                          disabled={isMutating}
+                        >
+                          {isMutating ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <MoreVertical className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                        {isPublished ? (
+                          <DropdownMenuItem
+                            onSelect={(event) => {
+                              event.preventDefault();
+                              void unpublishEntry(e);
+                            }}
+                          >
+                            <FileStack className="mr-2 h-4 w-4" />
+                            Unpublish
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onSelect={() => onOpenEntry(e.id)}>
+                            <Edit3 className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-rose-600 focus:text-rose-600"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            setPendingDelete(e);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </li>
               );
             })}
@@ -2790,6 +2869,42 @@ function EntriesView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open && !mutatingEntryId) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete
+              {pendingDelete
+                ? ` "${pendingDelete.primaryLocale?.title || pendingDelete.document_key}"`
+                : " this entry"}
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!mutatingEntryId} className="rounded-lg">
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!mutatingEntryId}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDeleteEntry();
+              }}
+              className="rounded-lg bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-300"
+            >
+              {mutatingEntryId ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
