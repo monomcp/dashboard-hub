@@ -211,9 +211,9 @@ export function SocialCalendarList({
     setMutating(true);
     try {
       await apiRequest<void>(`/api/v1/social/calendar-items/${item.id}`, { method: "DELETE" });
+      setItems((current) => current.filter((calendarItem) => calendarItem.id !== item.id));
       if (selected?.id === item.id) closeDetail();
       setPendingDelete(null);
-      await load();
     } catch (err) {
       onError(err);
     } finally {

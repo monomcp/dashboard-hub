@@ -4,6 +4,13 @@ import { Menu, ChevronUp } from "lucide-react";
 import { AppsMenu } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
@@ -15,14 +22,35 @@ export const Route = createFileRoute("/terms")({
   component: TermsPage,
 });
 
-function LegalHeader({ title }: { title: string }) {
+function LegalHeader() {
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-background px-4 sm:px-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu">
-          <Menu className="h-5 w-5" />
-        </Button>
-        <span className="text-xl font-normal text-foreground">{title}</span>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full" aria-label="Menu">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-80 p-0 sm:max-w-80">
+            <SheetHeader className="border-b border-border px-6 py-5 text-left">
+              <SheetTitle className="text-xl font-normal">Terms of Service</SheetTitle>
+            </SheetHeader>
+            <nav className="px-3 py-4" aria-label="Legal pages">
+              <Link
+                to="/privacy"
+                className="block rounded-xl px-3 py-3 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                Privacy Policy
+              </Link>
+            </nav>
+          </SheetContent>
+        </Sheet>
+        <img
+          src="/monomcp-logo-transparent.png"
+          alt="MonoMCP"
+          className="h-8 w-auto"
+        />
       </div>
       <div className="flex items-center gap-2">
         <AppsMenu />
@@ -67,7 +95,7 @@ function LegalFooter() {
 function TermsPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <LegalHeader title="Terms of Service" />
+      <LegalHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <div className="space-y-1 text-sm">
