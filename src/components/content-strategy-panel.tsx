@@ -21,7 +21,7 @@ import {
 } from "@/lib/content-types";
 
 type Props = {
-  businessId: string;
+  brandId: string;
   onError: (err: unknown) => void;
 };
 
@@ -43,7 +43,7 @@ const EMPTY_PILLAR_FORM = {
   priority: "0",
 };
 
-export function ContentStrategyPanel({ businessId, onError }: Props) {
+export function ContentStrategyPanel({ brandId, onError }: Props) {
   const [strategy, setStrategy] = useState<StrategyResponse | null>(null);
   const [pillars, setPillars] = useState<PillarResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +58,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
     setLoading(true);
     try {
       const page = await apiRequest<Page<StrategyResponse>>(
-        `/api/v1/content/strategies?business_id=${businessId}&limit=1`,
+        `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
       );
       const current = page.items[0] ?? null;
       setStrategy(current);
@@ -74,7 +74,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [businessId, onError]);
+  }, [brandId, onError]);
 
   useEffect(() => {
     void load();
@@ -116,7 +116,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
       } else {
         await apiRequest("/api/v1/content/strategies", {
           method: "POST",
-          body: JSON.stringify({ ...payload, business_id: businessId }),
+          body: JSON.stringify({ ...payload, brand_id: brandId }),
         });
       }
       setStrategyDialog(false);
@@ -224,9 +224,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
             </div>
           </dl>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No content strategy yet for this company.
-          </p>
+          <p className="text-sm text-muted-foreground">No content strategy yet for this brand.</p>
         )}
       </div>
 
@@ -243,9 +241,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
               <Plus className="mr-1 h-4 w-4" /> Add pillar
             </Button>
           </div>
-          {pillars.length === 0 && (
-            <p className="text-sm text-muted-foreground">No pillars yet.</p>
-          )}
+          {pillars.length === 0 && <p className="text-sm text-muted-foreground">No pillars yet.</p>}
           <ul className="grid gap-2">
             {pillars.map((pillar) => (
               <li
@@ -418,9 +414,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
                   id="pillar-priority"
                   type="number"
                   value={pillarForm.priority}
-                  onChange={(e) =>
-                    setPillarForm((prev) => ({ ...prev, priority: e.target.value }))
-                  }
+                  onChange={(e) => setPillarForm((prev) => ({ ...prev, priority: e.target.value }))}
                 />
               </div>
             </div>
@@ -448,9 +442,7 @@ export function ContentStrategyPanel({ businessId, onError }: Props) {
 function StrategyList({ label, items }: { label: string; items: string[] }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd>{items.length ? items.join(", ") : "—"}</dd>
     </div>
   );

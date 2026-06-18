@@ -40,6 +40,7 @@ import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { Page } from "@/lib/content-types";
+import type { BrandProfileResponse } from "@/lib/brand-types";
 import type { CatalogServer } from "@/lib/mcp-types";
 import type { SocialPlatform } from "@/lib/social-types";
 
@@ -96,7 +97,7 @@ const CONTENT_NAV = [
   { id: "activity", label: "Activity", icon: Activity },
 ] satisfies { id: ContentSection; label: string; icon: typeof Lightbulb }[];
 
-const BUSINESS_STORAGE_KEY = "content_business_id";
+const SOCIAL_BUSINESS_STORAGE_KEY = "content_social_business";
 const MODE_STORAGE_KEY = "content_mode";
 
 const CONTENT_MODE_TABS: ContentModeTab[] = [
@@ -127,23 +128,24 @@ function ContentPage() {
   );
   const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [platformId, setPlatformId] = useState<string>("");
+  const [brandId, setBrandId] = useState<string>("");
   const [businessId, setBusinessId] = useState<string>(
-    () => localStorage.getItem(BUSINESS_STORAGE_KEY) ?? "",
+    () => localStorage.getItem(SOCIAL_BUSINESS_STORAGE_KEY) ?? "",
   );
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [error, setError] = useState("");
 
-  // Content spans two catalog servers — "cms" (Content mode) and "smm" (Social
+  // Content spans two catalog servers — "content" (Content mode) and "smm" (Social
   // mode). The header enable button reflects the server for the active mode.
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 30 * 1000,
   });
-  const activeServerSlug = mode === "social" ? "smm" : "cms";
+  const activeServerSlug = mode === "social" ? "smm" : "content";
   const activeServer = catalog?.find((s) => s.slug === activeServerSlug);
 
-  // Permissions and Activity bypass the business-scoped content views.
+  // Permissions and Activity bypass the scoped planner views.
   const isToolkitSection = section === "permissions" || section === "activity";
   const showModeToggle = true;
 
@@ -162,15 +164,23 @@ function ContentPage() {
   useEffect(() => {
     void (async () => {
       try {
+        const brand = await apiRequest<BrandProfileResponse>("/api/v1/brand/profile").catch(
+          (err) => {
+            if (err instanceof ApiError && err.status === 404) return null;
+            throw err;
+          },
+        );
+        setBrandId(brand?.id ?? "");
+
         const page = await apiRequest<Page<BusinessSummary>>(
           "/api/v1/business?sort=name&direction=asc&limit=200&offset=0",
         );
-        const stored = localStorage.getItem(BUSINESS_STORAGE_KEY);
+        const stored = localStorage.getItem(SOCIAL_BUSINESS_STORAGE_KEY);
         const valid = page.items.some((b) => b.id === stored);
         const fallback = page.items[0]?.id ?? "";
         const next = valid && stored ? stored : fallback;
         setBusinessId(next);
-        if (next) localStorage.setItem(BUSINESS_STORAGE_KEY, next);
+        if (next) localStorage.setItem(SOCIAL_BUSINESS_STORAGE_KEY, next);
       } catch (err) {
         handleApiError(err);
       } finally {
@@ -442,7 +452,19 @@ function ContentPage() {
 
               {loadingBusinesses && <ContentPageSkeleton section={section} />}
 
-              {!loadingBusinesses && !businessId && (
+              {!loadingBusinesses && mode === "content" && !brandId && (
+                <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
+                  <p className="text-sm font-medium">No brand profile yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    Create a brand profile first, then plan its content here.
+                  </p>
+                  <Button asChild size="sm" className="mt-3 rounded-lg">
+                    <Link to="/brand">Go to Brand</Link>
+                  </Button>
+                </div>
+              )}
+
+              {!loadingBusinesses && mode === "social" && !businessId && (
                 <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
                   <p className="text-sm font-medium">No companies yet</p>
                   <p className="text-xs text-muted-foreground">
@@ -456,28 +478,24 @@ function ContentPage() {
 
               {!loadingBusinesses && businessId && mode === "social" && <SocialTemplateGallery />}
 
-              {!loadingBusinesses && businessId && mode === "content" && section === "ideas" && (
+              {!loadingBusinesses && brandId && mode === "content" && section === "ideas" && (
                 <ContentIdeasBoard
-                  key={businessId}
-                  businessId={businessId}
+                  key={brandId}
+                  brandId={brandId}
                   query={query}
                   onError={handleApiError}
                 />
               )}
-              {!loadingBusinesses && businessId && mode === "content" && section === "calendar" && (
+              {!loadingBusinesses && brandId && mode === "content" && section === "calendar" && (
                 <ContentCalendarList
-                  key={businessId}
-                  businessId={businessId}
+                  key={brandId}
+                  brandId={brandId}
                   view={calendarView}
                   onError={handleApiError}
                 />
               )}
-              {!loadingBusinesses && businessId && mode === "content" && section === "strategy" && (
-                <ContentStrategyPanel
-                  key={businessId}
-                  businessId={businessId}
-                  onError={handleApiError}
-                />
+              {!loadingBusinesses && brandId && mode === "content" && section === "strategy" && (
+                <ContentStrategyPanel key={brandId} brandId={brandId} onError={handleApiError} />
               )}
 
               {!loadingBusinesses && businessId && mode === "social" && section === "ideas" && (

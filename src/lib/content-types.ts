@@ -43,7 +43,7 @@ export type DraftStatus =
 
 export type StrategyResponse = {
   id: string;
-  business_id: string;
+  brand_id: string;
   goals: Record<string, unknown>;
   target_personas: string[];
   funnel_stages: string[];
@@ -69,7 +69,7 @@ export type PillarResponse = {
 
 export type IdeaResponse = {
   id: string;
-  business_id: string;
+  brand_id: string;
   pillar_id: string | null;
   title: string;
   angle: string | null;
@@ -94,7 +94,7 @@ export type IdeaResponse = {
 
 export type CalendarItemResponse = {
   id: string;
-  business_id: string;
+  brand_id: string;
   content_idea_id: string;
   title: string | null;
   format: CalendarFormat;

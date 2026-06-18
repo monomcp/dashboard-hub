@@ -26,12 +26,12 @@ import {
 } from "@/lib/content-types";
 
 type Props = {
-  businessId: string;
+  brandId: string;
   view?: "list" | "calendar";
   onError: (err: unknown) => void;
 };
 
-export function ContentCalendarList({ businessId, view = "list", onError }: Props) {
+export function ContentCalendarList({ brandId, view = "list", onError }: Props) {
   const [items, setItems] = useState<CalendarItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
@@ -43,7 +43,7 @@ export function ContentCalendarList({ businessId, view = "list", onError }: Prop
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ business_id: businessId, limit: "100" });
+      const params = new URLSearchParams({ brand_id: brandId, limit: "100" });
       if (statusFilter !== "all") params.set("status", statusFilter);
       const page = await apiRequest<Page<CalendarItemResponse>>(
         `/api/v1/content/calendar-items?${params}`,
@@ -54,7 +54,7 @@ export function ContentCalendarList({ businessId, view = "list", onError }: Prop
     } finally {
       setLoading(false);
     }
-  }, [businessId, statusFilter, onError]);
+  }, [brandId, statusFilter, onError]);
 
   useEffect(() => {
     void load();

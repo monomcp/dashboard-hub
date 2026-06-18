@@ -62,6 +62,10 @@ type Page<T> = {
 type SourceFilter = "all" | "api" | "mcp";
 type StatusFilter = "all" | "success" | "blocked" | "error";
 type ContentActivityMode = "content" | "social";
+type ActivityScope = {
+  moduleSlug: "content" | "smm";
+  toolkitIds: string[];
+};
 
 type ActivityFilters = {
   source: SourceFilter;
@@ -81,11 +85,14 @@ const EMPTY_ACTIVITY_FILTERS: ActivityFilters = {
   until: "",
 };
 
-function activityRequestPath(filters: ActivityFilters, offset: number) {
+function activityRequestPath(filters: ActivityFilters, offset: number, scope: ActivityScope) {
   const params = new URLSearchParams({
     limit: String(ACTIVITY_PAGE_SIZE),
     offset: String(offset),
   });
+
+  params.set("module_slug", scope.moduleSlug);
+  for (const toolkitId of scope.toolkitIds) params.append("toolkit_id", toolkitId);
 
   if (filters.source !== "all") params.set("source", filters.source);
   if (filters.status !== "all") params.set("outcome", filters.status);
@@ -153,14 +160,14 @@ function logIsBlocked(log: RequestLogSummary) {
   return log.outcome === "blocked";
 }
 
-// UI calls hit /api/v1/content|social, MCP calls use the cms_* / smm_* tools.
+// UI calls hit /api/v1/content|social, MCP calls use the content_* / smm_* tools.
 function isContentLog(log: RequestLogSummary, mode: ContentActivityMode) {
   if (mode === "social") {
     if (log.tool_name) return log.tool_name.startsWith("smm_");
     return Boolean(log.path?.startsWith("/api/v1/social"));
   }
 
-  if (log.tool_name) return log.tool_name.startsWith("cms_");
+  if (log.tool_name) return log.tool_name.startsWith("content_");
   return Boolean(log.path?.startsWith("/api/v1/content"));
 }
 
@@ -238,11 +245,32 @@ export function ContentActivityView({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
 
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 60 * 1000,
+  });
+
+  const activityScope = useMemo<ActivityScope>(() => {
+    const moduleSlug = mode === "social" ? "smm" : "content";
+    const toolkitIds = new Set<string>();
+    for (const server of catalog ?? []) {
+      if (server.slug !== moduleSlug || !server.enabled) continue;
+      for (const id of server.toolkit_ids) toolkitIds.add(id);
+    }
+    return { moduleSlug, toolkitIds: Array.from(toolkitIds) };
+  }, [catalog, mode]);
+
   const { data, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, error } =
     useInfiniteQuery({
-      queryKey: ["content-activity", filters],
+      queryKey: ["content-activity", activityScope.moduleSlug, activityScope.toolkitIds, filters],
       queryFn: ({ pageParam, signal }) =>
-        apiRequest<Page<RequestLogSummary>>(activityRequestPath(filters, pageParam), { signal }),
+        apiRequest<Page<RequestLogSummary>>(
+          activityRequestPath(filters, pageParam, activityScope),
+          {
+            signal,
+          },
+        ),
       initialPageParam: 0,
       getNextPageParam: (lastPage) => {
         const nextOffset = lastPage.offset + lastPage.items.length;
@@ -258,25 +286,16 @@ export function ContentActivityView({
   // Best-effort name lookup for user principals, drawn from the first content
   // toolkit's access matrix. Admin-gated, so a 403/empty result simply leaves
   // principals labelled by short id.
-  const { data: catalog } = useQuery({
-    queryKey: ["mcp-catalog"],
-    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
-    staleTime: 60 * 1000,
-  });
-
   const firstToolkitId = useMemo(() => {
-    const activeSlug = mode === "social" ? "smm" : "cms";
-    for (const server of catalog ?? []) {
-      if (server.slug !== activeSlug) continue;
-      if (server.enabled && server.toolkit_ids[0]) return server.toolkit_ids[0];
-    }
-    return undefined;
-  }, [catalog, mode]);
+    return activityScope.toolkitIds[0];
+  }, [activityScope.toolkitIds]);
 
   const { data: matrix } = useQuery({
-    queryKey: ["toolkit-access-matrix", firstToolkitId],
+    queryKey: ["toolkit-access-matrix", firstToolkitId, activityScope.moduleSlug],
     queryFn: () =>
-      apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${firstToolkitId}/access-matrix`),
+      apiRequest<ToolkitAccessMatrix>(
+        `/api/v1/toolkits/${firstToolkitId}/access-matrix?module_slug=${activityScope.moduleSlug}`,
+      ),
     enabled: Boolean(firstToolkitId),
     staleTime: 60 * 1000,
     retry: false,
@@ -392,8 +411,8 @@ export function ContentActivityView({
         <div className="self-center">
           <h2 className="text-xl font-normal tracking-tight">Activity</h2>
           <p className={cn("mt-2", mutedText)}>
-            Every {mode === "social" ? "social" : "content"} change made through Console and via
-            MCP tool calls.
+            Every {mode === "social" ? "social" : "content"} change made through Console and via MCP
+            tool calls.
           </p>
         </div>
         <button

@@ -36,7 +36,7 @@ import {
 } from "@/lib/content-types";
 
 type Props = {
-  businessId: string;
+  brandId: string;
   query: string;
   onError: (err: unknown) => void;
 };
@@ -65,7 +65,7 @@ const EMPTY_SCORES = Object.fromEntries(SCORE_FIELDS.map(([key]) => [key, ""])) 
   string
 >;
 
-export function ContentIdeasBoard({ businessId, query, onError }: Props) {
+export function ContentIdeasBoard({ brandId, query, onError }: Props) {
   const [ideas, setIdeas] = useState<IdeaResponse[]>([]);
   const [pillars, setPillars] = useState<PillarResponse[]>([]);
   const [tab, setTab] = useState<IdeaStatus | "all">("all");
@@ -96,7 +96,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        business_id: businessId,
+        brand_id: brandId,
         sort: "created_at",
         direction: "desc",
         limit: "100",
@@ -110,7 +110,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [businessId, tab, query, onError]);
+  }, [brandId, tab, query, onError]);
 
   useEffect(() => {
     void load();
@@ -120,7 +120,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
     void (async () => {
       try {
         const page = await apiRequest<Page<StrategyResponse>>(
-          `/api/v1/content/strategies?business_id=${businessId}&limit=1`,
+          `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
         );
         const strategy = page.items[0];
         if (strategy?.auto_approve_threshold != null) {
@@ -137,7 +137,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
         setPillars([]);
       }
     })();
-  }, [businessId]);
+  }, [brandId]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setMutating(true);
@@ -158,7 +158,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
       apiRequest("/api/v1/content/ideas", {
         method: "POST",
         body: JSON.stringify({
-          business_id: businessId,
+          brand_id: brandId,
           pillar_id: ideaForm.pillar_id || null,
           title: ideaForm.title.trim(),
           angle: ideaForm.angle.trim() || null,
@@ -645,9 +645,7 @@ export function ContentIdeasBoard({ businessId, query, onError }: Props) {
                     id="plan-channel"
                     placeholder="blog"
                     value={planForm.channel}
-                    onChange={(e) =>
-                      setPlanForm((prev) => ({ ...prev, channel: e.target.value }))
-                    }
+                    onChange={(e) => setPlanForm((prev) => ({ ...prev, channel: e.target.value }))}
                   />
                 </div>
               </div>
