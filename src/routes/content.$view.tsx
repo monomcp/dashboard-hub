@@ -84,6 +84,9 @@ export const Route = createFileRoute("/content/$view")({
 type BusinessSummary = { id: string; name: string };
 type ContentMode = "content" | "social";
 type CalendarView = "list" | "calendar";
+type ContentModeTab =
+  | { id: ContentMode; label: string; disabled?: false; badge?: never }
+  | { id: "email"; label: string; disabled: true; badge: string };
 
 const CONTENT_NAV = [
   { id: "ideas", label: "Ideas", icon: Lightbulb },
@@ -95,6 +98,12 @@ const CONTENT_NAV = [
 
 const BUSINESS_STORAGE_KEY = "content_business_id";
 const MODE_STORAGE_KEY = "content_mode";
+
+const CONTENT_MODE_TABS: ContentModeTab[] = [
+  { id: "content", label: "Content" },
+  { id: "social", label: "Social" },
+  { id: "email", label: "Email", disabled: true, badge: "soon" },
+];
 
 const PLATFORM_ICONS: Record<string, typeof Instagram> = {
   instagram: Instagram,
@@ -136,7 +145,7 @@ function ContentPage() {
 
   // Permissions and Activity bypass the business-scoped content views.
   const isToolkitSection = section === "permissions" || section === "activity";
-  const showModeToggle = section !== "activity";
+  const showModeToggle = true;
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "Content request failed") => {
@@ -194,19 +203,44 @@ function ContentPage() {
   }, [section, mode]);
 
   const modeToggle = (
-    <div className="flex items-center rounded-full bg-[hsl(220,33%,95%)] p-1">
-      {(["content", "social"] as const).map((m) => (
+    <div
+      className="relative grid overflow-hidden rounded-full bg-[hsl(220,33%,95%)] p-1"
+      style={{ gridTemplateColumns: `repeat(${CONTENT_MODE_TABS.length}, minmax(0, 1fr))` }}
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-1 left-1 rounded-full bg-white shadow-sm transition-transform duration-300 ease-out"
+        style={{
+          width: `calc((100% - 8px) / ${CONTENT_MODE_TABS.length})`,
+          transform: `translateX(${
+            Math.max(
+              0,
+              CONTENT_MODE_TABS.findIndex((tab) => tab.id === mode),
+            ) * 100
+          }%)`,
+        }}
+      />
+      {CONTENT_MODE_TABS.map((tab) => (
         <button
-          key={m}
-          onClick={() => selectMode(m)}
+          key={tab.id}
+          type="button"
+          onClick={() => {
+            if (!tab.disabled) selectMode(tab.id);
+          }}
+          aria-disabled={tab.disabled || undefined}
+          disabled={tab.disabled}
           className={cn(
-            "rounded-full px-5 py-1.5 text-sm capitalize transition",
-            mode === m
-              ? "bg-white text-foreground shadow-sm"
-              : "text-foreground/60 hover:text-foreground",
+            "relative z-10 flex items-center justify-center gap-1.5 rounded-full px-5 py-1.5 text-sm transition-colors duration-200",
+            mode === tab.id ? "text-foreground" : "text-foreground/60 hover:text-foreground",
+            tab.disabled && "cursor-not-allowed hover:text-foreground/60",
           )}
         >
-          {m}
+          <span>{tab.label}</span>
+          {tab.badge && (
+            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium leading-none text-foreground/50 shadow-sm">
+              {tab.badge}
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -396,7 +430,9 @@ function ContentPage() {
           {section === "permissions" && (
             <ContentPermissionsView mode={mode} onApiError={handleApiError} />
           )}
-          {section === "activity" && <ContentActivityView onApiError={handleApiError} />}
+          {section === "activity" && (
+            <ContentActivityView mode={mode} onApiError={handleApiError} />
+          )}
 
           {!isToolkitSection && (
             <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">

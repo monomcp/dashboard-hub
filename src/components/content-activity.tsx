@@ -19,8 +19,6 @@ import type { CatalogServer, ToolkitAccessMatrix } from "@/lib/mcp-types";
 // Content's activity log mirrors Brand DNA's, restyled to the light theme. It
 // surfaces every change made through Console (UI) and via MCP tool calls for the
 // content + social toolkits.
-const CONTENT_SERVER_SLUGS = ["cms", "smm"] as const;
-
 const card = "rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5";
 const mutedText = "text-sm text-muted-foreground";
 const ACTIVITY_PAGE_SIZE = 50;
@@ -63,6 +61,7 @@ type Page<T> = {
 
 type SourceFilter = "all" | "api" | "mcp";
 type StatusFilter = "all" | "success" | "blocked" | "error";
+type ContentActivityMode = "content" | "social";
 
 type ActivityFilters = {
   source: SourceFilter;
@@ -154,11 +153,15 @@ function logIsBlocked(log: RequestLogSummary) {
   return log.outcome === "blocked";
 }
 
-// Content + Social only: UI calls hit /api/v1/content|social, MCP calls use the
-// cms_* / smm_* tools.
-function isContentLog(log: RequestLogSummary) {
-  if (log.tool_name) return log.tool_name.startsWith("cms_") || log.tool_name.startsWith("smm_");
-  return Boolean(log.path?.startsWith("/api/v1/content") || log.path?.startsWith("/api/v1/social"));
+// UI calls hit /api/v1/content|social, MCP calls use the cms_* / smm_* tools.
+function isContentLog(log: RequestLogSummary, mode: ContentActivityMode) {
+  if (mode === "social") {
+    if (log.tool_name) return log.tool_name.startsWith("smm_");
+    return Boolean(log.path?.startsWith("/api/v1/social"));
+  }
+
+  if (log.tool_name) return log.tool_name.startsWith("cms_");
+  return Boolean(log.path?.startsWith("/api/v1/content"));
 }
 
 function eventLabel(log: RequestLogSummary) {
@@ -221,8 +224,10 @@ function StatusDot({ outcome }: { outcome: string | null }) {
 }
 
 export function ContentActivityView({
+  mode,
   onApiError,
 }: {
+  mode: ContentActivityMode;
   onApiError: (err: unknown, fallback?: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -260,12 +265,13 @@ export function ContentActivityView({
   });
 
   const firstToolkitId = useMemo(() => {
+    const activeSlug = mode === "social" ? "smm" : "cms";
     for (const server of catalog ?? []) {
-      if (!(CONTENT_SERVER_SLUGS as readonly string[]).includes(server.slug)) continue;
+      if (server.slug !== activeSlug) continue;
       if (server.enabled && server.toolkit_ids[0]) return server.toolkit_ids[0];
     }
     return undefined;
-  }, [catalog]);
+  }, [catalog, mode]);
 
   const { data: matrix } = useQuery({
     queryKey: ["toolkit-access-matrix", firstToolkitId],
@@ -287,9 +293,9 @@ export function ContentActivityView({
   const allLogs = useMemo(
     () =>
       (data?.pages.flatMap((page) => page.items) ?? [])
-        .filter(isContentLog)
+        .filter((log) => isContentLog(log, mode))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [data],
+    [data, mode],
   );
 
   // Distinct principals seen in the loaded logs, for the principal filter.
@@ -386,7 +392,8 @@ export function ContentActivityView({
         <div className="self-center">
           <h2 className="text-xl font-normal tracking-tight">Activity</h2>
           <p className={cn("mt-2", mutedText)}>
-            Every change made through Console and via MCP tool calls.
+            Every {mode === "social" ? "social" : "content"} change made through Console and via
+            MCP tool calls.
           </p>
         </div>
         <button

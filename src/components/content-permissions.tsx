@@ -10,17 +10,17 @@ type ContentPermissionsMode = "content" | "social";
 const MODE_CONFIG: Record<
   ContentPermissionsMode,
   {
-    serverSlug: "cms" | "smm";
+    serverSlug: "content" | "smm";
     toolsNoun: string;
     disabledHint: string;
     connectHint: string;
   }
 > = {
   content: {
-    serverSlug: "cms",
+    serverSlug: "content",
     toolsNoun: "Content",
     disabledHint:
-      "Who can use the Content tools, and how. Enable the Content (CMS) MCP server first to start granting access.",
+      "Who can use the Content tools, and how. Enable the Content MCP server first to start granting access.",
     connectHint:
       "No Content toolkit is connected yet — enable the Content MCP server from the MCP catalog.",
   },
@@ -67,7 +67,7 @@ export function ContentPermissionsView({
       enabled={anyEnabled}
       theme={lightPermissionsTheme}
       toolsNoun={config.toolsNoun}
-      stripToolPrefix={/^(cms|smm)_/}
+      stripToolPrefix={/^(content|smm)_/}
       disabledHint={config.disabledHint}
       connectHint={config.connectHint}
       onApiError={onApiError}
