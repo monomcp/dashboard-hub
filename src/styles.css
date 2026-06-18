@@ -148,3 +148,9 @@
     cursor: pointer;
   }
 }
+
+@layer utilities {
+  .shadow-sm {
+    --tw-shadow: 0 0 #0000;
+  }
+}

@@ -64,6 +64,18 @@ export const Route = createFileRoute("/content/$view")({
       throw redirect({ to: "/content/$view", params: { view: "ideas" }, replace: true });
     }
   },
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { mode?: ContentMode; calendarItem?: string } => ({
+    mode:
+      search.mode === "content" || search.mode === "social"
+        ? (search.mode as ContentMode)
+        : undefined,
+    calendarItem:
+      typeof search.calendarItem === "string" && search.calendarItem
+        ? search.calendarItem
+        : undefined,
+  }),
   head: ({ params }) => ({
     meta: [
       { title: "Content — Pipeline" },
@@ -118,12 +130,14 @@ const PLATFORM_ICONS: Record<string, typeof Instagram> = {
 function ContentPage() {
   const navigate = useNavigate();
   const section = Route.useParams().view as SocialSection;
+  const { mode: searchMode, calendarItem } = Route.useSearch();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [calendarView, setCalendarView] = useState<CalendarView>("list");
-  const [mode, setMode] = useState<ContentMode>(() =>
-    localStorage.getItem(MODE_STORAGE_KEY) === "social" ? "social" : "content",
+  const [mode, setMode] = useState<ContentMode>(
+    () =>
+      searchMode ?? (localStorage.getItem(MODE_STORAGE_KEY) === "social" ? "social" : "content"),
   );
   const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [platformId, setPlatformId] = useState<string>("");
@@ -177,6 +191,12 @@ function ContentPage() {
   }, [handleApiError]);
 
   useEffect(() => {
+    if (!searchMode || searchMode === mode) return;
+    setMode(searchMode);
+    localStorage.setItem(MODE_STORAGE_KEY, searchMode);
+  }, [mode, searchMode]);
+
+  useEffect(() => {
     if (mode !== "social" || platforms.length > 0) return;
     void (async () => {
       try {
@@ -191,7 +211,28 @@ function ContentPage() {
     setMode(next);
     localStorage.setItem(MODE_STORAGE_KEY, next);
     setError("");
+    void navigate({
+      to: "/content/$view",
+      params: { view: section },
+      search: (prev) => ({ ...prev, mode: next, calendarItem: undefined }),
+      replace: true,
+    });
   };
+
+  const setSelectedSocialCalendarItem = useCallback(
+    (itemId: string | null) => {
+      void navigate({
+        to: "/content/$view",
+        params: { view: "calendar" },
+        search: (prev) => ({
+          ...prev,
+          mode: "social",
+          calendarItem: itemId || undefined,
+        }),
+      });
+    },
+    [navigate],
+  );
 
   const activeTitle = useMemo(() => {
     const label = CONTENT_NAV.find((n) => n.id === section)?.label ?? "Content";
@@ -507,7 +548,10 @@ function ContentPage() {
                     key={`${brandId}:${platformId}`}
                     brandId={brandId}
                     platformId={platformId}
+                    platforms={platforms}
                     view={calendarView}
+                    selectedItemId={calendarItem}
+                    onSelectedItemChange={setSelectedSocialCalendarItem}
                     onError={handleApiError}
                   />
                 )}

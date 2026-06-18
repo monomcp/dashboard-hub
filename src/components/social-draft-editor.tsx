@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { linesToList, listToLines, statusLabel } from "@/lib/content-types";
@@ -149,7 +150,7 @@ export function SocialDraftEditor({ briefId, onError }: Props) {
     return (
       <div className="grid gap-2 py-2">
         {[1, 2].map((item) => (
-          <div key={item} className="h-14 animate-pulse rounded-xl bg-[hsl(220,33%,96%)]" />
+          <Skeleton key={item} className="h-14 rounded-xl" />
         ))}
       </div>
     );

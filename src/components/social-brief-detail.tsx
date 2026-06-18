@@ -1,9 +1,15 @@
-import { useState, type FormEvent } from "react";
-import { Check, History, Loader2, Plus, Undo2 } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Check, FileText, History, Loader2, MoreVertical, Pencil, Plus, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -11,15 +17,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { linesToList, listToLines, statusLabel } from "@/lib/content-types";
-import { socialBadgeClass, type SocialBriefResponse, type SocialBriefReviewResponse } from "@/lib/social-types";
+import {
+  socialBadgeClass,
+  type SocialBriefResponse,
+  type SocialBriefReviewResponse,
+} from "@/lib/social-types";
 import { SocialDraftEditor } from "@/components/social-draft-editor";
 
 type Props = {
   calendarItemId: string;
   briefs: SocialBriefResponse[];
+  loading?: boolean;
   onChanged: () => Promise<void> | void;
   onError: (err: unknown) => void;
 };
@@ -43,7 +55,13 @@ const EMPTY_FORM = {
   forbidden_topics: "",
 };
 
-export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }: Props) {
+export function SocialBriefDetail({
+  calendarItemId,
+  briefs,
+  loading = false,
+  onChanged,
+  onError,
+}: Props) {
   const [mutating, setMutating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SocialBriefResponse | null>(null);
@@ -53,6 +71,16 @@ export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }
   const [reviewsFor, setReviewsFor] = useState<SocialBriefResponse | null>(null);
   const [reviews, setReviews] = useState<SocialBriefReviewResponse[]>([]);
   const [expandedBrief, setExpandedBrief] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    if (briefs.length === 0) {
+      setExpandedBrief(null);
+      return;
+    }
+    if (expandedBrief && briefs.some((brief) => brief.id === expandedBrief)) return;
+    setExpandedBrief(briefs[0].id);
+  }, [briefs, expandedBrief, loading]);
 
   const openDialog = (brief: SocialBriefResponse | null) => {
     setEditing(brief);
@@ -134,9 +162,7 @@ export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }
     setReviews([]);
     try {
       setReviews(
-        await apiRequest<SocialBriefReviewResponse[]>(
-          `/api/v1/social/briefs/${brief.id}/reviews`,
-        ),
+        await apiRequest<SocialBriefReviewResponse[]>(`/api/v1/social/briefs/${brief.id}/reviews`),
       );
     } catch (err) {
       onError(err);
@@ -149,31 +175,91 @@ export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }
         <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
           Briefs
         </h3>
-        <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openDialog(null)}>
-          <Plus className="mr-1 h-4 w-4" /> New brief
-        </Button>
+        {loading ? (
+          <Skeleton className="h-9 w-28 rounded-lg" />
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-lg"
+            onClick={() => openDialog(null)}
+          >
+            <Plus className="mr-1 h-4 w-4" /> New brief
+          </Button>
+        )}
       </div>
 
-      {briefs.length === 0 && (
+      {loading && <SocialBriefDetailSkeleton />}
+
+      {!loading && briefs.length === 0 && (
         <p className="text-sm text-muted-foreground">No briefs for this calendar item yet.</p>
       )}
 
-      <ul className="grid gap-2">
-        {briefs.map((brief) => (
-          <li key={brief.id} className="rounded-xl border border-black/5 px-3 py-3 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate font-medium">{brief.title}</span>
-                <span
-                  className={cn(
-                    "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                    socialBadgeClass(brief.status),
-                  )}
-                >
-                  {statusLabel(brief.status)}
-                </span>
+      {!loading && (
+        <ul className="grid gap-2">
+          {briefs.map((brief) => (
+            <li key={brief.id} className="rounded-xl border border-black/5 px-3 py-3 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium">{brief.title}</span>
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                      socialBadgeClass(brief.status),
+                    )}
+                  >
+                    {statusLabel(brief.status)}
+                  </span>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="-mr-1 -mt-1 h-8 w-8 shrink-0 rounded-full"
+                      aria-label="Brief actions"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-36 rounded-xl">
+                    <DropdownMenuItem className="gap-2" onClick={() => openReviews(brief)}>
+                      <History className="h-4 w-4" />
+                      Reviews
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="gap-2"
+                      disabled={mutating}
+                      onClick={() => openDialog(brief)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    {brief.status === "approved" && (
+                      <DropdownMenuItem
+                        disabled={mutating}
+                        onClick={() => {
+                          setRevising(brief);
+                          setFeedback("");
+                        }}
+                      >
+                        <Undo2 className="h-4 w-4" />
+                        Revision
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      className="gap-2"
+                      onClick={() =>
+                        setExpandedBrief((prev) => (prev === brief.id ? null : brief.id))
+                      }
+                    >
+                      <FileText className="h-4 w-4" />
+                      {expandedBrief === brief.id ? "Hide drafts" : "Drafts"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-1">
+              <div className="mt-2 flex shrink-0 flex-wrap items-center gap-1">
                 {brief.status !== "approved" && (
                   <Button
                     variant="outline"
@@ -192,62 +278,37 @@ export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }
                     <Check className="mr-1 h-3.5 w-3.5" /> Approve
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg text-orange-700"
-                  disabled={mutating}
-                  onClick={() => {
-                    setRevising(brief);
-                    setFeedback("");
-                  }}
-                >
-                  <Undo2 className="mr-1 h-3.5 w-3.5" /> Revision
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg"
-                  onClick={() => openReviews(brief)}
-                >
-                  <History className="mr-1 h-3.5 w-3.5" /> Reviews
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg"
-                  disabled={mutating}
-                  onClick={() => openDialog(brief)}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg"
-                  onClick={() =>
-                    setExpandedBrief((prev) => (prev === brief.id ? null : brief.id))
-                  }
-                >
-                  {expandedBrief === brief.id ? "Hide drafts" : "Drafts"}
-                </Button>
+                {brief.status !== "approved" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-lg text-orange-700"
+                    disabled={mutating}
+                    onClick={() => {
+                      setRevising(brief);
+                      setFeedback("");
+                    }}
+                  >
+                    <Undo2 className="mr-1 h-3.5 w-3.5" /> Revision
+                  </Button>
+                )}
               </div>
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {[brief.objective, brief.audience].filter(Boolean).join(" · ") ||
-                "No objective set"}
-            </div>
-            {brief.hook && (
-              <div className="mt-1 text-xs text-foreground/80">Hook: {brief.hook}</div>
-            )}
-            {expandedBrief === brief.id && (
-              <div className="mt-3 border-t border-black/5 pt-3">
-                <SocialDraftEditor briefId={brief.id} onError={onError} />
+              <div className="mt-3 text-xs text-muted-foreground">
+                {[brief.objective, brief.audience].filter(Boolean).join(" · ") ||
+                  "No objective set"}
               </div>
-            )}
-          </li>
-        ))}
-      </ul>
+              {brief.hook && (
+                <div className="mt-1 text-xs text-foreground/80">Hook: {brief.hook}</div>
+              )}
+              {expandedBrief === brief.id && (
+                <div className="mt-3 border-t border-black/5 pt-3">
+                  <SocialDraftEditor briefId={brief.id} onError={onError} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Create / edit brief */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -298,9 +359,7 @@ export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }
                   id="social-brief-message"
                   rows={2}
                   value={form.key_message}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, key_message: e.target.value }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, key_message: e.target.value }))}
                 />
               </div>
               <div className="grid gap-2">
@@ -419,6 +478,32 @@ export function SocialBriefDetail({ calendarItemId, briefs, onChanged, onError }
           </ul>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function SocialBriefDetailSkeleton() {
+  return (
+    <div className="rounded-xl border border-black/5 px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Skeleton className="h-5 w-80 max-w-full" />
+          <Skeleton className="h-7 w-16 rounded-full" />
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Skeleton className="h-8 w-24 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+          <Skeleton className="h-8 w-16 rounded-lg" />
+          <Skeleton className="h-8 w-20 rounded-lg" />
+        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+      <Skeleton className="mt-4 h-4 w-72 max-w-full" />
     </div>
   );
 }

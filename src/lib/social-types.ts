@@ -23,8 +23,12 @@ export type SocialIdeaSourceType =
 export type SocialIdeaStatus = "idea" | "approved" | "rejected" | "planned";
 export type SocialCalendarStatus =
   | "planned"
-  | "brief_ready"
-  | "drafting"
+  | "brief_created"
+  | "brief_approved"
+  | "brief_rejected"
+  | "draft_created"
+  | "draft_approved"
+  | "draft_rejected"
   | "creative_ready"
   | "qa_pending"
   | "needs_revision"
@@ -89,6 +93,9 @@ export type SocialCalendarItemResponse = {
   id: string;
   brand_id: string;
   social_idea_id: string;
+  platform_id?: string | null;
+  platform_slug?: string | null;
+  platform_name?: string | null;
   title: string | null;
   planned_publish_at: string | null;
   timezone: string | null;
@@ -190,8 +197,12 @@ export const SOCIAL_SOURCE_TYPES: SocialIdeaSourceType[] = [
 
 export const SOCIAL_CALENDAR_STATUSES: SocialCalendarStatus[] = [
   "planned",
-  "brief_ready",
-  "drafting",
+  "brief_created",
+  "brief_approved",
+  "brief_rejected",
+  "draft_created",
+  "draft_approved",
+  "draft_rejected",
   "creative_ready",
   "qa_pending",
   "needs_revision",
@@ -220,6 +231,11 @@ export const SOCIAL_DRAFT_STATUSES: SocialDraftStatus[] = [
 ];
 
 export const SOCIAL_STATUS_BADGES: Record<string, string> = {
+  brief_created: "bg-indigo-100 text-indigo-700",
+  brief_approved: "bg-emerald-100 text-emerald-700",
+  brief_rejected: "bg-rose-100 text-rose-700",
+  draft_approved: "bg-emerald-100 text-emerald-700",
+  draft_rejected: "bg-rose-100 text-rose-700",
   creative_ready: "bg-violet-100 text-violet-700",
   qa_pending: "bg-amber-100 text-amber-700",
   variant_selected: "bg-indigo-100 text-indigo-700",

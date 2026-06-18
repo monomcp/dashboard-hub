@@ -1,5 +1,30 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CalendarClock, ChevronLeft, FileText, History, Loader2, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronLeft,
+  EllipsisVertical,
+  Facebook,
+  FileText,
+  Globe,
+  Hash,
+  History,
+  Instagram,
+  Linkedin,
+  Loader2,
+  Trash2,
+  Twitter,
+  Youtube,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +43,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { statusLabel, type Page } from "@/lib/content-types";
@@ -30,13 +68,27 @@ import {
   type SocialCalendarItemResponse,
   type SocialCalendarRescheduleResponse,
   type SocialCalendarStatus,
+  type SocialPlatform,
 } from "@/lib/social-types";
 
 type Props = {
   brandId: string;
   platformId: string;
+  platforms: SocialPlatform[];
   view?: "list" | "calendar";
+  selectedItemId?: string;
+  onSelectedItemChange?: (itemId: string | null) => void;
   onError: (err: unknown) => void;
+};
+
+const PLATFORM_ICONS: Record<string, typeof Instagram> = {
+  instagram: Instagram,
+  facebook: Facebook,
+  youtube: Youtube,
+  x: Twitter,
+  linkedin: Linkedin,
+  website: Globe,
+  blog: Globe,
 };
 
 function formatDateTime(value: string | null) {
@@ -47,17 +99,35 @@ function formatDateTime(value: string | null) {
   });
 }
 
-export function SocialCalendarList({ brandId, platformId, view = "list", onError }: Props) {
+export function SocialCalendarList({
+  brandId,
+  platformId,
+  platforms,
+  view = "list",
+  selectedItemId,
+  onSelectedItemChange,
+  onError,
+}: Props) {
   const [items, setItems] = useState<SocialCalendarItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SocialCalendarStatus | "all">("all");
   const [selected, setSelected] = useState<SocialCalendarItemResponse | null>(null);
   const [briefs, setBriefs] = useState<SocialBriefResponse[]>([]);
+  const [briefsLoading, setBriefsLoading] = useState(false);
   const [rescheduling, setRescheduling] = useState<SocialCalendarItemResponse | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ planned_publish_at: "", reason: "" });
   const [historyFor, setHistoryFor] = useState<SocialCalendarItemResponse | null>(null);
   const [history, setHistory] = useState<SocialCalendarRescheduleResponse[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<SocialCalendarItemResponse | null>(null);
+  const selectedPlatform = platforms.find(
+    (platform) => platform.id === (selected?.platform_id ?? platformId),
+  );
+  const selectedPlatformSlug = selected?.platform_slug ?? selectedPlatform?.slug;
+  const selectedPlatformName = selected?.platform_name ?? selectedPlatform?.name;
+  const SelectedPlatformIcon = selectedPlatformSlug
+    ? (PLATFORM_ICONS[selectedPlatformSlug] ?? Hash)
+    : Hash;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +152,7 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
 
   const loadBriefs = useCallback(
     async (item: SocialCalendarItemResponse) => {
+      setBriefsLoading(true);
       try {
         setBriefs(
           await apiRequest<SocialBriefResponse[]>(
@@ -90,6 +161,8 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
         );
       } catch (err) {
         onError(err);
+      } finally {
+        setBriefsLoading(false);
       }
     },
     [onError],
@@ -98,33 +171,48 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
   const openDetail = async (item: SocialCalendarItemResponse) => {
     setSelected(item);
     setBriefs([]);
+    onSelectedItemChange?.(item.id);
     await loadBriefs(item);
   };
 
-  const updateStatus = async (
-    item: SocialCalendarItemResponse,
-    status: SocialCalendarStatus,
-  ) => {
-    setMutating(true);
-    try {
-      const updated = await apiRequest<SocialCalendarItemResponse>(
-        `/api/v1/social/calendar-items/${item.id}/status`,
-        { method: "POST", body: JSON.stringify({ status }) },
-      );
-      if (selected?.id === item.id) setSelected(updated);
-      await load();
-    } catch (err) {
-      onError(err);
-    } finally {
-      setMutating(false);
+  useEffect(() => {
+    if (!selectedItemId) {
+      setSelected(null);
+      setBriefs([]);
+      return;
     }
+    if (selected?.id === selectedItemId) return;
+
+    const itemFromList = items.find((item) => item.id === selectedItemId);
+
+    void (async () => {
+      try {
+        const item =
+          itemFromList ??
+          (await apiRequest<SocialCalendarItemResponse>(
+            `/api/v1/social/calendar-items/${selectedItemId}`,
+          ));
+        setSelected(item);
+        setBriefs([]);
+        await loadBriefs(item);
+      } catch (err) {
+        onError(err);
+      }
+    })();
+  }, [items, loadBriefs, onError, selected?.id, selectedItemId]);
+
+  const closeDetail = () => {
+    setSelected(null);
+    setBriefs([]);
+    onSelectedItemChange?.(null);
   };
 
   const deleteItem = async (item: SocialCalendarItemResponse) => {
     setMutating(true);
     try {
       await apiRequest<void>(`/api/v1/social/calendar-items/${item.id}`, { method: "DELETE" });
-      if (selected?.id === item.id) setSelected(null);
+      if (selected?.id === item.id) closeDetail();
+      setPendingDelete(null);
       await load();
     } catch (err) {
       onError(err);
@@ -172,95 +260,6 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
     }
   };
 
-  if (selected) {
-    return (
-      <div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              onClick={() => setSelected(null)}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-medium">{selected.title || "Untitled"}</h2>
-              <div className="text-xs text-muted-foreground">
-                {[
-                  formatDateTime(selected.planned_publish_at),
-                  selected.timezone,
-                  selected.assigned_agent,
-                  selected.campaign_id,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 rounded-lg"
-              onClick={() => {
-                setRescheduling(selected);
-                setRescheduleForm({ planned_publish_at: "", reason: "" });
-              }}
-            >
-              <CalendarClock className="mr-1 h-4 w-4" /> Reschedule
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 rounded-lg"
-              onClick={() => openHistory(selected)}
-            >
-              <History className="mr-1 h-4 w-4" /> History
-            </Button>
-            <Select
-              value={selected.status}
-              onValueChange={(value: SocialCalendarStatus) => updateStatus(selected, value)}
-            >
-              <SelectTrigger className="h-9 w-[180px] rounded-lg capitalize">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SOCIAL_CALENDAR_STATUSES.map((status) => (
-                  <SelectItem key={status} value={status} className="capitalize">
-                    {statusLabel(status)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <SocialBriefDetail
-          calendarItemId={selected.id}
-          briefs={briefs}
-          onChanged={() => loadBriefs(selected)}
-          onError={onError}
-        />
-
-        <RescheduleDialog
-          rescheduling={rescheduling}
-          form={rescheduleForm}
-          setForm={setRescheduleForm}
-          mutating={mutating}
-          onClose={() => setRescheduling(null)}
-          onSubmit={submitReschedule}
-        />
-        <HistoryDialog
-          historyFor={historyFor}
-          history={history}
-          onClose={() => setHistoryFor(null)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -268,13 +267,13 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
           value={statusFilter}
           onValueChange={(value: SocialCalendarStatus | "all") => setStatusFilter(value)}
         >
-          <SelectTrigger className="h-9 w-[180px] rounded-lg capitalize">
+          <SelectTrigger className="h-9 w-[180px] rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             {SOCIAL_CALENDAR_STATUSES.map((status) => (
-              <SelectItem key={status} value={status} className="capitalize">
+              <SelectItem key={status} value={status}>
                 {statusLabel(status)}
               </SelectItem>
             ))}
@@ -326,72 +325,86 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
             <div />
             <div />
           </li>
-          {items.map((item) => (
-            <li
-              key={item.id}
-              className="group grid cursor-pointer grid-cols-[1fr_auto] items-center gap-3 rounded-xl border-b border-black/5 px-2 py-3 text-sm transition hover:bg-[hsl(220,33%,97%)] md:grid-cols-[1.4fr_180px_150px_44px_44px] md:gap-4"
-              onClick={() => openDetail(item)}
-            >
-              <div className="min-w-0">
-                <div className="truncate font-medium">{item.title || "Untitled"}</div>
-                {(item.assigned_agent || item.campaign_id) && (
-                  <div className="truncate text-xs text-muted-foreground">
-                    {[item.assigned_agent, item.campaign_id].filter(Boolean).join(" · ")}
-                  </div>
-                )}
-              </div>
-              <div className="hidden text-muted-foreground md:block">
-                {formatDateTime(item.planned_publish_at)}
-              </div>
-              <div onClick={(e) => e.stopPropagation()}>
-                <Select
-                  value={item.status}
-                  onValueChange={(value: SocialCalendarStatus) => updateStatus(item, value)}
-                >
-                  <SelectTrigger
-                    className={cn(
-                      "h-7 w-[140px] rounded-full border-none text-xs font-medium capitalize",
-                      socialBadgeClass(item.status),
-                    )}
+          {items.map((item) => {
+            const itemPlatform = platforms.find(
+              (platform) => platform.id === (item.platform_id ?? platformId),
+            );
+            const itemPlatformSlug = item.platform_slug ?? itemPlatform?.slug;
+            const itemPlatformName = item.platform_name ?? itemPlatform?.name;
+            const ItemPlatformIcon = itemPlatformSlug
+              ? (PLATFORM_ICONS[itemPlatformSlug] ?? Hash)
+              : Hash;
+
+            return (
+              <li
+                key={item.id}
+                className="group grid cursor-pointer grid-cols-[1fr_auto] items-center gap-3 rounded-xl border-b border-black/5 px-2 py-3 text-sm transition hover:bg-[hsl(220,33%,97%)] md:grid-cols-[1.4fr_180px_150px_44px_44px] md:gap-4"
+                onClick={() => openDetail(item)}
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div
+                    className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[hsl(220,33%,95%)] text-foreground/70"
+                    title={itemPlatformName ?? "Platform"}
+                    aria-label={itemPlatformName ?? "Platform"}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SOCIAL_CALENDAR_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status} className="capitalize">
-                        {statusLabel(status)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div onClick={(e) => e.stopPropagation()} className="hidden justify-end md:flex">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full"
-                  disabled={mutating}
-                  onClick={() => {
-                    setRescheduling(item);
-                    setRescheduleForm({ planned_publish_at: "", reason: "" });
-                  }}
-                >
-                  <CalendarClock className="h-4 w-4" />
-                </Button>
-              </div>
-              <div onClick={(e) => e.stopPropagation()} className="hidden justify-end md:flex">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full text-destructive"
-                  disabled={mutating}
-                  onClick={() => deleteItem(item)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </li>
-          ))}
+                    <ItemPlatformIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{item.title || "Untitled"}</div>
+                    {(item.assigned_agent || item.campaign_id) && (
+                      <div className="truncate text-xs text-muted-foreground">
+                        {[item.assigned_agent, item.campaign_id].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="hidden text-muted-foreground md:block">
+                  {formatDateTime(item.planned_publish_at)}
+                </div>
+                <div>
+                  <StatusPill status={item.status} />
+                </div>
+                <div onClick={(e) => e.stopPropagation()} className="hidden justify-end md:flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    disabled={mutating}
+                    onClick={() => {
+                      setRescheduling(item);
+                      setRescheduleForm({ planned_publish_at: "", reason: "" });
+                    }}
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div onClick={(e) => e.stopPropagation()} className="hidden justify-end md:flex">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        disabled={mutating}
+                        aria-label="Calendar item actions"
+                      >
+                        <EllipsisVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setPendingDelete(item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -408,7 +421,130 @@ export function SocialCalendarList({ brandId, platformId, view = "list", onError
         history={history}
         onClose={() => setHistoryFor(null)}
       />
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && !mutating && setPendingDelete(null)}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete calendar item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete “{pendingDelete?.title || "Untitled"}”? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={mutating} className="rounded-lg">
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={mutating || !pendingDelete}
+              onClick={(event) => {
+                event.preventDefault();
+                if (pendingDelete) void deleteItem(pendingDelete);
+              }}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Sheet open={selected !== null} onOpenChange={(open) => !open && closeDetail()}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        >
+          {selected && (
+            <>
+              <SheetHeader className="border-b px-6 py-5 text-left">
+                <div className="flex min-w-0 items-start gap-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="-ml-2 mt-0.5 h-8 w-8 shrink-0 rounded-full"
+                    onClick={closeDetail}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <div
+                    className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[hsl(220,33%,95%)] text-foreground/70"
+                    title={selectedPlatformName ?? "Platform"}
+                    aria-label={selectedPlatformName ?? "Platform"}
+                  >
+                    <SelectedPlatformIcon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <SheetTitle className="truncate text-xl">
+                      {selected.title || "Untitled"}
+                    </SheetTitle>
+                    <SheetDescription className="mt-1 truncate text-base">
+                      {[
+                        formatDateTime(selected.planned_publish_at),
+                        selected.timezone,
+                        selected.assigned_agent,
+                        selected.campaign_id,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="flex flex-wrap items-center gap-2 border-b px-6 py-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-lg"
+                  onClick={() => {
+                    setRescheduling(selected);
+                    setRescheduleForm({ planned_publish_at: "", reason: "" });
+                  }}
+                >
+                  <CalendarClock className="mr-1 h-4 w-4" /> Reschedule
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-lg"
+                  onClick={() => openHistory(selected)}
+                >
+                  <History className="mr-1 h-4 w-4" /> History
+                </Button>
+                <StatusPill status={selected.status} className="h-9 rounded-lg" />
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <SocialBriefDetail
+                  calendarItemId={selected.id}
+                  briefs={briefs}
+                  loading={briefsLoading}
+                  onChanged={() => loadBriefs(selected)}
+                  onError={onError}
+                />
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+function StatusPill({ status, className }: { status: SocialCalendarStatus; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-7 w-auto items-center rounded-full border-none px-3 text-xs font-medium",
+        socialBadgeClass(status),
+        className,
+      )}
+    >
+      {statusLabel(status)}
+    </span>
   );
 }
 

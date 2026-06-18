@@ -19,9 +19,12 @@ export type CalendarFormat =
   | "thought_leadership";
 export type CalendarStatus =
   | "planned"
-  | "brief_ready"
-  | "drafting"
-  | "draft_ready"
+  | "brief_created"
+  | "brief_approved"
+  | "brief_rejected"
+  | "draft_created"
+  | "draft_approved"
+  | "draft_rejected"
   | "in_review"
   | "needs_revision"
   | "approved"
@@ -164,9 +167,12 @@ export const CALENDAR_FORMATS: CalendarFormat[] = [
 
 export const CALENDAR_STATUSES: CalendarStatus[] = [
   "planned",
-  "brief_ready",
-  "drafting",
-  "draft_ready",
+  "brief_created",
+  "brief_approved",
+  "brief_rejected",
+  "draft_created",
+  "draft_approved",
+  "draft_rejected",
   "in_review",
   "needs_revision",
   "approved",
@@ -191,7 +197,15 @@ export const DRAFT_STATUSES: DraftStatus[] = [
 ];
 
 export function statusLabel(value: string) {
-  return value.replace(/_/g, " ");
+  const labels: Record<string, string> = {
+    qa_pending: "QA Pending",
+  };
+  return (
+    labels[value] ??
+    value
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+  );
 }
 
 export const STATUS_BADGES: Record<string, string> = {
@@ -201,10 +215,12 @@ export const STATUS_BADGES: Record<string, string> = {
   // shared
   approved: "bg-emerald-100 text-emerald-700",
   planned: "bg-sky-100 text-sky-700",
-  drafting: "bg-amber-100 text-amber-700",
   // calendar
-  brief_ready: "bg-indigo-100 text-indigo-700",
-  draft_ready: "bg-violet-100 text-violet-700",
+  brief_created: "bg-indigo-100 text-indigo-700",
+  brief_approved: "bg-emerald-100 text-emerald-700",
+  brief_rejected: "bg-rose-100 text-rose-700",
+  draft_approved: "bg-emerald-100 text-emerald-700",
+  draft_rejected: "bg-rose-100 text-rose-700",
   in_review: "bg-amber-100 text-amber-700",
   needs_revision: "bg-orange-100 text-orange-700",
   scheduled: "bg-cyan-100 text-cyan-700",

@@ -84,8 +84,7 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
     }
     for (const [key] of DICT_FIELDS) {
       next[key] = dictToText(
-        (strategy?.[key as keyof SocialStrategyResponse] as Record<string, unknown> | null) ??
-          null,
+        (strategy?.[key as keyof SocialStrategyResponse] as Record<string, unknown> | null) ?? null,
       );
     }
     setForm(next);
@@ -109,7 +108,7 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
         constraints: form.constraints?.trim() ? textToDict(form.constraints) : null,
       };
     } catch {
-      setFormError("One of the JSON fields is invalid — use a JSON object like {\"key\": \"value\"}.");
+      setFormError('One of the JSON fields is invalid — use a JSON object like {"key": "value"}.');
       return;
     }
     setMutating(true);
@@ -165,9 +164,7 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
                   <dd>
                     {items.length
                       ? items
-                          .map((item) =>
-                            typeof item === "string" ? item : JSON.stringify(item),
-                          )
+                          .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
                           .join(", ")
                       : "—"}
                   </dd>
@@ -199,9 +196,7 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
             })}
           </dl>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No social strategy yet for this company.
-          </p>
+          <p className="text-sm text-muted-foreground">No social strategy yet for this company.</p>
         )}
       </div>
 
@@ -209,7 +204,9 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
         <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl">
           <form onSubmit={submit}>
             <DialogHeader>
-              <DialogTitle>{strategy ? "Edit social strategy" : "Create social strategy"}</DialogTitle>
+              <DialogTitle>
+                {strategy ? "Edit social strategy" : "Create social strategy"}
+              </DialogTitle>
             </DialogHeader>
             <div className="mt-5 grid gap-4">
               {LIST_FIELDS.map(([key, label]) => (
