@@ -5,16 +5,43 @@ import type { CatalogServer } from "@/lib/mcp-types";
 import { PermissionsMatrix } from "@/components/permissions-matrix";
 import { lightPermissionsTheme } from "@/lib/permissions-theme";
 
-// Content spans two catalog servers — "cms" (Content mode) and "smm" (Social
-// mode) — so we combine the toolkits from both and let the user switch between
-// them with the matrix's toolkit selector.
-const CONTENT_SERVER_SLUGS = ["cms", "smm"] as const;
+type ContentPermissionsMode = "content" | "social";
+
+const MODE_CONFIG: Record<
+  ContentPermissionsMode,
+  {
+    serverSlug: "cms" | "smm";
+    toolsNoun: string;
+    disabledHint: string;
+    connectHint: string;
+  }
+> = {
+  content: {
+    serverSlug: "cms",
+    toolsNoun: "Content",
+    disabledHint:
+      "Who can use the Content tools, and how. Enable the Content (CMS) MCP server first to start granting access.",
+    connectHint:
+      "No Content toolkit is connected yet — enable the Content MCP server from the MCP catalog.",
+  },
+  social: {
+    serverSlug: "smm",
+    toolsNoun: "Social content",
+    disabledHint:
+      "Who can use the Social content tools, and how. Enable the Social (SMM) MCP server first to start granting access.",
+    connectHint:
+      "No Social content toolkit is connected yet — enable the Social MCP server from the MCP catalog.",
+  },
+};
 
 export function ContentPermissionsView({
+  mode,
   onApiError,
 }: {
+  mode: ContentPermissionsMode;
   onApiError: (err: unknown, fallback?: string) => void;
 }) {
+  const config = MODE_CONFIG[mode];
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
@@ -22,9 +49,8 @@ export function ContentPermissionsView({
   });
 
   const servers = useMemo(
-    () =>
-      (catalog ?? []).filter((s) => (CONTENT_SERVER_SLUGS as readonly string[]).includes(s.slug)),
-    [catalog],
+    () => (catalog ?? []).filter((s) => s.slug === config.serverSlug),
+    [catalog, config.serverSlug],
   );
   const anyEnabled = servers.some((s) => s.enabled);
   const toolkitIds = useMemo(() => {
@@ -35,14 +61,15 @@ export function ContentPermissionsView({
 
   return (
     <PermissionsMatrix
+      key={mode}
       toolkitIds={toolkitIds}
-      moduleSlugs={["cms", "smm"]}
+      moduleSlugs={[config.serverSlug]}
       enabled={anyEnabled}
       theme={lightPermissionsTheme}
-      toolsNoun="Content"
+      toolsNoun={config.toolsNoun}
       stripToolPrefix={/^(cms|smm)_/}
-      disabledHint="Who can use the Content tools, and how. Enable the Content (CMS) or Social (SMM) MCP server first to start granting access."
-      connectHint="No toolkit is connected yet — enable a Content MCP server from the MCP catalog."
+      disabledHint={config.disabledHint}
+      connectHint={config.connectHint}
       onApiError={onApiError}
     />
   );

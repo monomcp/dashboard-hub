@@ -134,8 +134,9 @@ function ContentPage() {
   const activeServerSlug = mode === "social" ? "smm" : "cms";
   const activeServer = catalog?.find((s) => s.slug === activeServerSlug);
 
-  // Permissions / Activity cover both toolkits and bypass the business/mode gating.
+  // Permissions and Activity bypass the business-scoped content views.
   const isToolkitSection = section === "permissions" || section === "activity";
+  const showModeToggle = section !== "activity";
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "Content request failed") => {
@@ -188,8 +189,7 @@ function ContentPage() {
 
   const activeTitle = useMemo(() => {
     const label = CONTENT_NAV.find((n) => n.id === section)?.label ?? "Content";
-    // Permissions / Activity span both toolkits and don't depend on the mode.
-    if (section === "permissions" || section === "activity") return label;
+    if (section === "activity") return label;
     return mode === "social" ? `Social ${label.toLowerCase()}` : label;
   }, [section, mode]);
 
@@ -272,7 +272,7 @@ function ContentPage() {
           </Link>
         </div>
         <div className="hidden flex-1 items-center gap-3 md:flex">
-          {!isToolkitSection && modeToggle}
+          {showModeToggle && modeToggle}
           {section === "calendar" && viewToggle}
           {!isToolkitSection && searchOpen && (
             <div className="min-w-0 max-w-2xl flex-1">{searchField}</div>
@@ -393,7 +393,9 @@ function ContentPage() {
             </div>
           )}
 
-          {section === "permissions" && <ContentPermissionsView onApiError={handleApiError} />}
+          {section === "permissions" && (
+            <ContentPermissionsView mode={mode} onApiError={handleApiError} />
+          )}
           {section === "activity" && <ContentActivityView onApiError={handleApiError} />}
 
           {!isToolkitSection && (
