@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CalendarPlus, Check, Loader2, Plus, Star, ThumbsDown, Trash2 } from "lucide-react";
+import {
+  CalendarPlus,
+  Check,
+  Loader2,
+  MoreVertical,
+  Plus,
+  Star,
+  ThumbsDown,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,7 +54,7 @@ import {
 } from "@/lib/social-types";
 
 type Props = {
-  businessId: string;
+  brandId: string;
   platformId: string;
   platforms: SocialPlatform[];
   query: string;
@@ -64,11 +79,12 @@ const EMPTY_IDEA_FORM = {
   pillar_id: "",
 };
 
-const EMPTY_SCORES = Object.fromEntries(
-  SOCIAL_SCORE_FIELDS.map(([key]) => [key, ""]),
-) as Record<string, string>;
+const EMPTY_SCORES = Object.fromEntries(SOCIAL_SCORE_FIELDS.map(([key]) => [key, ""])) as Record<
+  string,
+  string
+>;
 
-export function SocialIdeasBoard({ businessId, platformId, platforms, query, onError }: Props) {
+export function SocialIdeasBoard({ brandId, platformId, platforms, query, onError }: Props) {
   const [ideas, setIdeas] = useState<SocialIdeaResponse[]>([]);
   const [pillars, setPillars] = useState<PillarResponse[]>([]);
   const [tab, setTab] = useState<SocialIdeaStatus | "all">("all");
@@ -98,7 +114,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        business_id: businessId,
+        brand_id: brandId,
         sort: "created_at",
         direction: "desc",
         limit: "100",
@@ -113,7 +129,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
     } finally {
       setLoading(false);
     }
-  }, [businessId, platformId, tab, query, onError]);
+  }, [brandId, platformId, tab, query, onError]);
 
   useEffect(() => {
     void load();
@@ -123,7 +139,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
     void (async () => {
       try {
         const page = await apiRequest<Page<StrategyResponse>>(
-          `/api/v1/content/strategies?business_id=${businessId}&limit=1`,
+          `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
         );
         const strategy = page.items[0];
         setPillars(
@@ -137,13 +153,50 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
         setPillars([]);
       }
     })();
-  }, [businessId]);
+  }, [brandId]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setMutating(true);
     try {
       await fn();
       await load();
+    } catch (err) {
+      onError(err);
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const patchIdea = (ideaId: string, patch: Partial<SocialIdeaResponse>) => {
+    setIdeas((current) => {
+      if (patch.status && tab !== "all" && patch.status !== tab) {
+        return current.filter((idea) => idea.id !== ideaId);
+      }
+      return current.map((idea) => (idea.id === ideaId ? { ...idea, ...patch } : idea));
+    });
+  };
+
+  const approveIdea = async (ideaId: string) => {
+    setMutating(true);
+    try {
+      await apiRequest(`/api/v1/social/ideas/${ideaId}/approve`, {
+        method: "POST",
+      });
+      patchIdea(ideaId, { status: "approved", rejection_reason: null });
+    } catch (err) {
+      onError(err);
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const deleteIdea = async (ideaId: string) => {
+    setMutating(true);
+    try {
+      await apiRequest<void>(`/api/v1/social/ideas/${ideaId}`, {
+        method: "DELETE",
+      });
+      setIdeas((current) => current.filter((idea) => idea.id !== ideaId));
     } catch (err) {
       onError(err);
     } finally {
@@ -166,7 +219,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
       apiRequest("/api/v1/social/ideas", {
         method: "POST",
         body: JSON.stringify({
-          business_id: businessId,
+          brand_id: brandId,
           platform_id: ideaForm.platform_id,
           pillar_id: ideaForm.pillar_id || null,
           format: ideaForm.format,
@@ -197,29 +250,46 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
     event.preventDefault();
     if (!scoring) return;
     const payload: Record<string, unknown> = {};
+    const scorePatch: Partial<SocialIdeaResponse> = {};
     for (const [key] of SOCIAL_SCORE_FIELDS) {
-      if (scoreForm[key] !== "") payload[key] = Number(scoreForm[key]);
+      if (scoreForm[key] !== "") {
+        payload[key] = Number(scoreForm[key]);
+        scorePatch[key] = scoreForm[key];
+      }
     }
-    await run(() =>
-      apiRequest(`/api/v1/social/ideas/${scoring.id}/score`, {
+    setMutating(true);
+    try {
+      await apiRequest(`/api/v1/social/ideas/${scoring.id}/score`, {
         method: "POST",
         body: JSON.stringify(payload),
-      }),
-    );
-    setScoring(null);
+      });
+      patchIdea(scoring.id, scorePatch);
+      setScoring(null);
+    } catch (err) {
+      onError(err);
+    } finally {
+      setMutating(false);
+    }
   };
 
   const submitReject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!rejecting || !rejectReason.trim()) return;
-    await run(() =>
-      apiRequest(`/api/v1/social/ideas/${rejecting.id}/reject`, {
+    const rejection_reason = rejectReason.trim();
+    setMutating(true);
+    try {
+      await apiRequest(`/api/v1/social/ideas/${rejecting.id}/reject`, {
         method: "POST",
-        body: JSON.stringify({ rejection_reason: rejectReason.trim() }),
-      }),
-    );
-    setRejecting(null);
-    setRejectReason("");
+        body: JSON.stringify({ rejection_reason }),
+      });
+      patchIdea(rejecting.id, { status: "rejected", rejection_reason });
+      setRejecting(null);
+      setRejectReason("");
+    } catch (err) {
+      onError(err);
+    } finally {
+      setMutating(false);
+    }
   };
 
   const submitPlan = async (event: FormEvent<HTMLFormElement>) => {
@@ -286,7 +356,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
               key={idea.id}
               className="rounded-xl border border-black/5 px-3 py-3 text-sm transition hover:bg-[hsl(220,33%,97%)]"
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(13rem,max-content)] sm:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{idea.title}</span>
@@ -312,45 +382,16 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
                     <div className="text-xs text-rose-600">Rejected: {idea.rejection_reason}</div>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 rounded-lg"
-                    disabled={mutating}
-                    onClick={() => openScore(idea)}
-                  >
-                    <Star className="mr-1 h-3.5 w-3.5" /> Score
-                  </Button>
+                <div className="flex min-w-52 shrink-0 justify-end gap-1">
                   {idea.status !== "approved" && idea.status !== "planned" && (
                     <Button
                       variant="outline"
                       size="sm"
                       className="h-8 rounded-lg text-emerald-700"
                       disabled={mutating}
-                      onClick={() =>
-                        run(() =>
-                          apiRequest(`/api/v1/social/ideas/${idea.id}/approve`, {
-                            method: "POST",
-                          }),
-                        )
-                      }
+                      onClick={() => approveIdea(idea.id)}
                     >
                       <Check className="mr-1 h-3.5 w-3.5" /> Approve
-                    </Button>
-                  )}
-                  {idea.status !== "rejected" && idea.status !== "planned" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 rounded-lg text-rose-700"
-                      disabled={mutating}
-                      onClick={() => {
-                        setRejecting(idea);
-                        setRejectReason("");
-                      }}
-                    >
-                      <ThumbsDown className="mr-1 h-3.5 w-3.5" /> Reject
                     </Button>
                   )}
                   {idea.status === "approved" && (
@@ -371,21 +412,41 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
                       <CalendarPlus className="mr-1 h-3.5 w-3.5" /> Plan
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full text-destructive"
-                    disabled={mutating}
-                    onClick={() =>
-                      run(() =>
-                        apiRequest<void>(`/api/v1/social/ideas/${idea.id}`, {
-                          method: "DELETE",
-                        }),
-                      )
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        disabled={mutating}
+                        aria-label={`Open actions for ${idea.title}`}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36">
+                      <DropdownMenuItem onClick={() => openScore(idea)}>
+                        <Star className="h-4 w-4" /> Score
+                      </DropdownMenuItem>
+                      {idea.status !== "rejected" && idea.status !== "planned" && (
+                        <DropdownMenuItem
+                          className="text-rose-700 focus:text-rose-700"
+                          onClick={() => {
+                            setRejecting(idea);
+                            setRejectReason("");
+                          }}
+                        >
+                          <ThumbsDown className="h-4 w-4" /> Reject
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => deleteIdea(idea.id)}
+                      >
+                        <Trash2 className="h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
               {SOCIAL_SCORE_FIELDS.some(
@@ -572,9 +633,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
                     min={0}
                     max={100}
                     value={scoreForm[key]}
-                    onChange={(e) =>
-                      setScoreForm((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
+                    onChange={(e) => setScoreForm((prev) => ({ ...prev, [key]: e.target.value }))}
                   />
                 </div>
               ))}
@@ -661,9 +720,7 @@ export function SocialIdeasBoard({ businessId, platformId, platforms, query, onE
                     id="social-plan-timezone"
                     placeholder="Europe/Kyiv"
                     value={planForm.timezone}
-                    onChange={(e) =>
-                      setPlanForm((prev) => ({ ...prev, timezone: e.target.value }))
-                    }
+                    onChange={(e) => setPlanForm((prev) => ({ ...prev, timezone: e.target.value }))}
                   />
                 </div>
               </div>

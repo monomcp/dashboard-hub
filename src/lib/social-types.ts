@@ -52,7 +52,7 @@ export type SocialPlatform = {
 
 export type SocialStrategyResponse = {
   id: string;
-  business_id: string;
+  brand_id: string;
   goals: Record<string, unknown>;
   target_audiences: unknown[];
   platforms: string[];
@@ -68,7 +68,7 @@ export type SocialStrategyResponse = {
 
 export type SocialIdeaResponse = {
   id: string;
-  business_id: string;
+  brand_id: string;
   platform_id: string;
   pillar_id: string | null;
   format: SocialIdeaFormat;
@@ -87,7 +87,7 @@ export type SocialIdeaResponse = {
 
 export type SocialCalendarItemResponse = {
   id: string;
-  business_id: string;
+  brand_id: string;
   social_idea_id: string;
   title: string | null;
   planned_publish_at: string | null;

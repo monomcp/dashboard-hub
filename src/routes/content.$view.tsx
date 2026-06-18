@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { AppsMenu } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { ContentIdeasBoard } from "@/components/content-ideas-board";
@@ -39,22 +38,23 @@ import { ContentActivityView } from "@/components/content-activity";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import type { Page } from "@/lib/content-types";
 import type { BrandProfileResponse } from "@/lib/brand-types";
 import type { CatalogServer } from "@/lib/mcp-types";
 import type { SocialPlatform } from "@/lib/social-types";
 
 type ContentSection = "ideas" | "calendar" | "strategy" | "permissions" | "activity";
+type SocialSection = ContentSection | "templates";
 
-const CONTENT_SECTIONS: ContentSection[] = [
+const CONTENT_SECTIONS: SocialSection[] = [
   "ideas",
   "calendar",
   "strategy",
+  "templates",
   "permissions",
   "activity",
 ];
 
-function isContentSection(value: string): value is ContentSection {
+function isContentSection(value: string): value is SocialSection {
   return (CONTENT_SECTIONS as string[]).includes(value);
 }
 
@@ -82,7 +82,6 @@ export const Route = createFileRoute("/content/$view")({
   component: ContentPage,
 });
 
-type BusinessSummary = { id: string; name: string };
 type ContentMode = "content" | "social";
 type CalendarView = "list" | "calendar";
 type ContentModeTab =
@@ -93,11 +92,11 @@ const CONTENT_NAV = [
   { id: "ideas", label: "Ideas", icon: Lightbulb },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "strategy", label: "Strategy", icon: Compass },
+  { id: "templates", label: "Templates", icon: LayoutGrid, socialOnly: true },
   { id: "permissions", label: "Permissions", icon: KeyRound },
   { id: "activity", label: "Activity", icon: Activity },
-] satisfies { id: ContentSection; label: string; icon: typeof Lightbulb }[];
+] satisfies { id: SocialSection; label: string; icon: typeof Lightbulb; socialOnly?: boolean }[];
 
-const SOCIAL_BUSINESS_STORAGE_KEY = "content_social_business";
 const MODE_STORAGE_KEY = "content_mode";
 
 const CONTENT_MODE_TABS: ContentModeTab[] = [
@@ -118,7 +117,7 @@ const PLATFORM_ICONS: Record<string, typeof Instagram> = {
 
 function ContentPage() {
   const navigate = useNavigate();
-  const section = Route.useParams().view as ContentSection;
+  const section = Route.useParams().view as SocialSection;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -129,9 +128,6 @@ function ContentPage() {
   const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [platformId, setPlatformId] = useState<string>("");
   const [brandId, setBrandId] = useState<string>("");
-  const [businessId, setBusinessId] = useState<string>(
-    () => localStorage.getItem(SOCIAL_BUSINESS_STORAGE_KEY) ?? "",
-  );
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [error, setError] = useState("");
 
@@ -147,6 +143,7 @@ function ContentPage() {
 
   // Permissions and Activity bypass the scoped planner views.
   const isToolkitSection = section === "permissions" || section === "activity";
+  const isTemplatesSection = section === "templates";
   const showModeToggle = true;
 
   const handleApiError = useCallback(
@@ -171,16 +168,6 @@ function ContentPage() {
           },
         );
         setBrandId(brand?.id ?? "");
-
-        const page = await apiRequest<Page<BusinessSummary>>(
-          "/api/v1/business?sort=name&direction=asc&limit=200&offset=0",
-        );
-        const stored = localStorage.getItem(SOCIAL_BUSINESS_STORAGE_KEY);
-        const valid = page.items.some((b) => b.id === stored);
-        const fallback = page.items[0]?.id ?? "";
-        const next = valid && stored ? stored : fallback;
-        setBusinessId(next);
-        if (next) localStorage.setItem(SOCIAL_BUSINESS_STORAGE_KEY, next);
       } catch (err) {
         handleApiError(err);
       } finally {
@@ -209,6 +196,7 @@ function ContentPage() {
   const activeTitle = useMemo(() => {
     const label = CONTENT_NAV.find((n) => n.id === section)?.label ?? "Content";
     if (section === "activity") return label;
+    if (section === "templates") return "Social templates";
     return mode === "social" ? `Social ${label.toLowerCase()}` : label;
   }, [section, mode]);
 
@@ -358,7 +346,7 @@ function ContentPage() {
         {sidebarOpen && (
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <nav className="space-y-1">
-              {CONTENT_NAV.map((n) => {
+              {CONTENT_NAV.filter((n) => mode === "social" || !n.socialOnly).map((n) => {
                 const active = section === n.id;
                 return (
                   <Link
@@ -450,8 +438,6 @@ function ContentPage() {
                 <h1 className="text-2xl font-normal capitalize tracking-tight">{activeTitle}</h1>
               </div>
 
-              {loadingBusinesses && <ContentPageSkeleton section={section} />}
-
               {!loadingBusinesses && mode === "content" && !brandId && (
                 <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
                   <p className="text-sm font-medium">No brand profile yet</p>
@@ -464,19 +450,19 @@ function ContentPage() {
                 </div>
               )}
 
-              {!loadingBusinesses && mode === "social" && !businessId && (
+              {!loadingBusinesses && mode === "social" && !brandId && (
                 <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
-                  <p className="text-sm font-medium">No companies yet</p>
+                  <p className="text-sm font-medium">No brand profile yet</p>
                   <p className="text-xs text-muted-foreground">
-                    Create a company first, then plan its content here.
+                    Create a brand profile first, then plan its social content here.
                   </p>
                   <Button asChild size="sm" className="mt-3 rounded-lg">
-                    <Link to="/company">Go to Company</Link>
+                    <Link to="/brand">Go to Brand</Link>
                   </Button>
                 </div>
               )}
 
-              {!loadingBusinesses && businessId && mode === "social" && <SocialTemplateGallery />}
+              {!loadingBusinesses && brandId && isTemplatesSection && <SocialTemplateGallery />}
 
               {!loadingBusinesses && brandId && mode === "content" && section === "ideas" && (
                 <ContentIdeasBoard
@@ -498,89 +484,44 @@ function ContentPage() {
                 <ContentStrategyPanel key={brandId} brandId={brandId} onError={handleApiError} />
               )}
 
-              {!loadingBusinesses && businessId && mode === "social" && section === "ideas" && (
-                <SocialIdeasBoard
-                  key={`${businessId}:${platformId}`}
-                  businessId={businessId}
-                  platformId={platformId}
-                  platforms={platforms}
-                  query={query}
-                  onError={handleApiError}
-                />
-              )}
-              {!loadingBusinesses && businessId && mode === "social" && section === "calendar" && (
-                <SocialCalendarList
-                  key={`${businessId}:${platformId}`}
-                  businessId={businessId}
-                  platformId={platformId}
-                  view={calendarView}
-                  onError={handleApiError}
-                />
-              )}
-              {!loadingBusinesses && businessId && mode === "social" && section === "strategy" && (
-                <SocialStrategyPanel
-                  key={businessId}
-                  businessId={businessId}
-                  onError={handleApiError}
-                />
-              )}
+              {!loadingBusinesses &&
+                brandId &&
+                mode === "social" &&
+                !isTemplatesSection &&
+                section === "ideas" && (
+                  <SocialIdeasBoard
+                    key={`${brandId}:${platformId}`}
+                    brandId={brandId}
+                    platformId={platformId}
+                    platforms={platforms}
+                    query={query}
+                    onError={handleApiError}
+                  />
+                )}
+              {!loadingBusinesses &&
+                brandId &&
+                mode === "social" &&
+                !isTemplatesSection &&
+                section === "calendar" && (
+                  <SocialCalendarList
+                    key={`${brandId}:${platformId}`}
+                    brandId={brandId}
+                    platformId={platformId}
+                    view={calendarView}
+                    onError={handleApiError}
+                  />
+                )}
+              {!loadingBusinesses &&
+                brandId &&
+                mode === "social" &&
+                !isTemplatesSection &&
+                section === "strategy" && (
+                  <SocialStrategyPanel key={brandId} brandId={brandId} onError={handleApiError} />
+                )}
             </section>
           )}
         </main>
       </div>
-    </div>
-  );
-}
-
-function ContentPageSkeleton({ section }: { section: ContentSection }) {
-  if (section === "calendar") {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <Skeleton className="h-9 w-44 rounded-full" />
-          <Skeleton className="h-9 w-28 rounded-full" />
-        </div>
-        <div className="grid gap-3 md:grid-cols-7">
-          {Array.from({ length: 7 }).map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-2xl" />
-          ))}
-        </div>
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-14 rounded-2xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (section === "strategy") {
-    return (
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-3">
-          <Skeleton className="h-10 w-56 rounded-full" />
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-24 rounded-2xl" />
-          ))}
-        </div>
-        <div className="space-y-3">
-          <Skeleton className="h-32 rounded-2xl" />
-          <Skeleton className="h-32 rounded-2xl" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {Array.from({ length: 3 }).map((_, column) => (
-        <div key={column} className="space-y-3 rounded-2xl bg-[hsl(220,33%,97%)] p-3">
-          <Skeleton className="h-7 w-28 rounded-full" />
-          {Array.from({ length: 3 }).map((_, item) => (
-            <Skeleton key={item} className="h-24 rounded-2xl" />
-          ))}
-        </div>
-      ))}
     </div>
   );
 }

@@ -33,7 +33,7 @@ import {
 } from "@/lib/social-types";
 
 type Props = {
-  businessId: string;
+  brandId: string;
   platformId: string;
   view?: "list" | "calendar";
   onError: (err: unknown) => void;
@@ -47,7 +47,7 @@ function formatDateTime(value: string | null) {
   });
 }
 
-export function SocialCalendarList({ businessId, platformId, view = "list", onError }: Props) {
+export function SocialCalendarList({ brandId, platformId, view = "list", onError }: Props) {
   const [items, setItems] = useState<SocialCalendarItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
@@ -62,7 +62,7 @@ export function SocialCalendarList({ businessId, platformId, view = "list", onEr
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ business_id: businessId, limit: "100" });
+      const params = new URLSearchParams({ brand_id: brandId, limit: "100" });
       if (platformId) params.set("platform_id", platformId);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const page = await apiRequest<Page<SocialCalendarItemResponse>>(
@@ -74,7 +74,7 @@ export function SocialCalendarList({ businessId, platformId, view = "list", onEr
     } finally {
       setLoading(false);
     }
-  }, [businessId, platformId, statusFilter, onError]);
+  }, [brandId, platformId, statusFilter, onError]);
 
   useEffect(() => {
     void load();

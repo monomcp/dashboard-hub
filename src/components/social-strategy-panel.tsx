@@ -15,7 +15,7 @@ import { linesToList, listToLines, type Page } from "@/lib/content-types";
 import type { SocialStrategyResponse } from "@/lib/social-types";
 
 type Props = {
-  businessId: string;
+  brandId: string;
   onError: (err: unknown) => void;
 };
 
@@ -51,7 +51,7 @@ function textToDict(value: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-export function SocialStrategyPanel({ businessId, onError }: Props) {
+export function SocialStrategyPanel({ brandId, onError }: Props) {
   const [strategy, setStrategy] = useState<SocialStrategyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
@@ -63,7 +63,7 @@ export function SocialStrategyPanel({ businessId, onError }: Props) {
     setLoading(true);
     try {
       const page = await apiRequest<Page<SocialStrategyResponse>>(
-        `/api/v1/social/strategies?business_id=${businessId}&limit=1`,
+        `/api/v1/social/strategies?brand_id=${brandId}&limit=1`,
       );
       setStrategy(page.items[0] ?? null);
     } catch (err) {
@@ -71,7 +71,7 @@ export function SocialStrategyPanel({ businessId, onError }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [businessId, onError]);
+  }, [brandId, onError]);
 
   useEffect(() => {
     void load();
@@ -122,7 +122,7 @@ export function SocialStrategyPanel({ businessId, onError }: Props) {
       } else {
         await apiRequest("/api/v1/social/strategies", {
           method: "POST",
-          body: JSON.stringify({ ...payload, business_id: businessId }),
+          body: JSON.stringify({ ...payload, brand_id: brandId }),
         });
       }
       setDialogOpen(false);
