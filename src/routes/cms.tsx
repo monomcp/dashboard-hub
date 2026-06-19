@@ -31,6 +31,7 @@ import {
   KeyRound,
   Activity,
   Copy,
+  ListTree,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import type { CatalogServer } from "@/lib/mcp-types";
 import { SitemapView } from "@/components/cms-sitemap-view";
+import { NavigationView } from "@/components/cms-navigation-view";
 import { LlmsFullView, LlmsView, RobotsView } from "@/components/cms-discovery-views";
 import { PermissionsMatrix } from "@/components/permissions-matrix";
 import { lightPermissionsTheme } from "@/lib/permissions-theme";
@@ -284,6 +286,7 @@ type View =
   | { kind: "llms-full" }
   | { kind: "permissions" }
   | { kind: "activity" }
+  | { kind: "navigation" }
   | { kind: "api-tokens" };
 
 type EntryRow = EntryResponse & {
@@ -958,6 +961,34 @@ function CmsPage() {
               {!loading && (
                 <div>
                   <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Navigation
+                  </div>
+                  <button
+                    onClick={() => {
+                      setView({ kind: "navigation" });
+                      setSelected([]);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                      view.kind === "navigation"
+                        ? "bg-indigo-50 font-semibold text-indigo-700"
+                        : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <ListTree
+                      className={cn(
+                        "h-4 w-4",
+                        view.kind === "navigation" ? "text-indigo-600" : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="truncate text-left">Menus</span>
+                  </button>
+                </div>
+              )}
+
+              {!loading && (
+                <div>
+                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Access
                   </div>
                   <button
@@ -1023,9 +1054,7 @@ function CmsPage() {
                     <KeyRound
                       className={cn(
                         "h-4 w-4",
-                        view.kind === "api-tokens"
-                          ? "text-indigo-600"
-                          : "text-muted-foreground",
+                        view.kind === "api-tokens" ? "text-indigo-600" : "text-muted-foreground",
                       )}
                     />
                     <span className="truncate text-left">API Tokens</span>
@@ -1037,10 +1066,7 @@ function CmsPage() {
         )}
 
         <main
-          className={cn(
-            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
-            sidebarOpen ? "md:pl-0" : "md:pl-6",
-          )}
+          className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
           {error && (
             <div
@@ -1188,6 +1214,8 @@ function CmsPage() {
               description="Every change made to your content through Console and via CMS tool calls."
             />
           )}
+
+          {!loading && view.kind === "navigation" && <NavigationView onError={handleApiError} />}
 
           {!loading && view.kind === "api-tokens" && <ApiTokensView onError={handleApiError} />}
         </main>
@@ -1368,9 +1396,7 @@ function ApiTokensView({ onError }: { onError: (err: unknown, fallback?: string)
   const loadTokens = useCallback(async () => {
     setLoading(true);
     try {
-      const page = await apiRequest<Page<CmsApiTokenResponse>>(
-        "/api/v1/cms-api/tokens?limit=200",
-      );
+      const page = await apiRequest<Page<CmsApiTokenResponse>>("/api/v1/cms-api/tokens?limit=200");
       setTokens(page.items);
     } catch (err) {
       onError(err, "Unable to load API tokens");
@@ -1444,10 +1470,7 @@ function ApiTokensView({ onError }: { onError: (err: unknown, fallback?: string)
           <h1 className="text-4xl font-semibold tracking-tight">API Tokens</h1>
           <p className="mt-1 text-muted-foreground">List of generated tokens to consume the API</p>
         </div>
-        <Button
-          className="rounded-lg bg-indigo-600 hover:bg-indigo-700"
-          onClick={openCreateDialog}
-        >
+        <Button className="rounded-lg bg-indigo-600 hover:bg-indigo-700" onClick={openCreateDialog}>
           <Plus className="mr-1.5 h-4 w-4" /> Create new API Token
         </Button>
       </div>
