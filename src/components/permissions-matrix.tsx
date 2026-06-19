@@ -21,7 +21,9 @@ import type {
   AccessMatrixPrincipal,
   AccessMatrixTool,
   AccessRuleInfo,
+  Page,
   PrincipalType,
+  Toolkit,
   ToolkitAccessMatrix,
 } from "@/lib/mcp-types";
 import { lightPermissionsTheme, type PermissionsTheme } from "@/lib/permissions-theme";
@@ -375,6 +377,21 @@ export function PermissionsMatrix({
     staleTime: 30 * 1000,
   });
 
+  // Resolve names for every toolkit so the selector shows names, not ids. The
+  // access-matrix call only returns the name of the selected toolkit.
+  const { data: toolkitList } = useQuery({
+    queryKey: ["toolkits-list"],
+    queryFn: () =>
+      apiRequest<Page<Toolkit>>("/api/v1/toolkits?sort=name&direction=asc&limit=200"),
+    enabled: toolkitIds.length > 1,
+    staleTime: 30 * 1000,
+  });
+  const toolkitNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const tk of toolkitList?.items ?? []) names.set(tk.id, tk.name);
+    return names;
+  }, [toolkitList]);
+
   useEffect(() => {
     if (error) onApiError(error, "Could not load permissions");
   }, [error, onApiError]);
@@ -522,7 +539,9 @@ export function PermissionsMatrix({
               >
                 {toolkitIds.map((id) => (
                   <option key={id} value={id}>
-                    {data && data.toolkit_id === id ? data.toolkit_name : id.slice(0, 8)}
+                    {data && data.toolkit_id === id
+                      ? data.toolkit_name
+                      : (toolkitNames.get(id) ?? id.slice(0, 8))}
                   </option>
                 ))}
               </select>
