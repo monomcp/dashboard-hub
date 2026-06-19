@@ -92,6 +92,18 @@ function PermissionsLayout() {
         {sidebarOpen && (
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
             <div className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Identities
+            </div>
+            <nav className="mb-4 space-y-1">
+              <Link
+                to="/principals"
+                className="flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm text-foreground/80 transition hover:bg-white/60"
+              >
+                <KeyRound className="h-5 w-5 shrink-0 text-foreground/70" />
+                <span className="flex-1 truncate text-left">Principals</span>
+              </Link>
+            </nav>
+            <div className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Toolkits
             </div>
             {isLoading ? (

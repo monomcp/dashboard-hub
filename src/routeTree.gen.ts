@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PrincipalsRouteImport } from './routes/principals'
 import { Route as PinterestRouteImport } from './routes/pinterest'
 import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -41,6 +42,11 @@ const TermsRoute = TermsRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrincipalsRoute = PrincipalsRouteImport.update({
+  id: '/principals',
+  path: '/principals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinterestRoute = PinterestRouteImport.update({
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
+  '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
+  '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
+  '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/permissions'
     | '/pinterest'
+    | '/principals'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/permissions'
     | '/pinterest'
+    | '/principals'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/permissions'
     | '/pinterest'
+    | '/principals'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -319,6 +331,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   PermissionsRoute: typeof PermissionsRouteWithChildren
   PinterestRoute: typeof PinterestRouteWithChildren
+  PrincipalsRoute: typeof PrincipalsRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
@@ -340,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/principals': {
+      id: '/principals'
+      path: '/principals'
+      fullPath: '/principals'
+      preLoaderRoute: typeof PrincipalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pinterest': {
@@ -543,6 +563,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   PermissionsRoute: PermissionsRouteWithChildren,
   PinterestRoute: PinterestRouteWithChildren,
+  PrincipalsRoute: PrincipalsRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,

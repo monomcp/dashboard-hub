@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, Pencil, X } from "lucide-react";
+import { Grip, Pencil, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
@@ -168,7 +168,7 @@ export function AppsMenu() {
     <Popover onOpenChange={(open) => !open && setEditing(false)}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Apps">
-          <LayoutGrid className="h-5 w-5 text-muted-foreground" />
+          <Grip className="h-5 w-5 text-muted-foreground" strokeWidth={2.5} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -208,20 +208,21 @@ export function AppsMenu() {
               );
               const label = <span className="text-xs text-foreground/80">{app.name}</span>;
 
-              const deleteButton = editing && !PINNED_FAVOURITES.has(app.name) ? (
-                <button
-                  type="button"
-                  aria-label={`Remove ${app.name} from favourites`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    hideFavourite.mutate(app.name);
-                  }}
-                  className="absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-stone-400/90 text-white shadow-sm transition hover:bg-stone-500"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              ) : null;
+              const deleteButton =
+                editing && !PINNED_FAVOURITES.has(app.name) ? (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${app.name} from favourites`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      hideFavourite.mutate(app.name);
+                    }}
+                    className="absolute right-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-stone-400/90 text-white shadow-sm transition hover:bg-stone-500"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                ) : null;
 
               const inner = (
                 <>

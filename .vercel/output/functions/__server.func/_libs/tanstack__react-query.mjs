@@ -191,8 +191,8 @@ function useInfiniteQuery(options, queryClient) {
 }
 export {
   QueryClientProvider as Q,
-  useQuery as a,
+  useQueryClient as a,
   useMutation as b,
   useInfiniteQuery as c,
-  useQueryClient as u
+  useQuery as u
 };

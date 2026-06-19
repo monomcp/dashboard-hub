@@ -105,6 +105,53 @@ export type SetServerToolkitsRequest = {
   new_toolkits?: NewToolkit[];
 };
 
+// ── Principals (GET/POST /api/v1/principals) ─────────────────────────────────
+// Mirrors api/app/modules/mcp/schemas.py PrincipalResponse.
+export type Principal = {
+  id: string;
+  organization_id: string;
+  type: PrincipalType;
+  auth_user_id: string | null;
+  name: string;
+  slug: string | null;
+  status: PrincipalStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PrincipalCreate = {
+  type?: PrincipalType;
+  name: string;
+  slug?: string;
+  metadata?: Record<string, unknown>;
+};
+
+// ── API keys (GET/POST /api/v1/api-keys) ─────────────────────────────────────
+// Mirrors api/app/modules/mcp/schemas.py ApiKeyResponse / ApiKeyCreated.
+export type ApiKey = {
+  id: string;
+  organization_id: string;
+  name: string;
+  key_prefix: string;
+  principal_id: string | null;
+  created_by_user_id: string | null;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// The plaintext secret (`mmcp_…`) is present only in the POST response, once.
+export type ApiKeyCreated = ApiKey & { secret: string };
+
+export type ApiKeyCreate = {
+  name: string;
+  principal_id?: string;
+  expires_at?: string;
+};
+
 // Base URL of the MCP gateway (separate service from the API). Override per
 // environment with VITE_GATEWAY_URL; defaults to the hosted stage gateway.
 export const GATEWAY_BASE_URL: string =

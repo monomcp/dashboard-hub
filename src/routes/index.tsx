@@ -17,6 +17,10 @@ import {
   Check,
   Search,
   Loader2,
+  UserRound,
+  Bot,
+  AlertTriangle,
+  CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +72,17 @@ type Page<T> = {
   offset: number;
 };
 
-type TaskStatus = "open" | "in_progress" | "blocked" | "done" | "cancelled";
+type TaskStatus =
+  | "todo"
+  | "claimed"
+  | "in_progress"
+  | "needs_review"
+  | "failed"
+  | "blocked"
+  | "done"
+  | "open"
+  | "cancelled";
+type TaskAssignmentRole = "assignee" | "reviewer" | "approver" | "watcher";
 
 type TaskListResponse = {
   id: string;
@@ -88,6 +102,7 @@ type TaskResponse = {
   id: string;
   organization_id: string;
   task_list_id: string;
+  parent_task_id: string | null;
   title: string;
   description: string | null;
   status: TaskStatus;
@@ -99,23 +114,60 @@ type TaskResponse = {
   is_all_day: boolean;
   is_starred: boolean;
   completed_at: string | null;
+  claimed_by_principal_id: string | null;
+  claimed_at: string | null;
+  claim_expires_at: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  last_error: string | null;
+  assignments?: TaskAssignmentResponse[];
   sort_order: number;
   created_at: string;
   updated_at: string;
 };
 
+type TaskAssignmentResponse = {
+  id: string;
+  task_id: string;
+  principal_id: string;
+  role: TaskAssignmentRole;
+  created_at: string;
+  updated_at: string;
+};
+
+type PrincipalResponse = {
+  id: string;
+  type: "user" | "agent" | "service_account" | "api_client";
+  auth_user_id: string | null;
+  name: string;
+  slug: string | null;
+  status: string;
+};
+
 type SortBy = "my" | "date" | "deadline" | "starred" | "title";
+type SystemView = "all" | "my" | "agents" | "needs_review" | "failed" | "scheduled" | "starred";
 
 const isDone = (task: TaskResponse) => task.status === "done" || task.status === "cancelled";
+const openStatuses = new Set<TaskStatus>([
+  "todo",
+  "claimed",
+  "in_progress",
+  "needs_review",
+  "failed",
+  "blocked",
+  "open",
+]);
+const taskAssignments = (task: TaskResponse) => task.assignments ?? [];
 
 function TasksPage() {
   const navigate = useNavigate();
   const [lists, setLists] = useState<TaskListResponse[]>([]);
   const [tasksByList, setTasksByList] = useState<Record<string, TaskResponse[]>>({});
+  const [principals, setPrincipals] = useState<PrincipalResponse[]>([]);
   const [sortByList, setSortByList] = useState<Record<string, SortBy>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [view, setView] = useState<"all" | "starred" | string>("all");
+  const [view, setView] = useState<SystemView | string>("all");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [listsExpanded, setListsExpanded] = useState(true);
 
@@ -131,6 +183,10 @@ function TasksPage() {
   const [taskDate, setTaskDate] = useState("");
   const [taskTime, setTaskTime] = useState("");
   const [taskAllDay, setTaskAllDay] = useState(false);
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>("todo");
+  const [taskParentId, setTaskParentId] = useState<string>("none");
+  const [taskPrincipalId, setTaskPrincipalId] = useState<string>("none");
+  const [taskAssignmentRole, setTaskAssignmentRole] = useState<TaskAssignmentRole>("assignee");
   const [savingTask, setSavingTask] = useState(false);
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -156,6 +212,9 @@ function TasksPage() {
       const listPage = await apiRequest<Page<TaskListResponse>>(
         "/api/v1/tasks/lists?limit=200&sort=sort_order&direction=asc",
       );
+      const principalPage = await apiRequest<Page<PrincipalResponse>>(
+        "/api/v1/principals?limit=200",
+      );
       const taskPages = await Promise.all(
         listPage.items.map((list) =>
           apiRequest<Page<TaskResponse>>(
@@ -168,6 +227,7 @@ function TasksPage() {
         byList[list.id] = taskPages[index].items;
       });
       setLists(listPage.items);
+      setPrincipals(principalPage.items);
       setTasksByList(byList);
     } catch (err) {
       handleApiError(err);
@@ -186,16 +246,47 @@ function TasksPage() {
   }, [lists]);
 
   const visibleLists = useMemo(() => {
-    if (view === "all" || view === "starred") return lists;
+    if (["all", "my", "agents", "needs_review", "failed", "scheduled", "starred"].includes(view))
+      return lists;
     return lists.filter((l) => l.id === view);
   }, [lists, view]);
+
+  const principalById = useMemo(
+    () => new Map(principals.map((principal) => [principal.id, principal])),
+    [principals],
+  );
+  const myPrincipal = useMemo(
+    () => principals.find((principal) => principal.type === "user") ?? null,
+    [principals],
+  );
+  const allTasks = useMemo(() => Object.values(tasksByList).flat(), [tasksByList]);
+  const editingTask = useMemo(
+    () => allTasks.find((task) => task.id === editingTaskId) ?? null,
+    [allTasks, editingTaskId],
+  );
+  const editingTaskIsSubtask = editingTask?.parent_task_id !== null && editingTask !== null;
 
   const sortedTasks = useCallback(
     (list: TaskListResponse) => {
       const tasks = [...(tasksByList[list.id] ?? [])];
-      if (view === "starred") {
-        return tasks.filter((t) => t.is_starred);
-      }
+      const filtered = tasks.filter((task) => {
+        if (view === "starred") return task.is_starred;
+        if (view === "my") {
+          return (
+            !!myPrincipal && taskAssignments(task).some((a) => a.principal_id === myPrincipal.id)
+          );
+        }
+        if (view === "agents") {
+          return taskAssignments(task).some(
+            (a) => principalById.get(a.principal_id)?.type === "agent",
+          );
+        }
+        if (view === "needs_review") return task.status === "needs_review";
+        if (view === "failed") return task.status === "failed";
+        if (view === "scheduled") return !!task.due_date;
+        return true;
+      });
+      tasks.splice(0, tasks.length, ...filtered);
       const sortBy = sortByList[list.id] ?? "my";
       switch (sortBy) {
         case "title":
@@ -211,7 +302,7 @@ function TasksPage() {
       }
       return tasks;
     },
-    [tasksByList, sortByList, view],
+    [myPrincipal, principalById, tasksByList, sortByList, view],
   );
 
   const upsertTask = (task: TaskResponse) => {
@@ -225,7 +316,7 @@ function TasksPage() {
     });
   };
 
-  const openNewTask = (listId: string | null) => {
+  const openNewTask = (listId: string | null, parentTaskId: string | null = null) => {
     if (!listId) return;
     setEditingTaskId(null);
     setTaskDialogListId(listId);
@@ -235,7 +326,15 @@ function TasksPage() {
     setTaskDate(now.toISOString().slice(0, 10));
     setTaskTime("20:00");
     setTaskAllDay(false);
+    setTaskStatus("todo");
+    setTaskParentId(parentTaskId ?? "none");
+    setTaskPrincipalId("none");
+    setTaskAssignmentRole("assignee");
     setTaskDialogOpen(true);
+  };
+
+  const openNewSubtask = (parentTask: TaskResponse) => {
+    openNewTask(parentTask.task_list_id, parentTask.id);
   };
 
   const openEditTask = (task: TaskResponse) => {
@@ -246,6 +345,12 @@ function TasksPage() {
     setTaskDate(task.due_date || "");
     setTaskTime(task.due_time ? task.due_time.slice(0, 5) : "");
     setTaskAllDay(task.is_all_day || !task.due_time);
+    setTaskStatus(task.status === "open" ? "todo" : task.status);
+    setTaskParentId(task.parent_task_id || "none");
+    const assignments = taskAssignments(task);
+    const assignment = assignments.find((a) => a.role === "assignee") ?? assignments[0];
+    setTaskPrincipalId(assignment?.principal_id ?? "none");
+    setTaskAssignmentRole(assignment?.role ?? "assignee");
     setTaskDialogOpen(true);
   };
 
@@ -260,6 +365,12 @@ function TasksPage() {
         due_date: taskDate || null,
         due_time: taskAllDay ? null : taskTime || null,
         is_all_day: taskAllDay,
+        status: taskStatus,
+        parent_task_id: taskParentId === "none" ? null : taskParentId,
+        assignments:
+          taskPrincipalId === "none"
+            ? []
+            : [{ principal_id: taskPrincipalId, role: taskAssignmentRole }],
       };
       let task: TaskResponse;
       if (editingTaskId) {
@@ -283,7 +394,7 @@ function TasksPage() {
   };
 
   const toggleDone = async (task: TaskResponse) => {
-    const nextStatus: TaskStatus = isDone(task) ? "open" : "done";
+    const nextStatus: TaskStatus = isDone(task) ? "todo" : "done";
     // Optimistic update.
     setTasksByList((prev) => ({
       ...prev,
@@ -401,7 +512,7 @@ function TasksPage() {
     setSortByList((prev) => ({ ...prev, [listId]: sortBy }));
   };
 
-  const openTaskListId = view === "all" || view === "starred" ? defaultListId : view;
+  const openTaskListId = lists.some((list) => list.id === view) ? view : defaultListId;
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -456,6 +567,36 @@ function TasksPage() {
                 onClick={() => setView("all")}
               />
               <SidebarItem
+                icon={<UserRound className="h-5 w-5" />}
+                label="My tasks"
+                active={view === "my"}
+                onClick={() => setView("my")}
+              />
+              <SidebarItem
+                icon={<Bot className="h-5 w-5" />}
+                label="Assigned to agents"
+                active={view === "agents"}
+                onClick={() => setView("agents")}
+              />
+              <SidebarItem
+                icon={<CheckSquare className="h-5 w-5" />}
+                label="Needs review"
+                active={view === "needs_review"}
+                onClick={() => setView("needs_review")}
+              />
+              <SidebarItem
+                icon={<AlertTriangle className="h-5 w-5" />}
+                label="Failed"
+                active={view === "failed"}
+                onClick={() => setView("failed")}
+              />
+              <SidebarItem
+                icon={<CalendarClock className="h-5 w-5" />}
+                label="Scheduled"
+                active={view === "scheduled"}
+                onClick={() => setView("scheduled")}
+              />
+              <SidebarItem
                 icon={<Star className="h-5 w-5" />}
                 label="Starred"
                 active={view === "starred"}
@@ -479,7 +620,9 @@ function TasksPage() {
                     <SidebarListsSkeleton />
                   ) : (
                     lists.map((l) => {
-                      const open = (tasksByList[l.id] ?? []).filter((t) => !isDone(t)).length;
+                      const open = (tasksByList[l.id] ?? []).filter((t) =>
+                        openStatuses.has(t.status),
+                      ).length;
                       return (
                         <button
                           key={l.id}
@@ -529,6 +672,10 @@ function TasksPage() {
             <div className="flex flex-wrap gap-5">
               {visibleLists.map((list) => {
                 const tasks = sortedTasks(list);
+                const taskIds = new Set(tasks.map((task) => task.id));
+                const parentTasks = tasks.filter(
+                  (task) => !task.parent_task_id || !taskIds.has(task.parent_task_id),
+                );
                 const showEmpty = view === "starred" && tasks.length === 0;
                 const sortBy = sortByList[list.id] ?? "my";
                 return (
@@ -619,60 +766,120 @@ function TasksPage() {
                       <EmptyState />
                     ) : (
                       <ul className="space-y-1">
-                        {tasks.map((t) => {
+                        {parentTasks.map((t) => {
                           const done = isDone(t);
+                          const assignment = taskAssignments(t)[0];
+                          const assignee = assignment
+                            ? principalById.get(assignment.principal_id)
+                            : null;
+                          const subtasks = tasks.filter((task) => task.parent_task_id === t.id);
+                          const childCount = subtasks.length;
                           return (
-                            <li
-                              key={t.id}
-                              className="group flex items-center gap-3 rounded-lg px-1 py-2 hover:bg-stone-50"
-                            >
-                              <button
-                                onClick={() => toggleDone(t)}
-                                className="shrink-0"
-                                aria-label="Toggle complete"
-                              >
-                                {done ? (
-                                  <CheckCircle className="h-5 w-5 text-sky-600" />
-                                ) : (
-                                  <Circle className="h-5 w-5 text-foreground/40 transition hover:text-foreground" />
-                                )}
-                              </button>
-                              <button onClick={() => openEditTask(t)} className="flex-1 text-left">
-                                <div
-                                  className={cn(
-                                    "text-sm",
-                                    done && "text-muted-foreground line-through",
-                                  )}
+                            <li key={t.id} className="group rounded-lg px-1 py-2 hover:bg-stone-50">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => toggleDone(t)}
+                                  className="shrink-0"
+                                  aria-label="Toggle complete"
                                 >
-                                  {t.title}
-                                </div>
-                                {(t.due_date || t.description) && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {t.due_date}
-                                    {t.due_time && !t.is_all_day
-                                      ? ` · ${t.due_time.slice(0, 5)}`
-                                      : ""}
-                                    {t.description ? ` · ${t.description}` : ""}
-                                  </div>
-                                )}
-                              </button>
-                              <button
-                                onClick={() => toggleStar(t)}
-                                className={cn(
-                                  "shrink-0 opacity-0 transition group-hover:opacity-100",
-                                  t.is_starred && "opacity-100",
-                                )}
-                                aria-label="Star"
-                              >
-                                <Star
-                                  className={cn(
-                                    "h-4 w-4",
-                                    t.is_starred
-                                      ? "fill-amber-400 text-amber-400"
-                                      : "text-muted-foreground",
+                                  {done ? (
+                                    <CheckCircle className="h-5 w-5 text-sky-600" />
+                                  ) : (
+                                    <Circle className="h-5 w-5 text-foreground/40 transition hover:text-foreground" />
                                   )}
-                                />
-                              </button>
+                                </button>
+                                <button
+                                  onClick={() => openEditTask(t)}
+                                  className="flex-1 text-left"
+                                >
+                                  <div
+                                    className={cn(
+                                      "text-sm",
+                                      done && "text-muted-foreground line-through",
+                                    )}
+                                  >
+                                    {t.title}
+                                  </div>
+                                  {(t.due_date || t.description) && (
+                                    <div className="text-xs text-muted-foreground">
+                                      {t.due_date}
+                                      {t.due_time && !t.is_all_day
+                                        ? ` · ${t.due_time.slice(0, 5)}`
+                                        : ""}
+                                      {t.description ? ` · ${t.description}` : ""}
+                                    </div>
+                                  )}
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <span className="rounded-full bg-stone-100 px-2 py-0.5">
+                                      {t.status.replace("_", " ")}
+                                    </span>
+                                    {assignee && (
+                                      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700">
+                                        {assignment.role}: {assignee.name}
+                                      </span>
+                                    )}
+                                    {t.claimed_by_principal_id && (
+                                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                                        claimed
+                                      </span>
+                                    )}
+                                    {childCount > 0 && (
+                                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                                        {childCount} subtasks
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => toggleStar(t)}
+                                  className={cn(
+                                    "shrink-0 opacity-0 transition group-hover:opacity-100",
+                                    t.is_starred && "opacity-100",
+                                  )}
+                                  aria-label="Star"
+                                >
+                                  <Star
+                                    className={cn(
+                                      "h-4 w-4",
+                                      t.is_starred
+                                        ? "fill-amber-400 text-amber-400"
+                                        : "text-muted-foreground",
+                                    )}
+                                  />
+                                </button>
+                              </div>
+
+                              {subtasks.length > 0 && (
+                                <ul className="mt-2 space-y-1 border-l border-stone-200 pl-5">
+                                  {subtasks.map((subtask) => {
+                                    const subtaskDone = isDone(subtask);
+                                    return (
+                                      <li key={subtask.id} className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => toggleDone(subtask)}
+                                          className="shrink-0"
+                                          aria-label="Toggle subtask complete"
+                                        >
+                                          {subtaskDone ? (
+                                            <CheckCircle className="h-4 w-4 text-sky-600" />
+                                          ) : (
+                                            <Circle className="h-4 w-4 text-foreground/40 transition hover:text-foreground" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => openEditTask(subtask)}
+                                          className={cn(
+                                            "min-w-0 flex-1 truncate text-left text-xs",
+                                            subtaskDone && "text-muted-foreground line-through",
+                                          )}
+                                        >
+                                          {subtask.title}
+                                        </button>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
                             </li>
                           );
                         })}
@@ -824,6 +1031,133 @@ function TasksPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select value={taskStatus} onValueChange={(v) => setTaskStatus(v as TaskStatus)}>
+                <SelectTrigger className="bg-stone-100 border-0 rounded-lg">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    [
+                      "todo",
+                      "claimed",
+                      "in_progress",
+                      "needs_review",
+                      "failed",
+                      "blocked",
+                      "done",
+                    ] as const
+                  ).map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={taskParentId} onValueChange={setTaskParentId}>
+                <SelectTrigger className="bg-stone-100 border-0 rounded-lg">
+                  <SelectValue placeholder="Parent task" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No parent task</SelectItem>
+                  {allTasks
+                    .filter((task) => task.id !== editingTaskId && task.parent_task_id === null)
+                    .map((task) => (
+                      <SelectItem key={task.id} value={task.id}>
+                        {task.title}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+              <Select value={taskPrincipalId} onValueChange={setTaskPrincipalId}>
+                <SelectTrigger className="bg-stone-100 border-0 rounded-lg">
+                  <SelectValue placeholder="Assign principal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {principals.map((principal) => (
+                    <SelectItem key={principal.id} value={principal.id}>
+                      {principal.name} · {principal.type.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={taskAssignmentRole}
+                onValueChange={(v) => setTaskAssignmentRole(v as TaskAssignmentRole)}
+              >
+                <SelectTrigger className="bg-stone-100 border-0 rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["assignee", "reviewer", "approver", "watcher"] as const).map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {editingTaskId && !editingTaskIsSubtask && (
+              <div className="space-y-2 rounded-xl border border-stone-200 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">Subtasks</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-full text-sky-600"
+                    onClick={() => {
+                      if (editingTask) openNewSubtask(editingTask);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add task
+                  </Button>
+                </div>
+                {allTasks.filter((task) => task.parent_task_id === editingTaskId).length > 0 ? (
+                  <ul className="space-y-1">
+                    {allTasks
+                      .filter((task) => task.parent_task_id === editingTaskId)
+                      .map((subtask) => (
+                        <li
+                          key={subtask.id}
+                          className="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleDone(subtask)}
+                            aria-label="Toggle subtask complete"
+                          >
+                            {isDone(subtask) ? (
+                              <CheckCircle className="h-4 w-4 text-sky-600" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-foreground/40" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditTask(subtask)}
+                            className={cn(
+                              "min-w-0 flex-1 truncate text-left text-sm",
+                              isDone(subtask) && "text-muted-foreground line-through",
+                            )}
+                          >
+                            {subtask.title}
+                          </button>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-muted-foreground">
+                            {subtask.status.replace("_", " ")}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No subtasks yet.</p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
