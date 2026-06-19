@@ -455,10 +455,46 @@ export function NavigationView({
                     {items.map((item) => (
                       <li
                         key={item.id}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60"
+                        draggable
+                        onDragStart={(event) => {
+                          setDragId(item.id);
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(event) => {
+                          // Only show a drop target for valid sibling moves.
+                          if (
+                            dragId &&
+                            dragId !== item.id &&
+                            (items.find((i) => i.id === dragId)?.parent_id ?? null) ===
+                              (item.parent_id ?? null)
+                          ) {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                            setDragOverId(item.id);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          setDragOverId((current) => (current === item.id ? null : current));
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          void reorderItems(item);
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setDragOverId(null);
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-3 transition",
+                          dragId === item.id
+                            ? "opacity-50"
+                            : dragOverId === item.id
+                              ? "bg-indigo-50/70"
+                              : "hover:bg-slate-50/60",
+                        )}
                         style={{ paddingLeft: 16 + item.depth * 20 }}
                       >
-                        <GripVertical className="h-4 w-4 shrink-0 text-slate-300" />
+                        <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-slate-300 active:cursor-grabbing" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{item.label}</p>
                           <p className="truncate text-xs text-muted-foreground">
