@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type {
@@ -21,7 +22,9 @@ import type {
   AccessMatrixPrincipal,
   AccessMatrixTool,
   AccessRuleInfo,
+  Page,
   PrincipalType,
+  Toolkit,
   ToolkitAccessMatrix,
 } from "@/lib/mcp-types";
 import { lightPermissionsTheme, type PermissionsTheme } from "@/lib/permissions-theme";
@@ -360,6 +363,12 @@ export function PermissionsMatrix({
     const query = params.toString();
     return `/api/v1/toolkits/${toolkitId}/access-matrix${query ? `?${query}` : ""}`;
   }, [toolkitId, moduleScope]);
+  const { data: toolkitPage } = useQuery({
+    queryKey: ["toolkits-list"],
+    queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?sort=name&direction=asc&limit=200"),
+    enabled: enabled && toolkitIds.length > 1,
+    staleTime: 30 * 1000,
+  });
 
   // Default to the first toolkit and keep the selection valid as data loads.
   useEffect(() => {
@@ -374,6 +383,12 @@ export function PermissionsMatrix({
     enabled: Boolean(toolkitId),
     staleTime: 30 * 1000,
   });
+  const toolkitNameById = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const toolkit of toolkitPage?.items ?? []) names.set(toolkit.id, toolkit.name);
+    if (data) names.set(data.toolkit_id, data.toolkit_name);
+    return names;
+  }, [data, toolkitPage]);
 
   useEffect(() => {
     if (error) onApiError(error, "Could not load permissions");
@@ -522,7 +537,7 @@ export function PermissionsMatrix({
               >
                 {toolkitIds.map((id) => (
                   <option key={id} value={id}>
-                    {data && data.toolkit_id === id ? data.toolkit_name : id.slice(0, 8)}
+                    {toolkitNameById.get(id) ?? id.slice(0, 8)}
                   </option>
                 ))}
               </select>
@@ -597,135 +612,156 @@ export function PermissionsMatrix({
           </div>
         )}
 
-        <div className={cn("overflow-x-auto rounded-3xl", theme.tableWrap)}>
-          <table className="w-full border-collapse text-sm">
-            {orientation === "principals" ? (
-              <>
-                <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
-                  <tr>
-                    <th
-                      className={cn(
-                        "sticky left-0 z-10 px-4 py-3 text-left font-medium",
-                        theme.headerStickyBg,
-                      )}
-                    >
-                      Principal
-                    </th>
-                    {tools.map((tool) => (
+        <TooltipProvider delayDuration={200}>
+          <div className={cn("overflow-x-auto rounded-3xl", theme.tableWrap)}>
+            <table className="w-full border-collapse text-sm">
+              {orientation === "principals" ? (
+                <>
+                  <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
+                    <tr>
                       <th
-                        key={tool.id}
-                        className="px-3 py-3 text-center font-medium"
-                        title={tool.description ?? tool.name}
+                        className={cn(
+                          "sticky left-0 z-10 px-4 py-3 text-left font-medium",
+                          theme.headerStickyBg,
+                        )}
                       >
-                        <span className="block max-w-[120px] truncate normal-case">
-                          {toolLabel(tool)}
-                        </span>
+                        Principal
                       </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {principals.map((principal) => (
-                    <tr key={principal.id} className={cn("border-t", theme.rowBorder)}>
-                      <td className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}>
-                        <PrincipalLabel
-                          principal={principal}
-                          busy={busyKey === `tk:${principal.id}`}
-                          onSet={(mode) => setToolkitGrant(principal.id, mode)}
-                          onRevoke={() => revokeToolkitGrant(principal.id)}
-                        />
-                      </td>
                       {tools.map((tool) => (
-                        <td key={tool.id} className="px-3 py-3 text-center">
-                          {renderToolCell(principal, tool)}
-                        </td>
+                        <th key={tool.id} className="px-3 py-3 text-center font-medium">
+                          {tool.description ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="mx-auto block max-w-[120px] cursor-help truncate normal-case">
+                                  {toolLabel(tool)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                {tool.description}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="mx-auto block max-w-[120px] truncate normal-case">
+                              {toolLabel(tool)}
+                            </span>
+                          )}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                  {principals.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={tools.length + 1}
-                        className={cn("px-4 py-10 text-center", theme.emptyText)}
-                      >
-                        {onlyWithAccess
-                          ? "No principal has access to these tools yet."
-                          : "No principals in this organization yet."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </>
-            ) : (
-              <>
-                <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
-                  <tr>
-                    <th
-                      className={cn(
-                        "sticky left-0 z-10 px-4 py-3 text-left font-medium",
-                        theme.headerStickyBg,
-                      )}
-                    >
-                      Tool
-                    </th>
+                  </thead>
+                  <tbody>
                     {principals.map((principal) => (
-                      <th
-                        key={principal.id}
-                        className="min-w-[180px] px-3 py-3 text-left font-medium normal-case"
-                      >
-                        <PrincipalLabel
-                          principal={principal}
-                          busy={busyKey === `tk:${principal.id}`}
-                          onSet={(mode) => setToolkitGrant(principal.id, mode)}
-                          onRevoke={() => revokeToolkitGrant(principal.id)}
-                        />
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {principals.length > 0 &&
-                    tools.map((tool) => (
-                      <tr key={tool.id} className={cn("border-t", theme.rowBorder)}>
-                        <td
-                          className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}
-                          title={tool.description ?? tool.name}
-                        >
-                          <span
-                            className={cn(
-                              "block max-w-[260px] truncate font-medium",
-                              theme.principalName,
-                            )}
-                          >
-                            {toolLabel(tool)}
-                          </span>
+                      <tr key={principal.id} className={cn("border-t", theme.rowBorder)}>
+                        <td className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}>
+                          <PrincipalLabel
+                            principal={principal}
+                            busy={busyKey === `tk:${principal.id}`}
+                            onSet={(mode) => setToolkitGrant(principal.id, mode)}
+                            onRevoke={() => revokeToolkitGrant(principal.id)}
+                          />
                         </td>
-                        {principals.map((principal) => (
-                          <td key={principal.id} className="px-3 py-3 text-center">
+                        {tools.map((tool) => (
+                          <td key={tool.id} className="px-3 py-3 text-center">
                             {renderToolCell(principal, tool)}
                           </td>
                         ))}
                       </tr>
                     ))}
-                  {(principals.length === 0 || tools.length === 0) && (
-                    <tr>
-                      <td
-                        colSpan={principals.length + 1}
-                        className={cn("px-4 py-10 text-center", theme.emptyText)}
-                      >
-                        {principals.length === 0
-                          ? onlyWithAccess
+                    {principals.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={tools.length + 1}
+                          className={cn("px-4 py-10 text-center", theme.emptyText)}
+                        >
+                          {onlyWithAccess
                             ? "No principal has access to these tools yet."
-                            : "No principals in this organization yet."
-                          : "No tools in this toolkit yet."}
-                      </td>
+                            : "No principals in this organization yet."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </>
+              ) : (
+                <>
+                  <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
+                    <tr>
+                      <th
+                        className={cn(
+                          "sticky left-0 z-10 px-4 py-3 text-left font-medium",
+                          theme.headerStickyBg,
+                        )}
+                      >
+                        Tool
+                      </th>
+                      {principals.map((principal) => (
+                        <th
+                          key={principal.id}
+                          className="min-w-[180px] px-3 py-3 text-left font-medium normal-case"
+                        >
+                          <PrincipalLabel
+                            principal={principal}
+                            busy={busyKey === `tk:${principal.id}`}
+                            onSet={(mode) => setToolkitGrant(principal.id, mode)}
+                            onRevoke={() => revokeToolkitGrant(principal.id)}
+                          />
+                        </th>
+                      ))}
                     </tr>
-                  )}
-                </tbody>
-              </>
-            )}
-          </table>
-        </div>
+                  </thead>
+                  <tbody>
+                    {principals.length > 0 &&
+                      tools.map((tool) => (
+                        <tr key={tool.id} className={cn("border-t", theme.rowBorder)}>
+                          <td
+                            className={cn("sticky left-0 z-10 px-4 py-3", theme.bodyStickyBg)}
+                            title={tool.description ?? tool.name}
+                          >
+                            <span
+                              className={cn(
+                                "block max-w-[260px] truncate font-medium",
+                                theme.principalName,
+                              )}
+                            >
+                              {toolLabel(tool)}
+                            </span>
+                            {tool.description && (
+                              <span
+                                className={cn(
+                                  "mt-1 block max-w-[360px] whitespace-normal text-xs leading-snug",
+                                  theme.principalSub,
+                                )}
+                              >
+                                {tool.description}
+                              </span>
+                            )}
+                          </td>
+                          {principals.map((principal) => (
+                            <td key={principal.id} className="px-3 py-3 text-center">
+                              {renderToolCell(principal, tool)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    {(principals.length === 0 || tools.length === 0) && (
+                      <tr>
+                        <td
+                          colSpan={principals.length + 1}
+                          className={cn("px-4 py-10 text-center", theme.emptyText)}
+                        >
+                          {principals.length === 0
+                            ? onlyWithAccess
+                              ? "No principal has access to these tools yet."
+                              : "No principals in this organization yet."
+                            : "No tools in this toolkit yet."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </>
+              )}
+            </table>
+          </div>
+        </TooltipProvider>
       </div>
     </ThemeContext.Provider>
   );

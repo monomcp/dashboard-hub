@@ -47,16 +47,20 @@ type RequestLogUptimeResponse = {
 };
 
 export function TasksUptimeView({
+  moduleSlug = "tasks",
   onApiError,
   onViewHistory,
 }: {
+  moduleSlug?: string;
   onApiError: (err: unknown, fallback?: string) => void;
   onViewHistory: () => void;
 }) {
   const { data, error, isLoading } = useQuery({
-    queryKey: ["request-log-uptime", "tasks", 90],
+    queryKey: ["request-log-uptime", moduleSlug, 90],
     queryFn: () =>
-      apiRequest<RequestLogUptimeResponse>("/api/v1/request-logs/uptime?module_slug=tasks&days=90"),
+      apiRequest<RequestLogUptimeResponse>(
+        `/api/v1/request-logs/uptime?module_slug=${encodeURIComponent(moduleSlug)}&days=90`,
+      ),
     staleTime: 30 * 1000,
   });
 

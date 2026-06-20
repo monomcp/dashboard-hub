@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Compass,
   Facebook,
+  Gauge,
   Globe,
   Hash,
   HelpCircle,
@@ -35,6 +36,7 @@ import { SocialStrategyPanel } from "@/components/social-strategy-panel";
 import { SocialTemplateGallery } from "@/components/social-template-gallery";
 import { ContentPermissionsView } from "@/components/content-permissions";
 import { ContentActivityView } from "@/components/content-activity";
+import { TasksUptimeView } from "@/components/tasks-uptime-view";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -42,7 +44,7 @@ import type { BrandProfileResponse } from "@/lib/brand-types";
 import type { CatalogServer } from "@/lib/mcp-types";
 import type { SocialPlatform } from "@/lib/social-types";
 
-type ContentSection = "ideas" | "calendar" | "strategy" | "permissions" | "activity";
+type ContentSection = "ideas" | "calendar" | "strategy" | "permissions" | "activity" | "uptime";
 type SocialSection = ContentSection | "templates";
 
 const CONTENT_SECTIONS: SocialSection[] = [
@@ -52,6 +54,7 @@ const CONTENT_SECTIONS: SocialSection[] = [
   "templates",
   "permissions",
   "activity",
+  "uptime",
 ];
 
 function isContentSection(value: string): value is SocialSection {
@@ -107,6 +110,7 @@ const CONTENT_NAV = [
   { id: "templates", label: "Templates", icon: LayoutGrid, socialOnly: true },
   { id: "permissions", label: "Permissions", icon: KeyRound },
   { id: "activity", label: "Activity", icon: Activity },
+  { id: "uptime", label: "Uptime", icon: Gauge },
 ] satisfies { id: SocialSection; label: string; icon: typeof Lightbulb; socialOnly?: boolean }[];
 
 const MODE_STORAGE_KEY = "content_mode";
@@ -154,7 +158,8 @@ function ContentPage() {
   const activeServer = catalog?.find((s) => s.slug === activeServerSlug);
 
   // Permissions and Activity bypass the scoped planner views.
-  const isToolkitSection = section === "permissions" || section === "activity";
+  const isToolkitSection =
+    section === "permissions" || section === "activity" || section === "uptime";
   const isTemplatesSection = section === "templates";
   const showModeToggle = true;
 
@@ -478,6 +483,19 @@ function ContentPage() {
               server={activeServer}
               catalogReady={catalogReady}
               onApiError={handleApiError}
+            />
+          )}
+          {section === "uptime" && (
+            <TasksUptimeView
+              moduleSlug={activeServerSlug}
+              onApiError={handleApiError}
+              onViewHistory={() =>
+                void navigate({
+                  to: "/content/$view",
+                  params: { view: "activity" },
+                  search: (prev) => ({ ...prev, mode }),
+                })
+              }
             />
           )}
 

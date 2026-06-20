@@ -13,6 +13,9 @@ type DatePickerProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  min?: string;
+  max?: string;
+  ariaLabel?: string;
 };
 
 function toDate(value: string): Date | undefined {
@@ -26,9 +29,19 @@ export function DatePicker({
   onChange,
   placeholder = "Pick a date",
   className,
+  min,
+  max,
+  ariaLabel,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = toDate(value);
+  const minDate = toDate(min ?? "");
+  const maxDate = toDate(max ?? "");
+  const today = new Date();
+  const todayDisabled =
+    (minDate && today < minDate) ||
+    (maxDate &&
+      today > new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate(), 23, 59, 59));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -40,6 +53,7 @@ export function DatePicker({
             !selected && "text-muted-foreground",
             className,
           )}
+          aria-label={ariaLabel}
         >
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
           {selected ? format(selected, "EEE, MMM d, yyyy") : placeholder}
@@ -50,6 +64,10 @@ export function DatePicker({
           mode="single"
           selected={selected}
           defaultMonth={selected}
+          disabled={[
+            ...(minDate ? [{ before: minDate }] : []),
+            ...(maxDate ? [{ after: maxDate }] : []),
+          ]}
           onSelect={(date) => {
             if (date) onChange(format(date, "yyyy-MM-dd"));
             setOpen(false);
@@ -76,6 +94,7 @@ export function DatePicker({
             variant="ghost"
             size="sm"
             className="h-8 rounded-full px-3 text-sm text-sky-600 hover:bg-sky-50 hover:text-sky-700"
+            disabled={Boolean(todayDisabled)}
             onClick={() => {
               onChange(format(new Date(), "yyyy-MM-dd"));
               setOpen(false);

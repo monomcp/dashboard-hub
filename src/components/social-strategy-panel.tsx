@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Pencil } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,20 @@ const DICT_FIELDS = [
 ] as const;
 
 type FormState = Record<string, string>;
+
+type AudienceDetails = {
+  name: string;
+  description?: string;
+  needs: string[];
+  painPoints: string[];
+  preferredContent: string[];
+};
+
+type PlatformDetails = {
+  name: string;
+  role?: string;
+  contentTypes: string[];
+};
 
 function dictToText(value: Record<string, unknown> | null | undefined) {
   if (!value || Object.keys(value).length === 0) return "";
@@ -153,23 +168,10 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
         </div>
         {strategy ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            {LIST_FIELDS.map(([key, label]) => {
-              const items = (strategy[key as keyof SocialStrategyResponse] as unknown[]) ?? [];
-              return (
-                <div key={key}>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {label}
-                  </dt>
-                  <dd>
-                    {items.length
-                      ? items
-                          .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
-                          .join(", ")
-                      : "—"}
-                  </dd>
-                </div>
-              );
-            })}
+            <TargetAudienceList items={strategy.target_audiences} />
+            <PlatformList items={(strategy.platforms as unknown[]) ?? []} />
+            <SimpleList label="Content mix" items={strategy.content_mix} />
+            <SimpleList label="KPIs" items={strategy.kpis} />
             {DICT_FIELDS.map(([key, label]) => {
               const value = strategy[key as keyof SocialStrategyResponse] as Record<
                 string,
@@ -252,4 +254,189 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
       </Dialog>
     </div>
   );
+}
+
+function TargetAudienceList({ items }: { items: unknown[] }) {
+  const audiences = audienceDetails(items);
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Target audiences
+      </dt>
+      <dd className="mt-2">
+        {audiences.length ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {audiences.map((audience, index) => (
+              <li
+                key={`${audience.name}-${index}`}
+                className="rounded-lg border border-black/5 bg-white px-3 py-2 text-sm shadow-sm"
+              >
+                <div className="font-medium">{audience.name}</div>
+                {audience.description && (
+                  <div className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                    {audience.description}
+                  </div>
+                )}
+                <BadgeGroup items={audience.needs} />
+                <BadgeGroup items={audience.painPoints} />
+                <BadgeGroup items={audience.preferredContent} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function PlatformList({ items }: { items: unknown[] }) {
+  const platforms = platformDetails(items);
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Platforms
+      </dt>
+      <dd className="mt-2">
+        {platforms.length ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {platforms.map((platform, index) => (
+              <li
+                key={`${platform.name}-${index}`}
+                className="rounded-lg border border-black/5 bg-white px-3 py-2 text-sm shadow-sm"
+              >
+                <div className="font-medium">{platform.name}</div>
+                {platform.role && (
+                  <div className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                    {platform.role}
+                  </div>
+                )}
+                <BadgeGroup items={platform.contentTypes} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function SimpleList({ label, items }: { label: string; items: unknown[] }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd>{items.length ? items.map(formatListItem).join(", ") : "—"}</dd>
+    </div>
+  );
+}
+
+function BadgeGroup({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <Badge
+          key={item}
+          variant="secondary"
+          className="border-black/5 bg-[hsl(220,33%,97%)] font-medium text-muted-foreground"
+        >
+          {item}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function audienceDetails(items: unknown[]): AudienceDetails[] {
+  return items.flatMap((item) => {
+    const expanded = parseJsonLikeValue(item);
+    if (Array.isArray(expanded)) return expanded.flatMap((entry) => audienceDetails([entry]));
+
+    if (expanded && typeof expanded === "object") {
+      const record = expanded as Record<string, unknown>;
+      return [
+        {
+          name:
+            readText(record.name) ?? readText(record.title) ?? readText(record.label) ?? "Audience",
+          description: readText(record.description),
+          needs: readTextList(record.needs),
+          painPoints: readTextList(record.pain_points ?? record.painPoints),
+          preferredContent: readTextList(record.preferred_content ?? record.preferredContent),
+        },
+      ];
+    }
+
+    const text = formatListItem(expanded);
+    return text ? [{ name: text, needs: [], painPoints: [], preferredContent: [] }] : [];
+  });
+}
+
+function platformDetails(items: unknown[]): PlatformDetails[] {
+  return items.flatMap((item) => {
+    const expanded = parseJsonLikeValue(item);
+    if (Array.isArray(expanded)) return expanded.flatMap((entry) => platformDetails([entry]));
+
+    if (expanded && typeof expanded === "object") {
+      const record = expanded as Record<string, unknown>;
+      const metadata = record.metadata as Record<string, unknown> | undefined;
+      return [
+        {
+          name:
+            readText(record.name) ??
+            readText(record.platform) ??
+            readText(record.slug) ??
+            "Platform",
+          role: readText(record.role) ?? readText(metadata?.role) ?? readText(record.description),
+          contentTypes: readTextList(record.content_types ?? metadata?.content_types),
+        },
+      ];
+    }
+
+    const text = formatListItem(expanded);
+    return text ? [{ name: text, contentTypes: [] }] : [];
+  });
+}
+
+function parseJsonLikeValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) return value;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function readText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function readTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : formatListItem(item)))
+    .filter(Boolean);
+}
+
+function formatListItem(item: unknown): string {
+  const parsed = parseJsonLikeValue(item);
+  if (typeof parsed === "string") return parsed;
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as Record<string, unknown>;
+    return (
+      readText(record.name) ??
+      readText(record.title) ??
+      readText(record.label) ??
+      readText(record.slug) ??
+      JSON.stringify(parsed)
+    );
+  }
+  return String(parsed);
 }

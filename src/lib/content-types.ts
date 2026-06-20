@@ -51,7 +51,7 @@ export type StrategyResponse = {
   target_personas: string[];
   funnel_stages: string[];
   seo_clusters: string[];
-  distribution_channels: string[];
+  distribution_channels: unknown[];
   success_metrics: string[];
   publishing_frequency: string | null;
   auto_approve_threshold: string | null;
@@ -200,12 +200,7 @@ export function statusLabel(value: string) {
   const labels: Record<string, string> = {
     qa_pending: "QA Pending",
   };
-  return (
-    labels[value] ??
-    value
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase())
-  );
+  return labels[value] ?? value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export const STATUS_BADGES: Record<string, string> = {

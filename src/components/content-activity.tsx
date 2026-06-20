@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DatePicker } from "@/components/date-picker";
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { CatalogServer, ToolkitAccessMatrix } from "@/lib/mcp-types";
@@ -493,23 +494,23 @@ export function ContentActivityView({
             />
           </FilterField>
           <FilterField label="From">
-            <input
-              type="date"
+            <DatePicker
               value={filters.since}
               max={filters.until || undefined}
-              onChange={(e) => updateFilters((f) => ({ ...f, since: e.target.value }))}
-              className={activityControl}
-              aria-label="From date"
+              onChange={(value) => updateFilters((f) => ({ ...f, since: value }))}
+              placeholder="Pick a date"
+              className={cn(activityControl, "h-10 w-[170px] justify-between rounded-full")}
+              ariaLabel="From date"
             />
           </FilterField>
           <FilterField label="To">
-            <input
-              type="date"
+            <DatePicker
               value={filters.until}
               min={filters.since || undefined}
-              onChange={(e) => updateFilters((f) => ({ ...f, until: e.target.value }))}
-              className={activityControl}
-              aria-label="To date"
+              onChange={(value) => updateFilters((f) => ({ ...f, until: value }))}
+              placeholder="Pick a date"
+              className={cn(activityControl, "h-10 w-[170px] justify-between rounded-full")}
+              ariaLabel="To date"
             />
           </FilterField>
           {filtersActive && (

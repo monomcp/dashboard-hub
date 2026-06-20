@@ -1,7 +1,24 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,11 +61,29 @@ const EMPTY_PILLAR_FORM = {
   priority: "0",
 };
 
+type FunnelStageDetails = {
+  stage: string;
+  goal?: string;
+  contentTypes: string[];
+};
+
+type SuccessMetricDetails = {
+  metric: string;
+  why?: string;
+};
+
+type PublishingFrequencyDetails = {
+  channel: string;
+  cadence: string;
+};
+
 export function ContentStrategyPanel({ brandId, onError }: Props) {
   const [mutating, setMutating] = useState(false);
   const [strategyDialog, setStrategyDialog] = useState(false);
   const [strategyForm, setStrategyForm] = useState(EMPTY_STRATEGY_FORM);
+  const [channelDeleteIndex, setChannelDeleteIndex] = useState<number | null>(null);
   const [pillarDialog, setPillarDialog] = useState(false);
+  const [pillarToDelete, setPillarToDelete] = useState<PillarResponse | null>(null);
   const [editingPillar, setEditingPillar] = useState<PillarResponse | null>(null);
   const [pillarForm, setPillarForm] = useState(EMPTY_PILLAR_FORM);
 
@@ -173,10 +208,35 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
     }
   };
 
-  const deletePillar = async (pillar: PillarResponse) => {
+  const deletePillar = async () => {
+    if (!pillarToDelete) return;
     setMutating(true);
     try {
-      await apiRequest<void>(`/api/v1/content/pillars/${pillar.id}`, { method: "DELETE" });
+      await apiRequest<void>(`/api/v1/content/pillars/${pillarToDelete.id}`, {
+        method: "DELETE",
+      });
+      setPillarToDelete(null);
+      await strategyQuery.refetch();
+    } catch (err) {
+      onError(err);
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const deleteDistributionChannel = async () => {
+    if (!strategy || channelDeleteIndex === null) return;
+    setMutating(true);
+    try {
+      await apiRequest(`/api/v1/content/strategies/${strategy.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          distribution_channels: strategy.distribution_channels.filter(
+            (_channel, index) => index !== channelDeleteIndex,
+          ),
+        }),
+      });
+      setChannelDeleteIndex(null);
       await strategyQuery.refetch();
     } catch (err) {
       onError(err);
@@ -207,16 +267,15 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
         {strategy ? (
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <StrategyList label="Target personas" items={strategy.target_personas} />
-            <StrategyList label="Funnel stages" items={strategy.funnel_stages} />
-            <StrategyList label="SEO clusters" items={strategy.seo_clusters} />
-            <StrategyList label="Channels" items={strategy.distribution_channels} />
-            <StrategyList label="Success metrics" items={strategy.success_metrics} />
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Publishing frequency
-              </dt>
-              <dd>{strategy.publishing_frequency || "—"}</dd>
-            </div>
+            <FunnelStageList items={strategy.funnel_stages} />
+            <BadgeList label="SEO clusters" items={strategy.seo_clusters} />
+            <DistributionChannelList
+              items={strategy.distribution_channels}
+              mutating={mutating}
+              onDeleteRequest={setChannelDeleteIndex}
+            />
+            <SuccessMetricList items={strategy.success_metrics} />
+            <PublishingFrequencyList value={strategy.publishing_frequency} />
           </dl>
         ) : (
           <p className="text-sm text-muted-foreground">No content strategy yet for this brand.</p>
@@ -241,7 +300,7 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
             {pillars.map((pillar) => (
               <li
                 key={pillar.id}
-                className="flex items-start justify-between gap-3 rounded-xl border border-black/5 px-3 py-2 text-sm"
+                className="group flex items-start justify-between gap-3 rounded-xl border border-black/5 px-3 py-2 text-sm"
               >
                 <div className="min-w-0">
                   <div className="font-medium">
@@ -259,26 +318,35 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
                     </div>
                   )}
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    disabled={mutating}
-                    onClick={() => openPillarDialog(pillar)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 rounded-full text-destructive"
-                    disabled={mutating}
-                    onClick={() => deletePillar(pillar)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 rounded-full opacity-0 transition-opacity hover:bg-black/5 focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      disabled={mutating}
+                      aria-label={`Open actions for ${pillar.name}`}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-36 rounded-xl">
+                    <DropdownMenuItem
+                      className="gap-2 rounded-lg"
+                      onSelect={() => openPillarDialog(pillar)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="gap-2 rounded-lg text-destructive"
+                      onSelect={() => setPillarToDelete(pillar)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </li>
             ))}
           </ul>
@@ -430,15 +498,435 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={channelDeleteIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setChannelDeleteIndex(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This distribution channel will be removed from the strategy.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" disabled={mutating}>
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={mutating}
+              onClick={(event) => {
+                event.preventDefault();
+                void deleteDistributionChannel();
+              }}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pillarToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPillarToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This pillar will be deleted from the strategy.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" disabled={mutating}>
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={mutating}
+              onClick={(event) => {
+                event.preventDefault();
+                void deletePillar();
+              }}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function StrategyList({ label, items }: { label: string; items: string[] }) {
+function StrategyList({ label, items }: { label: string; items: unknown[] }) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd>{items.length ? items.join(", ") : "—"}</dd>
+      <dd>{items.length ? items.map(formatListItem).join(", ") : "—"}</dd>
     </div>
   );
+}
+
+function BadgeList({ label, items }: { label: string; items: unknown[] }) {
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-2">
+        {items.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {items.map((item, index) => {
+              const text = formatListItem(item);
+              return (
+                <Badge
+                  key={`${text}-${index}`}
+                  variant="secondary"
+                  className="border-black/5 bg-[hsl(220,33%,97%)] font-medium text-muted-foreground"
+                >
+                  {text}
+                </Badge>
+              );
+            })}
+          </div>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function FunnelStageList({ items }: { items: unknown[] }) {
+  const stages = funnelStageDetails(items);
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Funnel stages
+      </dt>
+      <dd className="mt-2">
+        {stages.length ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {stages.map((stage, index) => (
+              <li
+                key={`${stage.stage}-${index}`}
+                className="min-h-28 rounded-lg border border-black/5 bg-white px-3 py-2 text-sm shadow-sm"
+              >
+                <div className="font-medium">{stage.stage}</div>
+                {stage.goal && (
+                  <div className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                    {stage.goal}
+                  </div>
+                )}
+                {stage.contentTypes.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {stage.contentTypes.map((contentType) => (
+                      <Badge
+                        key={contentType}
+                        variant="secondary"
+                        className="border-black/5 bg-[hsl(220,33%,97%)] font-medium text-muted-foreground"
+                      >
+                        {contentType}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function SuccessMetricList({ items }: { items: unknown[] }) {
+  const metrics = successMetricDetails(items);
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Success metrics
+      </dt>
+      <dd className="mt-2">
+        {metrics.length ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {metrics.map((metric, index) => (
+              <li
+                key={`${metric.metric}-${index}`}
+                className="min-h-24 rounded-lg border border-black/5 bg-white px-3 py-2 text-sm shadow-sm"
+              >
+                <div className="font-medium">{metric.metric}</div>
+                {metric.why && (
+                  <div className="mt-1 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                    {metric.why}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function PublishingFrequencyList({ value }: { value: unknown }) {
+  const frequencies = publishingFrequencyDetails(value);
+
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Publishing frequency
+      </dt>
+      <dd className="mt-2">
+        {frequencies.length ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {frequencies.map((frequency, index) => (
+              <li
+                key={`${frequency.channel}-${index}`}
+                className="rounded-lg border border-black/5 bg-white px-3 py-2 text-sm shadow-sm"
+              >
+                <div className="font-medium">{frequency.channel}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{frequency.cadence}</div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function DistributionChannelList({
+  items,
+  mutating,
+  onDeleteRequest,
+}: {
+  items: unknown[];
+  mutating: boolean;
+  onDeleteRequest: (index: number) => void;
+}) {
+  return (
+    <div className="sm:col-span-2">
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Channels
+      </dt>
+      <dd className="mt-2">
+        {items.length ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {items.map((item, index) => {
+              const details = channelDetails(item);
+              return (
+                <li
+                  key={`${details.title}-${index}`}
+                  className="group flex min-h-20 items-start justify-between gap-3 rounded-lg border border-black/5 bg-white px-3 py-2 text-sm shadow-sm"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium">{details.title}</div>
+                    {details.cadence && (
+                      <div className="text-xs text-muted-foreground">{details.cadence}</div>
+                    )}
+                    {details.role && (
+                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {details.role}
+                      </div>
+                    )}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 rounded-full opacity-0 transition-opacity hover:bg-black/5 focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                        disabled={mutating}
+                        aria-label={`Open actions for ${details.title}`}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-36 rounded-xl">
+                      <DropdownMenuItem
+                        className="gap-2 rounded-lg text-destructive"
+                        onSelect={() => onDeleteRequest(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          "—"
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function funnelStageDetails(items: unknown[]): FunnelStageDetails[] {
+  return items.flatMap((item) => {
+    const expanded = parseJsonLikeValue(item);
+    if (Array.isArray(expanded)) return expanded.flatMap((entry) => funnelStageDetails([entry]));
+
+    if (expanded && typeof expanded === "object") {
+      const record = expanded as Record<string, unknown>;
+      const stage =
+        readText(record.stage) ??
+        readText(record.name) ??
+        readText(record.title) ??
+        readText(record.label) ??
+        "Funnel stage";
+
+      return [
+        {
+          stage,
+          goal: readText(record.goal) ?? readText(record.description),
+          contentTypes: readTextList(record.content_types ?? record.contentTypes),
+        },
+      ];
+    }
+
+    const text = formatListItem(expanded);
+    return text ? [{ stage: text, contentTypes: [] }] : [];
+  });
+}
+
+function successMetricDetails(items: unknown[]): SuccessMetricDetails[] {
+  return items.flatMap((item) => {
+    const expanded = parseJsonLikeValue(item);
+    if (Array.isArray(expanded)) return expanded.flatMap((entry) => successMetricDetails([entry]));
+
+    if (expanded && typeof expanded === "object") {
+      const record = expanded as Record<string, unknown>;
+      return [
+        {
+          metric:
+            readText(record.metric) ??
+            readText(record.name) ??
+            readText(record.title) ??
+            readText(record.label) ??
+            "Metric",
+          why: readText(record.why) ?? readText(record.description),
+        },
+      ];
+    }
+
+    const text = formatListItem(expanded);
+    return text ? [{ metric: text }] : [];
+  });
+}
+
+function publishingFrequencyDetails(value: unknown): PublishingFrequencyDetails[] {
+  const parsed = parseJsonLikeValue(value);
+
+  if (Array.isArray(parsed)) {
+    return parsed.flatMap((item) => publishingFrequencyDetails(item));
+  }
+
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as Record<string, unknown>;
+    const directChannel =
+      readText(record.channel) ?? readText(record.platform) ?? readText(record.name);
+    const directCadence =
+      readText(record.cadence) ?? readText(record.frequency) ?? readText(record.schedule);
+
+    if (directChannel || directCadence) {
+      return [
+        {
+          channel: directChannel ?? "Publishing",
+          cadence: directCadence ?? formatListItem(record),
+        },
+      ];
+    }
+
+    return Object.entries(record)
+      .map(([channel, cadence]) => ({
+        channel,
+        cadence: formatListItem(cadence),
+      }))
+      .filter((item) => item.channel.trim() && item.cadence.trim());
+  }
+
+  if (typeof parsed !== "string") return [];
+
+  return parsed
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const separator = item.indexOf(":");
+      if (separator === -1) return { channel: "Publishing", cadence: item };
+      return {
+        channel: item.slice(0, separator).trim(),
+        cadence: item.slice(separator + 1).trim(),
+      };
+    })
+    .filter((item) => item.channel && item.cadence);
+}
+
+function parseJsonLikeValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) return value;
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return value;
+  }
+}
+
+function channelDetails(item: unknown): { title: string; cadence?: string; role?: string } {
+  const parsed = parseJsonLikeValue(item);
+  if (typeof parsed === "string") return { title: parsed };
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { title: formatListItem(parsed) };
+  }
+  const record = parsed as Record<string, unknown>;
+  return {
+    title: readText(record.channel) ?? readText(record.name) ?? readText(record.slug) ?? "Channel",
+    cadence: readText(record.cadence),
+    role: readText(record.role) ?? readText(record.description),
+  };
+}
+
+function readText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function readTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : formatListItem(item)))
+    .filter(Boolean);
+}
+
+function formatListItem(item: unknown): string {
+  const parsed = parseJsonLikeValue(item);
+  if (typeof parsed === "string") return parsed;
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as Record<string, unknown>;
+    return (
+      readText(record.name) ??
+      readText(record.title) ??
+      readText(record.label) ??
+      readText(record.channel) ??
+      JSON.stringify(parsed)
+    );
+  }
+  return String(parsed);
 }
