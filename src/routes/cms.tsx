@@ -434,7 +434,6 @@ function CmsPage() {
   const [components, setComponents] = useState<ComponentResponse[]>([]);
   const [view, setView] = useState<View>({ kind: "collection-list" });
   const [selected, setSelected] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [createKind, setCreateKind] = useState<ContentTypeKind | null>(null);
   const [createName, setCreateName] = useState("");
@@ -451,11 +450,12 @@ function CmsPage() {
 
   // CMS tools live under the "cms" catalog server — the header enable button
   // mirrors the one shown on Content/Brand.
-  const { data: catalog } = useQuery({
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 30 * 1000,
   });
+  const catalogReady = !catalogLoading;
   const cmsServer = catalog?.find((s) => s.slug === "cms");
 
   const handleApiError = useCallback(
@@ -470,10 +470,18 @@ function CmsPage() {
     [navigate],
   );
 
-  const loadCmsRoot = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
+  const needsCmsRoot =
+    sidebarOpen ||
+    view.kind === "collection-list" ||
+    view.kind === "schema" ||
+    view.kind === "entries" ||
+    view.kind === "entry" ||
+    view.kind === "sitemap" ||
+    view.kind === "llms-full";
+
+  const cmsRootQuery = useQuery({
+    queryKey: ["cms", "root"],
+    queryFn: async () => {
       const [collectionPage, singlePage, componentPage] = await Promise.all([
         apiRequest<Page<ContentTypeResponse>>(
           "/api/v1/cms/content-types?kind=collection&limit=200",
@@ -481,24 +489,38 @@ function CmsPage() {
         apiRequest<Page<ContentTypeResponse>>("/api/v1/cms/content-types?kind=single&limit=200"),
         apiRequest<Page<ComponentResponse>>("/api/v1/cms/components?limit=200"),
       ]);
-      setCollections(collectionPage.items);
-      setSingleTypes(singlePage.items);
-      setComponents(componentPage.items);
-      setView((current) => {
-        if (current.kind !== "collection-list") return current;
-        const firstCollection = collectionPage.items[0];
-        if (!firstCollection) return current;
-        return {
-          kind: "schema",
-          target: { kind: "content-type", id: firstCollection.id, group: "Collection Types" },
-        };
-      });
-    } catch (err) {
-      handleApiError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [handleApiError]);
+      return {
+        collections: collectionPage.items,
+        singleTypes: singlePage.items,
+        components: componentPage.items,
+      };
+    },
+    enabled: needsCmsRoot,
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    if (cmsRootQuery.error) handleApiError(cmsRootQuery.error);
+  }, [cmsRootQuery.error, handleApiError]);
+
+  useEffect(() => {
+    const data = cmsRootQuery.data;
+    if (!data) return;
+    setCollections(data.collections);
+    setSingleTypes(data.singleTypes);
+    setComponents(data.components);
+    setView((current) => {
+      if (current.kind !== "collection-list") return current;
+      const firstCollection = data.collections[0];
+      if (!firstCollection) return current;
+      return {
+        kind: "schema",
+        target: { kind: "content-type", id: firstCollection.id, group: "Collection Types" },
+      };
+    });
+  }, [cmsRootQuery.data]);
+
+  const loading = needsCmsRoot && cmsRootQuery.isLoading;
 
   const updateContentType = useCallback((next: ContentTypeResponse) => {
     const applyUpdate = (item: ContentTypeResponse) => (item.id === next.id ? next : item);
@@ -631,10 +653,6 @@ function CmsPage() {
       setCreatingComponent(false);
     }
   };
-
-  useEffect(() => {
-    void loadCmsRoot();
-  }, [loadCmsRoot]);
 
   const activeId =
     view.kind === "schema"
@@ -1206,6 +1224,9 @@ function CmsPage() {
             <ActivityLog
               onApiError={handleApiError}
               nameServerSlugs={["cms"]}
+              moduleSlug="cms"
+              toolkitIds={cmsServer?.toolkit_ids ?? []}
+              enabled={catalogReady}
               logFilter={(log) =>
                 log.tool_name
                   ? log.tool_name.startsWith("cms_")

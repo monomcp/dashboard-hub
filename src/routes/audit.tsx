@@ -156,6 +156,7 @@ function AuditPage() {
           <ActivityLog
             onApiError={handleApiError}
             source={filter}
+            resolvePrincipalNames={false}
             title={active.label}
             description={active.description}
           />

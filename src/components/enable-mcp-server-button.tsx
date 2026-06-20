@@ -61,10 +61,11 @@ type Props = {
   onEnabled?: () => void;
 };
 
-function useActiveOrgSlug(): string | null {
+function useActiveOrgSlug(enabled: boolean): string | null {
   const { data } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
+    enabled,
     staleTime: 5 * 60 * 1000,
   });
   const memberships = data?.memberships ?? [];
@@ -153,8 +154,8 @@ function Section({
 
 export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
   const queryClient = useQueryClient();
-  const orgSlug = useActiveOrgSlug();
   const [open, setOpen] = useState(false);
+  const orgSlug = useActiveOrgSlug(open);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(toolkitIds));
   const [newName, setNewName] = useState("");
   const [addingNew, setAddingNew] = useState(false);
@@ -175,7 +176,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
   const { data: toolkitPage, isLoading: toolkitsLoading } = useQuery({
     queryKey: ["toolkits"],
     queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?limit=200"),
-    enabled: open || enabled,
+    enabled: open,
     staleTime: 60 * 1000,
   });
   const toolkits = useMemo(() => toolkitPage?.items ?? [], [toolkitPage]);
@@ -303,9 +304,9 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
               Enabled
               {enabledToolkits.length === 1 ? (
                 <span className="font-normal text-emerald-600">· {enabledToolkits[0].name}</span>
-              ) : enabledToolkits.length > 1 ? (
+              ) : toolkitIds.length > 0 ? (
                 <span className="font-normal text-emerald-600">
-                  · {enabledToolkits.length} toolkits
+                  · {toolkitIds.length} {toolkitIds.length === 1 ? "toolkit" : "toolkits"}
                 </span>
               ) : null}
             </button>

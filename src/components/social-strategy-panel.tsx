@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -52,30 +53,28 @@ function textToDict(value: string): Record<string, unknown> {
 }
 
 export function SocialStrategyPanel({ brandId, onError }: Props) {
-  const [strategy, setStrategy] = useState<SocialStrategyResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>({});
   const [formError, setFormError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const strategyQuery = useQuery({
+    queryKey: ["social", "strategy", brandId],
+    queryFn: async () => {
       const page = await apiRequest<Page<SocialStrategyResponse>>(
         `/api/v1/social/strategies?brand_id=${brandId}&limit=1`,
       );
-      setStrategy(page.items[0] ?? null);
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [brandId, onError]);
+      return page.items[0] ?? null;
+    },
+    staleTime: 30 * 1000,
+  });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (strategyQuery.error) onError(strategyQuery.error);
+  }, [strategyQuery.error, onError]);
+
+  const strategy = strategyQuery.data ?? null;
+  const loading = strategyQuery.isLoading;
 
   const openDialog = () => {
     const next: FormState = {};
@@ -125,7 +124,7 @@ export function SocialStrategyPanel({ brandId, onError }: Props) {
         });
       }
       setDialogOpen(false);
-      await load();
+      await strategyQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {

@@ -244,8 +244,18 @@ const inputClass = "border-white/10 bg-[#202318] text-[#e8eadb] placeholder:text
 const textareaClass =
   "min-h-24 border-white/10 bg-[#202318] text-[#e8eadb] placeholder:text-[#c4c8b0]/45";
 
+async function optionalBrandRequest<T>(path: string): Promise<T | null> {
+  try {
+    return await apiRequest<T>(path);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
 function BrandDnaPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   // beforeLoad guarantees a valid view (redirecting otherwise), so narrow here.
   const view = Route.useParams().view as BrandView;
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -259,7 +269,6 @@ function BrandDnaPage() {
   const [tone, setTone] = useState<ToneOfVoiceResponse | null>(null);
   const [visual, setVisual] = useState<VisualIdentityResponse | null>(null);
   const [competitors, setCompetitors] = useState<CompetitorResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mutating, setMutating] = useState(false);
 
@@ -283,11 +292,12 @@ function BrandDnaPage() {
 
   // Enable-state of the "brand" MCP server for this org (drives the header
   // "Enable this MCP server" control). The enable mutation invalidates this key.
-  const { data: catalog } = useQuery({
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 60 * 1000,
   });
+  const catalogReady = !catalogLoading;
   const brandServer = catalog?.find((s) => s.slug === "brand");
 
   const handleApiError = useCallback(
@@ -302,59 +312,85 @@ function BrandDnaPage() {
     [navigate],
   );
 
-  const loadBrand = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const emptyOn404 = async <T,>(path: string): Promise<T | null> => {
-      try {
-        return await apiRequest<T>(path);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404) return null;
-        throw err;
-      }
-    };
-    const results = await Promise.allSettled([
-      emptyOn404<BrandProfileResponse>("/api/v1/brand/profile"),
-      emptyOn404<ToneOfVoiceResponse>("/api/v1/brand/tone-of-voice"),
-      emptyOn404<VisualIdentityResponse>("/api/v1/brand/visual-identity"),
-      apiRequest<CompetitorResponse[]>("/api/v1/brand/competitors"),
-    ]);
+  const profileEnabled = view === "dna" || view === "tov" || view === "competitors";
+  const toneEnabled = view === "dna" || view === "tov";
+  const visualEnabled = view === "dna";
+  const competitorsEnabled = view === "competitors";
 
-    let sawError = false;
-    results.forEach((result) => {
-      if (result.status === "rejected") {
-        sawError = true;
-        handleApiError(result.reason);
-      }
-    });
-    if (!sawError) {
-      setProfile(results[0].status === "fulfilled" ? results[0].value : null);
-      setTone(results[1].status === "fulfilled" ? results[1].value : null);
-      setVisual(results[2].status === "fulfilled" ? results[2].value : null);
-      setCompetitors(results[3].status === "fulfilled" ? results[3].value : []);
-    }
-    setLoading(false);
-  }, [handleApiError]);
-
-  useEffect(() => {
-    void loadBrand();
-  }, [loadBrand]);
-
-  const loadImages = useCallback(async () => {
-    try {
+  const profileQuery = useQuery({
+    queryKey: ["brand", "profile"],
+    queryFn: () => optionalBrandRequest<BrandProfileResponse>("/api/v1/brand/profile"),
+    enabled: profileEnabled,
+    staleTime: 30 * 1000,
+  });
+  const toneQuery = useQuery({
+    queryKey: ["brand", "tone-of-voice"],
+    queryFn: () => optionalBrandRequest<ToneOfVoiceResponse>("/api/v1/brand/tone-of-voice"),
+    enabled: toneEnabled,
+    staleTime: 30 * 1000,
+  });
+  const visualQuery = useQuery({
+    queryKey: ["brand", "visual-identity"],
+    queryFn: () => optionalBrandRequest<VisualIdentityResponse>("/api/v1/brand/visual-identity"),
+    enabled: visualEnabled,
+    staleTime: 30 * 1000,
+  });
+  const competitorsQuery = useQuery({
+    queryKey: ["brand", "competitors"],
+    queryFn: () => apiRequest<CompetitorResponse[]>("/api/v1/brand/competitors"),
+    enabled: competitorsEnabled,
+    staleTime: 30 * 1000,
+  });
+  const imagesQuery = useQuery({
+    queryKey: ["brand", "images"],
+    queryFn: async () => {
       const folder = await getOrCreateBrandImagesFolder();
-      setImagesFolderId(folder.id);
-      setImages(await listBrandImages(folder.id));
-    } catch (err) {
-      handleApiError(err, "Could not load brand images");
-    }
-  }, [handleApiError]);
+      const files = await listBrandImages(folder.id);
+      return { folderId: folder.id, files };
+    },
+    enabled: view === "dna" && Boolean(profile),
+    staleTime: 30 * 1000,
+  });
 
-  // Only fetch imagery once a brand profile exists — the System folder is
-  // pointless without one, and the empty state stands in until then.
   useEffect(() => {
-    if (!loading && profile) void loadImages();
-  }, [loading, profile, loadImages]);
+    if (profileQuery.error) handleApiError(profileQuery.error);
+  }, [profileQuery.error, handleApiError]);
+  useEffect(() => {
+    if (toneQuery.error) handleApiError(toneQuery.error);
+  }, [toneQuery.error, handleApiError]);
+  useEffect(() => {
+    if (visualQuery.error) handleApiError(visualQuery.error);
+  }, [visualQuery.error, handleApiError]);
+  useEffect(() => {
+    if (competitorsQuery.error) handleApiError(competitorsQuery.error);
+  }, [competitorsQuery.error, handleApiError]);
+  useEffect(() => {
+    if (imagesQuery.error) handleApiError(imagesQuery.error, "Could not load brand images");
+  }, [imagesQuery.error, handleApiError]);
+
+  useEffect(() => {
+    if (profileQuery.data !== undefined) setProfile(profileQuery.data);
+  }, [profileQuery.data]);
+  useEffect(() => {
+    if (toneQuery.data !== undefined) setTone(toneQuery.data);
+  }, [toneQuery.data]);
+  useEffect(() => {
+    if (visualQuery.data !== undefined) setVisual(visualQuery.data);
+  }, [visualQuery.data]);
+  useEffect(() => {
+    if (competitorsQuery.data !== undefined) setCompetitors(competitorsQuery.data);
+  }, [competitorsQuery.data]);
+  useEffect(() => {
+    if (imagesQuery.data === undefined) return;
+    setImagesFolderId(imagesQuery.data.folderId);
+    setImages(imagesQuery.data.files);
+  }, [imagesQuery.data]);
+
+  const loading =
+    (profileEnabled && profileQuery.isLoading) ||
+    (toneEnabled && toneQuery.isLoading) ||
+    (visualEnabled && visualQuery.isLoading) ||
+    (competitorsEnabled && competitorsQuery.isLoading);
 
   const handlePickImage = () => fileInputRef.current?.click();
 
@@ -371,6 +407,13 @@ function BrandDnaPage() {
       setImagesFolderId(folderId);
       const created = await uploadBrandImage(folderId, file);
       setImages((prev) => [created, ...prev]);
+      queryClient.setQueryData<{ folderId: string; files: DriveSystemFile[] }>(
+        ["brand", "images"],
+        (prev) => ({
+          folderId,
+          files: [created, ...(prev?.files ?? images)],
+        }),
+      );
     } catch (err) {
       handleApiError(err, "Image upload failed");
     } finally {
@@ -384,6 +427,13 @@ function BrandDnaPage() {
     try {
       await deleteBrandImage(id);
       setImages((prev) => prev.filter((img) => img.id !== id));
+      queryClient.setQueryData<{ folderId: string; files: DriveSystemFile[] }>(
+        ["brand", "images"],
+        (prev) =>
+          prev
+            ? { ...prev, files: prev.files.filter((img) => img.id !== id) }
+            : { folderId: imagesFolderId ?? "", files: images.filter((img) => img.id !== id) },
+      );
     } catch (err) {
       handleApiError(err, "Could not remove image");
     } finally {
@@ -423,12 +473,13 @@ function BrandDnaPage() {
     setMutating(true);
     setError("");
     try {
-      await apiRequest<BrandProfileResponse>("/api/v1/brand/profile", {
+      const next = await apiRequest<BrandProfileResponse>("/api/v1/brand/profile", {
         method: "PUT",
         body: JSON.stringify(payload),
       });
+      setProfile(next);
+      queryClient.setQueryData(["brand", "profile"], next);
       setProfileOpen(false);
-      await loadBrand();
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -441,12 +492,13 @@ function BrandDnaPage() {
     setMutating(true);
     setError("");
     try {
-      await apiRequest<ToneOfVoiceResponse>("/api/v1/brand/tone-of-voice", {
+      const next = await apiRequest<ToneOfVoiceResponse>("/api/v1/brand/tone-of-voice", {
         method: "PUT",
         body: JSON.stringify(tonePayload(toneForm)),
       });
+      setTone(next);
+      queryClient.setQueryData(["brand", "tone-of-voice"], next);
       setToneOpen(false);
-      await loadBrand();
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -459,12 +511,13 @@ function BrandDnaPage() {
     setMutating(true);
     setError("");
     try {
-      await apiRequest<VisualIdentityResponse>("/api/v1/brand/visual-identity", {
+      const next = await apiRequest<VisualIdentityResponse>("/api/v1/brand/visual-identity", {
         method: "PUT",
         body: JSON.stringify(visualPayload(visualForm)),
       });
+      setVisual(next);
+      queryClient.setQueryData(["brand", "visual-identity"], next);
       setVisualOpen(false);
-      await loadBrand();
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -497,7 +550,7 @@ function BrandDnaPage() {
       setCompetitorOpen(false);
       setEditingCompetitor(null);
       setCompetitorForm(EMPTY_COMPETITOR_FORM);
-      await loadBrand();
+      await queryClient.invalidateQueries({ queryKey: ["brand", "competitors"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -512,7 +565,7 @@ function BrandDnaPage() {
       await apiRequest<void>(`/api/v1/brand/competitors/${competitor.id}`, {
         method: "DELETE",
       });
-      await loadBrand();
+      await queryClient.invalidateQueries({ queryKey: ["brand", "competitors"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -521,7 +574,17 @@ function BrandDnaPage() {
   };
 
   let viewContent: ReactNode = <LoadingState view={view} />;
-  if (!loading && view === "dna") {
+  if (view === "permissions") {
+    viewContent = <PermissionsView brandServer={brandServer} onApiError={handleApiError} />;
+  } else if (view === "activity") {
+    viewContent = (
+      <ActivityView
+        brandServer={brandServer}
+        catalogReady={catalogReady}
+        onApiError={handleApiError}
+      />
+    );
+  } else if (!loading && view === "dna") {
     viewContent = (
       <DnaBoard
         profile={profile}
@@ -543,10 +606,6 @@ function BrandDnaPage() {
     ) : (
       <NeedsProfile onSetup={openProfileDialog} />
     );
-  } else if (!loading && view === "permissions") {
-    viewContent = <PermissionsView brandServer={brandServer} onApiError={handleApiError} />;
-  } else if (!loading && view === "activity") {
-    viewContent = <ActivityView brandServer={brandServer} onApiError={handleApiError} />;
   } else if (!loading) {
     viewContent = profile ? (
       <CompetitorsView
@@ -1118,11 +1177,19 @@ const EMPTY_ACTIVITY_FILTERS: ActivityFilters = {
   until: "",
 };
 
-function activityRequestPath(filters: ActivityFilters, offset: number) {
+type ActivityScope = {
+  moduleSlug: "brand";
+  toolkitIds: string[];
+};
+
+function activityRequestPath(filters: ActivityFilters, offset: number, scope: ActivityScope) {
   const params = new URLSearchParams({
     limit: String(ACTIVITY_PAGE_SIZE),
     offset: String(offset),
   });
+
+  params.set("module_slug", scope.moduleSlug);
+  for (const toolkitId of scope.toolkitIds) params.append("toolkit_id", toolkitId);
 
   if (filters.source !== "all") params.set("source", filters.source);
   if (filters.status !== "all") params.set("outcome", filters.status);
@@ -1205,9 +1272,11 @@ const activityControl =
 
 function ActivityView({
   brandServer,
+  catalogReady,
   onApiError,
 }: {
   brandServer: CatalogServer | undefined;
+  catalogReady: boolean;
   onApiError: (err: unknown, fallback?: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1218,12 +1287,23 @@ function ActivityView({
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
 
+  const activityScope = useMemo<ActivityScope>(() => {
+    const toolkitIds = brandServer?.enabled ? (brandServer.toolkit_ids ?? []) : [];
+    return { moduleSlug: "brand", toolkitIds };
+  }, [brandServer]);
+
   const { data, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, error } =
     useInfiniteQuery({
-      queryKey: ["brand-activity", filters],
+      queryKey: ["brand-activity", activityScope.moduleSlug, activityScope.toolkitIds, filters],
       queryFn: ({ pageParam, signal }) =>
-        apiRequest<Page<RequestLogSummary>>(activityRequestPath(filters, pageParam), { signal }),
+        apiRequest<Page<RequestLogSummary>>(
+          activityRequestPath(filters, pageParam, activityScope),
+          {
+            signal,
+          },
+        ),
       initialPageParam: 0,
+      enabled: catalogReady,
       getNextPageParam: (lastPage) => {
         const nextOffset = lastPage.offset + lastPage.items.length;
         return nextOffset < lastPage.total ? nextOffset : undefined;
@@ -1237,12 +1317,14 @@ function ActivityView({
 
   // Best-effort name lookup for user principals. The access matrix is admin-gated,
   // so a 403/empty result simply leaves principals labelled by short id.
-  const firstToolkitId = brandServer?.toolkit_ids?.[0];
+  const firstToolkitId = activityScope.toolkitIds[0];
   const { data: matrix } = useQuery({
-    queryKey: ["toolkit-access-matrix", firstToolkitId],
+    queryKey: ["toolkit-access-matrix", firstToolkitId, activityScope.moduleSlug],
     queryFn: () =>
-      apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${firstToolkitId}/access-matrix`),
-    enabled: Boolean(brandServer?.enabled && firstToolkitId),
+      apiRequest<ToolkitAccessMatrix>(
+        `/api/v1/toolkits/${firstToolkitId}/access-matrix?module_slug=${activityScope.moduleSlug}`,
+      ),
+    enabled: Boolean(firstToolkitId),
     staleTime: 60 * 1000,
     retry: false,
   });

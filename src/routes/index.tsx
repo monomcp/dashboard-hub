@@ -2,12 +2,15 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Menu,
+  Activity,
+  Gauge,
   CheckCircle2,
   Plus,
   HelpCircle,
   Star,
   ChevronUp,
   CheckSquare,
+  KeyRound,
   MoreVertical,
   Circle,
   CheckCircle,
@@ -22,10 +25,12 @@ import {
   AlertTriangle,
   CalendarClock,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +59,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/date-picker";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import type { CatalogServer } from "@/lib/mcp-types";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -147,6 +153,16 @@ type PrincipalResponse = {
 type SortBy = "my" | "date" | "deadline" | "starred" | "title";
 type SystemView = "all" | "my" | "agents" | "needs_review" | "failed" | "scheduled" | "starred";
 
+const TASK_SYSTEM_VIEWS: SystemView[] = [
+  "all",
+  "my",
+  "agents",
+  "needs_review",
+  "failed",
+  "scheduled",
+  "starred",
+];
+
 const isDone = (task: TaskResponse) => task.status === "done" || task.status === "cancelled";
 const openStatuses = new Set<TaskStatus>([
   "todo",
@@ -192,6 +208,13 @@ function TasksPage() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameListId, setRenameListId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 60 * 1000,
+  });
+  const tasksServer = catalog?.find((server) => server.slug === "tasks");
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "Tasks request failed") => {
@@ -246,8 +269,7 @@ function TasksPage() {
   }, [lists]);
 
   const visibleLists = useMemo(() => {
-    if (["all", "my", "agents", "needs_review", "failed", "scheduled", "starred"].includes(view))
-      return lists;
+    if (TASK_SYSTEM_VIEWS.includes(view as SystemView)) return lists;
     return lists.filter((l) => l.id === view);
   }, [lists, view]);
 
@@ -536,6 +558,15 @@ function TasksPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {tasksServer && (
+            <div className="mr-1">
+              <EnableMcpServerButton
+                serverSlug={tasksServer.slug}
+                enabled={tasksServer.enabled}
+                toolkitIds={tasksServer.toolkit_ids}
+              />
+            </div>
+          )}
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Search">
             <Search className="h-5 w-5 text-muted-foreground" />
           </Button>
@@ -601,6 +632,21 @@ function TasksPage() {
                 label="Starred"
                 active={view === "starred"}
                 onClick={() => setView("starred")}
+              />
+              <SidebarItem
+                icon={<KeyRound className="h-5 w-5" />}
+                label="Permissions"
+                onClick={() => void navigate({ to: "/tasks/permissions" })}
+              />
+              <SidebarItem
+                icon={<Activity className="h-5 w-5" />}
+                label="Activity"
+                onClick={() => void navigate({ to: "/tasks/activity" })}
+              />
+              <SidebarItem
+                icon={<Gauge className="h-5 w-5" />}
+                label="Uptime"
+                onClick={() => void navigate({ to: "/tasks/uptime" })}
               />
             </nav>
 

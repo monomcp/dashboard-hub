@@ -126,11 +126,13 @@ const HIDDEN_FAVOURITES_KEY = ["preferences", "hidden-favourites"];
 export function AppsMenu() {
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const { data } = useQuery({
     queryKey: HIDDEN_FAVOURITES_KEY,
     queryFn: () => apiRequest<HiddenFavouritesResponse>("/api/v1/preferences/hidden-favourites"),
+    enabled: open,
     staleTime: 5 * 60 * 1000,
   });
   const hidden = new Set(data?.app_keys ?? []);
@@ -165,7 +167,13 @@ export function AppsMenu() {
   );
 
   return (
-    <Popover onOpenChange={(open) => !open && setEditing(false)}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setEditing(false);
+      }}
+    >
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Apps">
           <Grip className="h-5 w-5 text-muted-foreground" strokeWidth={2.5} />

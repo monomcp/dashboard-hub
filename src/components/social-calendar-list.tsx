@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
   ChevronLeft,
@@ -91,6 +92,8 @@ const PLATFORM_ICONS: Record<string, typeof Instagram> = {
   blog: Globe,
 };
 
+const EMPTY_CALENDAR_ITEMS: SocialCalendarItemResponse[] = [];
+
 function formatDateTime(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString(undefined, {
@@ -108,8 +111,7 @@ export function SocialCalendarList({
   onSelectedItemChange,
   onError,
 }: Props) {
-  const [items, setItems] = useState<SocialCalendarItemResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [mutating, setMutating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SocialCalendarStatus | "all">("all");
   const [selected, setSelected] = useState<SocialCalendarItemResponse | null>(null);
@@ -129,26 +131,27 @@ export function SocialCalendarList({
     ? (PLATFORM_ICONS[selectedPlatformSlug] ?? Hash)
     : Hash;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const itemsQueryKey = ["social", "calendar-items", brandId, platformId, statusFilter] as const;
+  const itemsQuery = useQuery({
+    queryKey: itemsQueryKey,
+    queryFn: async () => {
       const params = new URLSearchParams({ brand_id: brandId, limit: "100" });
       if (platformId) params.set("platform_id", platformId);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const page = await apiRequest<Page<SocialCalendarItemResponse>>(
         `/api/v1/social/calendar-items?${params}`,
       );
-      setItems(page.items);
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [brandId, platformId, statusFilter, onError]);
+      return page.items;
+    },
+    staleTime: 15 * 1000,
+  });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (itemsQuery.error) onError(itemsQuery.error);
+  }, [itemsQuery.error, onError]);
+
+  const items = itemsQuery.data ?? EMPTY_CALENDAR_ITEMS;
+  const loading = itemsQuery.isLoading;
 
   const loadBriefs = useCallback(
     async (item: SocialCalendarItemResponse) => {
@@ -211,7 +214,9 @@ export function SocialCalendarList({
     setMutating(true);
     try {
       await apiRequest<void>(`/api/v1/social/calendar-items/${item.id}`, { method: "DELETE" });
-      setItems((current) => current.filter((calendarItem) => calendarItem.id !== item.id));
+      queryClient.setQueryData<SocialCalendarItemResponse[]>(itemsQueryKey, (current = []) =>
+        current.filter((calendarItem) => calendarItem.id !== item.id),
+      );
       if (selected?.id === item.id) closeDetail();
       setPendingDelete(null);
     } catch (err) {
@@ -238,7 +243,7 @@ export function SocialCalendarList({
       );
       if (selected?.id === rescheduling.id) setSelected(updated);
       setRescheduling(null);
-      await load();
+      await itemsQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {

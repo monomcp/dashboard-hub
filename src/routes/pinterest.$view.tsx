@@ -110,14 +110,16 @@ function PinterestPage() {
   const { data: fields, isLoading: fieldsLoading } = useQuery({
     queryKey: ["pinterest-fields"],
     queryFn: () => apiRequest<PinterestFieldsResponse>("/api/v1/pinterest/fields"),
+    enabled: view === "settings",
     staleTime: 30 * 1000,
   });
 
-  const { data: catalog } = useQuery({
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 60 * 1000,
   });
+  const catalogReady = !catalogLoading;
   const server = catalog?.find((s) => s.slug === "pinterest");
   const toolkitIds = server?.toolkit_ids ?? [];
 
@@ -422,6 +424,9 @@ function PinterestPage() {
               onApiError={handleApiError}
               logFilter={pinterestLogFilter}
               nameServerSlugs={["pinterest"]}
+              moduleSlug="pinterest"
+              toolkitIds={toolkitIds}
+              enabled={catalogReady}
             />
           )}
         </main>

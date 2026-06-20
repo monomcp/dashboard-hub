@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Menu,
   Search,
@@ -179,13 +180,12 @@ function buildContactsPath(filter: ContactFilter, query: string) {
 
 function ContactsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [filter, setFilter] = useState<ContactFilter>("other");
-  const [contacts, setContacts] = useState<CrmContactResponse[]>([]);
-  const [labels, setLabels] = useState<CrmLabelResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mutating, setMutating] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -216,26 +216,37 @@ function ContactsPage() {
     [navigate],
   );
 
-  const loadContacts = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [contactPage, labelRows] = await Promise.all([
-        apiRequest<Page<CrmContactResponse>>(buildContactsPath(filter, query)),
-        apiRequest<CrmLabelResponse[]>("/api/v1/crm/labels"),
-      ]);
-      setContacts(contactPage.items);
-      setLabels(labelRows);
-    } catch (err) {
-      handleApiError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter, handleApiError, query]);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query), 250);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
+  const contactsQuery = useQuery({
+    queryKey: ["crm", "contacts", filter, debouncedQuery.trim()],
+    queryFn: () => apiRequest<Page<CrmContactResponse>>(buildContactsPath(filter, debouncedQuery)),
+    staleTime: 30 * 1000,
+  });
+  const labelsQuery = useQuery({
+    queryKey: ["crm", "labels"],
+    queryFn: () => apiRequest<CrmLabelResponse[]>("/api/v1/crm/labels"),
+    enabled: sidebarOpen,
+    staleTime: 60 * 1000,
+  });
 
   useEffect(() => {
-    void loadContacts();
-  }, [loadContacts]);
+    if (contactsQuery.error) handleApiError(contactsQuery.error);
+  }, [contactsQuery.error, handleApiError]);
+  useEffect(() => {
+    if (labelsQuery.error) handleApiError(labelsQuery.error);
+  }, [labelsQuery.error, handleApiError]);
+
+  const contacts = contactsQuery.data?.items ?? [];
+  const labels = labelsQuery.data ?? [];
+  const loading = contactsQuery.isLoading;
+
+  const refreshContacts = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["crm", "contacts"] });
+  }, [queryClient]);
 
   const submitCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -263,7 +274,8 @@ function ContactsPage() {
         company_name: "",
         lifecycle_status: "contact",
       });
-      await loadContacts();
+      await refreshContacts();
+      await queryClient.invalidateQueries({ queryKey: ["crm", "labels"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -282,7 +294,8 @@ function ContactsPage() {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
-      await loadContacts();
+      await refreshContacts();
+      await queryClient.invalidateQueries({ queryKey: ["crm", "labels"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -295,7 +308,8 @@ function ContactsPage() {
     setError("");
     try {
       await apiRequest<void>(`/api/v1/crm/contacts/${contact.id}`, { method: "DELETE" });
-      await loadContacts();
+      await refreshContacts();
+      await queryClient.invalidateQueries({ queryKey: ["crm", "labels"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -310,7 +324,8 @@ function ContactsPage() {
       await apiRequest<CrmContactResponse>(`/api/v1/crm/contacts/${contact.id}/restore`, {
         method: "POST",
       });
-      await loadContacts();
+      await refreshContacts();
+      await queryClient.invalidateQueries({ queryKey: ["crm", "labels"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -377,9 +392,7 @@ function ContactsPage() {
         </div>
       </header>
 
-      {searchOpen && (
-        <div className="px-4 pb-3 md:hidden">{searchField}</div>
-      )}
+      {searchOpen && <div className="px-4 pb-3 md:hidden">{searchField}</div>}
 
       <div className="flex">
         {sidebarOpen && (
@@ -477,10 +490,7 @@ function ContactsPage() {
         )}
 
         <main
-          className={cn(
-            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
-            sidebarOpen ? "md:pl-0" : "md:pl-6",
-          )}
+          className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
           <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
             <div className="mb-5 flex items-center justify-between">
@@ -497,7 +507,10 @@ function ContactsPage() {
                   variant="outline"
                   size="sm"
                   className="rounded-lg"
-                  onClick={() => loadContacts()}
+                  onClick={() => {
+                    void contactsQuery.refetch();
+                    void labelsQuery.refetch();
+                  }}
                 >
                   Retry
                 </Button>

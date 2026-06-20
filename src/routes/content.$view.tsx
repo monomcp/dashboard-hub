@@ -139,19 +139,17 @@ function ContentPage() {
     () =>
       searchMode ?? (localStorage.getItem(MODE_STORAGE_KEY) === "social" ? "social" : "content"),
   );
-  const [platforms, setPlatforms] = useState<SocialPlatform[]>([]);
   const [platformId, setPlatformId] = useState<string>("");
-  const [brandId, setBrandId] = useState<string>("");
-  const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [error, setError] = useState("");
 
   // Content spans two catalog servers — "content" (Content mode) and "smm" (Social
   // mode). The header enable button reflects the server for the active mode.
-  const { data: catalog } = useQuery({
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 30 * 1000,
   });
+  const catalogReady = !catalogLoading;
   const activeServerSlug = mode === "social" ? "smm" : "content";
   const activeServer = catalog?.find((s) => s.slug === activeServerSlug);
 
@@ -172,40 +170,45 @@ function ContentPage() {
     [navigate],
   );
 
+  const needsBrandProfile = !isToolkitSection && !isTemplatesSection;
+  const brandQuery = useQuery({
+    queryKey: ["brand", "profile"],
+    queryFn: () =>
+      apiRequest<BrandProfileResponse>("/api/v1/brand/profile").catch((err) => {
+        if (err instanceof ApiError && err.status === 404) return null;
+        throw err;
+      }),
+    enabled: needsBrandProfile,
+    staleTime: 30 * 1000,
+  });
+  const needsSocialPlatforms =
+    mode === "social" &&
+    !isToolkitSection &&
+    !isTemplatesSection &&
+    (section === "ideas" || section === "calendar");
+  const platformsQuery = useQuery({
+    queryKey: ["social", "platforms"],
+    queryFn: () => apiRequest<SocialPlatform[]>("/api/v1/social/platforms"),
+    enabled: needsSocialPlatforms,
+    staleTime: 60 * 1000,
+  });
+
   useEffect(() => {
-    void (async () => {
-      try {
-        const brand = await apiRequest<BrandProfileResponse>("/api/v1/brand/profile").catch(
-          (err) => {
-            if (err instanceof ApiError && err.status === 404) return null;
-            throw err;
-          },
-        );
-        setBrandId(brand?.id ?? "");
-      } catch (err) {
-        handleApiError(err);
-      } finally {
-        setLoadingBusinesses(false);
-      }
-    })();
-  }, [handleApiError]);
+    if (brandQuery.error) handleApiError(brandQuery.error);
+  }, [brandQuery.error, handleApiError]);
+  useEffect(() => {
+    if (platformsQuery.error) handleApiError(platformsQuery.error);
+  }, [platformsQuery.error, handleApiError]);
+
+  const brandId = brandQuery.data?.id ?? "";
+  const platforms = platformsQuery.data ?? [];
+  const loadingBusinesses = needsBrandProfile && brandQuery.isLoading;
 
   useEffect(() => {
     if (!searchMode || searchMode === mode) return;
     setMode(searchMode);
     localStorage.setItem(MODE_STORAGE_KEY, searchMode);
   }, [mode, searchMode]);
-
-  useEffect(() => {
-    if (mode !== "social" || platforms.length > 0) return;
-    void (async () => {
-      try {
-        setPlatforms(await apiRequest<SocialPlatform[]>("/api/v1/social/platforms"));
-      } catch (err) {
-        handleApiError(err);
-      }
-    })();
-  }, [mode, platforms.length, handleApiError]);
 
   const selectMode = (next: ContentMode) => {
     setMode(next);
@@ -467,10 +470,15 @@ function ContentPage() {
           )}
 
           {section === "permissions" && (
-            <ContentPermissionsView mode={mode} onApiError={handleApiError} />
+            <ContentPermissionsView mode={mode} server={activeServer} onApiError={handleApiError} />
           )}
           {section === "activity" && (
-            <ContentActivityView mode={mode} onApiError={handleApiError} />
+            <ContentActivityView
+              mode={mode}
+              server={activeServer}
+              catalogReady={catalogReady}
+              onApiError={handleApiError}
+            />
           )}
 
           {!isToolkitSection && (
@@ -479,7 +487,7 @@ function ContentPage() {
                 <h1 className="text-2xl font-normal capitalize tracking-tight">{activeTitle}</h1>
               </div>
 
-              {!loadingBusinesses && mode === "content" && !brandId && (
+              {needsBrandProfile && !loadingBusinesses && mode === "content" && !brandId && (
                 <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
                   <p className="text-sm font-medium">No brand profile yet</p>
                   <p className="text-xs text-muted-foreground">
@@ -491,7 +499,7 @@ function ContentPage() {
                 </div>
               )}
 
-              {!loadingBusinesses && mode === "social" && !brandId && (
+              {needsBrandProfile && !loadingBusinesses && mode === "social" && !brandId && (
                 <div className="grid place-items-center rounded-2xl border border-dashed border-black/10 py-16 text-center">
                   <p className="text-sm font-medium">No brand profile yet</p>
                   <p className="text-xs text-muted-foreground">
@@ -503,7 +511,7 @@ function ContentPage() {
                 </div>
               )}
 
-              {!loadingBusinesses && brandId && isTemplatesSection && <SocialTemplateGallery />}
+              {isTemplatesSection && <SocialTemplateGallery />}
 
               {!loadingBusinesses && brandId && mode === "content" && section === "ideas" && (
                 <ContentIdeasBoard

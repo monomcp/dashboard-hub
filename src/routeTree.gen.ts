@@ -28,6 +28,9 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrandIndexRouteImport } from './routes/brand.index'
+import { Route as TasksUptimeRouteImport } from './routes/tasks.uptime'
+import { Route as TasksPermissionsRouteImport } from './routes/tasks.permissions'
+import { Route as TasksActivityRouteImport } from './routes/tasks.activity'
 import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
@@ -129,6 +132,21 @@ const BrandIndexRoute = BrandIndexRouteImport.update({
   path: '/brand/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TasksUptimeRoute = TasksUptimeRouteImport.update({
+  id: '/tasks/uptime',
+  path: '/tasks/uptime',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksPermissionsRoute = TasksPermissionsRouteImport.update({
+  id: '/tasks/permissions',
+  path: '/tasks/permissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksActivityRoute = TasksActivityRouteImport.update({
+  id: '/tasks/activity',
+  path: '/tasks/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PinterestViewRoute = PinterestViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -178,6 +196,9 @@ export interface FileRoutesByFullPath {
   '/content/$view': typeof ContentViewRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
+  '/tasks/activity': typeof TasksActivityRoute
+  '/tasks/permissions': typeof TasksPermissionsRoute
+  '/tasks/uptime': typeof TasksUptimeRoute
   '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -204,6 +225,9 @@ export interface FileRoutesByTo {
   '/content/$view': typeof ContentViewRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
+  '/tasks/activity': typeof TasksActivityRoute
+  '/tasks/permissions': typeof TasksPermissionsRoute
+  '/tasks/uptime': typeof TasksUptimeRoute
   '/brand': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -231,6 +255,9 @@ export interface FileRoutesById {
   '/content/$view': typeof ContentViewRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
+  '/tasks/activity': typeof TasksActivityRoute
+  '/tasks/permissions': typeof TasksPermissionsRoute
+  '/tasks/uptime': typeof TasksUptimeRoute
   '/brand/': typeof BrandIndexRoute
   '/auth/magic-link/confirm': typeof AuthMagicLinkConfirmRoute
 }
@@ -259,6 +286,9 @@ export interface FileRouteTypes {
     | '/content/$view'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
+    | '/tasks/activity'
+    | '/tasks/permissions'
+    | '/tasks/uptime'
     | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesByTo: FileRoutesByTo
@@ -285,6 +315,9 @@ export interface FileRouteTypes {
     | '/content/$view'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
+    | '/tasks/activity'
+    | '/tasks/permissions'
+    | '/tasks/uptime'
     | '/brand'
     | '/auth/magic-link/confirm'
   id:
@@ -311,6 +344,9 @@ export interface FileRouteTypes {
     | '/content/$view'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
+    | '/tasks/activity'
+    | '/tasks/permissions'
+    | '/tasks/uptime'
     | '/brand/'
     | '/auth/magic-link/confirm'
   fileRoutesById: FileRoutesById
@@ -335,6 +371,9 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
+  TasksActivityRoute: typeof TasksActivityRoute
+  TasksPermissionsRoute: typeof TasksPermissionsRoute
+  TasksUptimeRoute: typeof TasksUptimeRoute
   BrandIndexRoute: typeof BrandIndexRoute
   AuthMagicLinkConfirmRoute: typeof AuthMagicLinkConfirmRoute
 }
@@ -474,6 +513,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrandIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tasks/uptime': {
+      id: '/tasks/uptime'
+      path: '/tasks/uptime'
+      fullPath: '/tasks/uptime'
+      preLoaderRoute: typeof TasksUptimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/permissions': {
+      id: '/tasks/permissions'
+      path: '/tasks/permissions'
+      fullPath: '/tasks/permissions'
+      preLoaderRoute: typeof TasksPermissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/activity': {
+      id: '/tasks/activity'
+      path: '/tasks/activity'
+      fullPath: '/tasks/activity'
+      preLoaderRoute: typeof TasksActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pinterest/$view': {
       id: '/pinterest/$view'
       path: '/$view'
@@ -567,6 +627,9 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,
+  TasksActivityRoute: TasksActivityRoute,
+  TasksPermissionsRoute: TasksPermissionsRoute,
+  TasksUptimeRoute: TasksUptimeRoute,
   BrandIndexRoute: BrandIndexRoute,
   AuthMagicLinkConfirmRoute: AuthMagicLinkConfirmRoute,
 }

@@ -1,6 +1,7 @@
 import { Check, ChevronsUpDown, LogOut, Plus, Settings as SettingsIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -50,9 +51,11 @@ function signOut() {
 }
 
 export function AccountMenu() {
+  const [open, setOpen] = useState(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
+    enabled: open,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -62,17 +65,16 @@ export function AccountMenu() {
   const memberships = data?.memberships ?? [];
   const storedOrgId =
     typeof window !== "undefined" ? localStorage.getItem("organization_id") : null;
-  const activeOrg =
-    memberships.find((m) => m.organization_id === storedOrgId) ?? memberships[0];
+  const activeOrg = memberships.find((m) => m.organization_id === storedOrgId) ?? memberships[0];
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           className="ml-1 grid h-9 w-9 place-items-center rounded-full bg-stone-500 text-sm font-medium text-white outline-none transition hover:ring-2 hover:ring-stone-300"
           aria-label="Account"
         >
-          {isLoading ? "" : avatarLetter}
+          {isLoading || !data ? "" : avatarLetter}
         </button>
       </PopoverTrigger>
       <PopoverContent

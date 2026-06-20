@@ -36,21 +36,24 @@ const MODE_CONFIG: Record<
 
 export function ContentPermissionsView({
   mode,
+  server,
   onApiError,
 }: {
   mode: ContentPermissionsMode;
+  server?: CatalogServer;
   onApiError: (err: unknown, fallback?: string) => void;
 }) {
   const config = MODE_CONFIG[mode];
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    enabled: !server,
     staleTime: 30 * 1000,
   });
 
   const servers = useMemo(
-    () => (catalog ?? []).filter((s) => s.slug === config.serverSlug),
-    [catalog, config.serverSlug],
+    () => (server ? [server] : (catalog ?? []).filter((s) => s.slug === config.serverSlug)),
+    [catalog, config.serverSlug, server],
   );
   const anyEnabled = servers.some((s) => s.enabled);
   const toolkitIds = useMemo(() => {

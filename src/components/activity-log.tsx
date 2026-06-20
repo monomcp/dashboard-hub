@@ -86,11 +86,18 @@ const EMPTY_ACTIVITY_FILTERS: ActivityFilters = {
   until: "",
 };
 
-function activityRequestPath(filters: ActivityFilters, offset: number) {
+function activityRequestPath(
+  filters: ActivityFilters,
+  offset: number,
+  scope?: { moduleSlug: string; toolkitIds: readonly string[] },
+) {
   const params = new URLSearchParams({
     limit: String(ACTIVITY_PAGE_SIZE),
     offset: String(offset),
   });
+
+  if (scope?.moduleSlug) params.set("module_slug", scope.moduleSlug);
+  for (const toolkitId of scope?.toolkitIds ?? []) params.append("toolkit_id", toolkitId);
 
   if (filters.source !== "all") params.set("source", filters.source);
   if (filters.status !== "all") params.set("outcome", filters.status);
@@ -228,6 +235,13 @@ export type ActivityLogProps = {
   nameServerSlugs?: readonly string[];
   /** Controls the source filter externally; hides the in-drawer Source control. */
   source?: SourceFilter;
+  /** Server-side request-log scope. Keeps module pages from fetching unrelated activity. */
+  moduleSlug?: string;
+  toolkitIds?: readonly string[];
+  /** Delay logs until the caller has resolved toolkit ids for scoped pages. */
+  enabled?: boolean;
+  /** Resolve user principal names through toolkit access metadata. */
+  resolvePrincipalNames?: boolean;
   title?: string;
   description?: string;
 };
@@ -237,6 +251,10 @@ export function ActivityLog({
   logFilter,
   nameServerSlugs,
   source: controlledSource,
+  moduleSlug,
+  toolkitIds = [],
+  enabled = true,
+  resolvePrincipalNames = true,
   title = "Activity",
   description = "Every change made through Console and via MCP tool calls.",
 }: ActivityLogProps) {
@@ -260,10 +278,18 @@ export function ActivityLog({
 
   const { data, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, error } =
     useInfiniteQuery({
-      queryKey: ["activity-logs", filters],
+      queryKey: ["activity-logs", moduleSlug, toolkitIds, filters],
       queryFn: ({ pageParam, signal }) =>
-        apiRequest<Page<RequestLogSummary>>(activityRequestPath(filters, pageParam), { signal }),
+        apiRequest<Page<RequestLogSummary>>(
+          activityRequestPath(
+            filters,
+            pageParam,
+            moduleSlug ? { moduleSlug, toolkitIds } : undefined,
+          ),
+          { signal },
+        ),
       initialPageParam: 0,
+      enabled,
       getNextPageParam: (lastPage) => {
         const nextOffset = lastPage.offset + lastPage.items.length;
         return nextOffset < lastPage.total ? nextOffset : undefined;
@@ -281,21 +307,30 @@ export function ActivityLog({
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    enabled: resolvePrincipalNames && toolkitIds.length === 0,
     staleTime: 60 * 1000,
   });
 
   const firstToolkitId = useMemo(() => {
+    if (!resolvePrincipalNames) return undefined;
+    if (toolkitIds[0]) return toolkitIds[0];
     for (const server of catalog ?? []) {
       if (nameServerSlugs && !nameServerSlugs.includes(server.slug)) continue;
       if (server.enabled && server.toolkit_ids[0]) return server.toolkit_ids[0];
     }
     return undefined;
-  }, [catalog, nameServerSlugs]);
+  }, [catalog, nameServerSlugs, resolvePrincipalNames, toolkitIds]);
 
   const { data: matrix } = useQuery({
-    queryKey: ["toolkit-access-matrix", firstToolkitId],
-    queryFn: () =>
-      apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${firstToolkitId}/access-matrix`),
+    queryKey: ["toolkit-access-matrix", firstToolkitId, moduleSlug],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (moduleSlug) params.set("module_slug", moduleSlug);
+      const query = params.toString();
+      return apiRequest<ToolkitAccessMatrix>(
+        `/api/v1/toolkits/${firstToolkitId}/access-matrix${query ? `?${query}` : ""}`,
+      );
+    },
     enabled: Boolean(firstToolkitId),
     staleTime: 60 * 1000,
     retry: false,

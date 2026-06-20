@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, EllipsisVertical, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,8 +57,7 @@ type Props = {
 };
 
 export function ContentCalendarList({ brandId, view = "list", onError }: Props) {
-  const [items, setItems] = useState<CalendarItemResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [mutating, setMutating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<CalendarStatus | "all">("all");
   const [selected, setSelected] = useState<CalendarItemResponse | null>(null);
@@ -66,25 +66,26 @@ export function ContentCalendarList({ brandId, view = "list", onError }: Props) 
   const [detailLoading, setDetailLoading] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<CalendarItemResponse | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const itemsQueryKey = ["content", "calendar-items", brandId, statusFilter] as const;
+  const itemsQuery = useQuery({
+    queryKey: itemsQueryKey,
+    queryFn: async () => {
       const params = new URLSearchParams({ brand_id: brandId, limit: "100" });
       if (statusFilter !== "all") params.set("status", statusFilter);
       const page = await apiRequest<Page<CalendarItemResponse>>(
         `/api/v1/content/calendar-items?${params}`,
       );
-      setItems(page.items);
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [brandId, statusFilter, onError]);
+      return page.items;
+    },
+    staleTime: 15 * 1000,
+  });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (itemsQuery.error) onError(itemsQuery.error);
+  }, [itemsQuery.error, onError]);
+
+  const items = itemsQuery.data ?? [];
+  const loading = itemsQuery.isLoading;
 
   const loadDetail = useCallback(
     async (item: CalendarItemResponse) => {
@@ -120,7 +121,7 @@ export function ContentCalendarList({ brandId, view = "list", onError }: Props) 
         { method: "POST", body: JSON.stringify({ status }) },
       );
       if (selected?.id === item.id) setSelected(updated);
-      await load();
+      await itemsQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {
@@ -132,7 +133,9 @@ export function ContentCalendarList({ brandId, view = "list", onError }: Props) 
     setMutating(true);
     try {
       await apiRequest<void>(`/api/v1/content/calendar-items/${item.id}`, { method: "DELETE" });
-      setItems((current) => current.filter((calendarItem) => calendarItem.id !== item.id));
+      queryClient.setQueryData<CalendarItemResponse[]>(itemsQueryKey, (current = []) =>
+        current.filter((calendarItem) => calendarItem.id !== item.id),
+      );
       if (selected?.id === item.id) closeDetail();
       setPendingDelete(null);
     } catch (err) {

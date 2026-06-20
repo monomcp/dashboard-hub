@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Menu,
   Search,
@@ -155,6 +156,39 @@ function getTwoWeekGrid(cursor: Date) {
   return days;
 }
 
+function getRange(cursor: Date, view: CalendarView) {
+  if (view === "month") {
+    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 42);
+    return { start, end };
+  }
+  if (view === "week") {
+    const start = new Date(cursor);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+    return { start, end };
+  }
+  if (view === "2weeks") {
+    const start = new Date(cursor);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 14);
+    return { start, end };
+  }
+
+  const start = new Date(cursor);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+  return { start, end };
+}
+
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 function formatHour(h: number) {
@@ -166,13 +200,11 @@ function formatHour(h: number) {
 
 function CalendarPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
   const [cursor, setCursor] = useState(new Date());
-  const [calendars, setCalendars] = useState<CalendarResponse[]>([]);
   const [checkedCalendars, setCheckedCalendars] = useState<Set<string>>(new Set());
-  const [events, setEvents] = useState<CalendarEventResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -182,6 +214,63 @@ function CalendarPage() {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
   const days = useMemo(() => getMonthGrid(year, month), [year, month]);
+  const range = useMemo(() => getRange(cursor, calendarView), [cursor, calendarView]);
+
+  const handleApiError = useCallback(
+    (err: unknown, fallback = "Calendar request failed") => {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        clearAuthTokens();
+        void navigate({ to: "/login", replace: true });
+        return;
+      }
+      setError(err instanceof Error ? err.message : fallback);
+    },
+    [navigate],
+  );
+
+  const calendarsQuery = useQuery({
+    queryKey: ["calendar", "calendars"],
+    queryFn: () =>
+      apiRequest<Page<CalendarResponse>>(
+        "/api/v1/calendar/calendars?sort=name&direction=asc&limit=200",
+      ),
+    staleTime: 60 * 1000,
+  });
+  const eventsQuery = useQuery({
+    queryKey: [
+      "calendar",
+      "events",
+      calendarView,
+      range.start.toISOString(),
+      range.end.toISOString(),
+    ],
+    queryFn: () =>
+      apiRequest<Page<CalendarEventResponse>>(
+        `/api/v1/calendar/events?starts_after=${encodeURIComponent(range.start.toISOString())}&starts_before=${encodeURIComponent(range.end.toISOString())}&limit=500`,
+      ),
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    if (calendarsQuery.error) handleApiError(calendarsQuery.error);
+  }, [calendarsQuery.error, handleApiError]);
+  useEffect(() => {
+    if (eventsQuery.error) handleApiError(eventsQuery.error);
+  }, [eventsQuery.error, handleApiError]);
+
+  const calendars = useMemo(() => calendarsQuery.data?.items ?? [], [calendarsQuery.data]);
+  const events = useMemo(() => eventsQuery.data?.items ?? [], [eventsQuery.data]);
+  const loading = calendarsQuery.isLoading || eventsQuery.isLoading;
+
+  useEffect(() => {
+    if (!calendars.length) return;
+    setCheckedCalendars((prev) => {
+      if (prev.size > 0) return prev;
+      return new Set(
+        calendars.filter((calendar) => calendar.is_visible).map((calendar) => calendar.id),
+      );
+    });
+  }, [calendars]);
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEventResponse[]> = {};
@@ -208,51 +297,6 @@ function CalendarPage() {
     calendars.find((calendar) => calendar.is_primary && !calendar.is_readonly) ||
     calendars.find((calendar) => !calendar.is_readonly);
 
-  const handleApiError = useCallback(
-    (err: unknown, fallback = "Calendar request failed") => {
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        clearAuthTokens();
-        void navigate({ to: "/login", replace: true });
-        return;
-      }
-      setError(err instanceof Error ? err.message : fallback);
-    },
-    [navigate],
-  );
-
-  const loadCalendarData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    const start = new Date(year, month, 1);
-    start.setDate(1 - start.getDay());
-    const end = new Date(start);
-    end.setDate(start.getDate() + 42);
-    try {
-      const [calendarPage, eventPage] = await Promise.all([
-        apiRequest<Page<CalendarResponse>>(
-          "/api/v1/calendar/calendars?sort=name&direction=asc&limit=200",
-        ),
-        apiRequest<Page<CalendarEventResponse>>(
-          `/api/v1/calendar/events?starts_after=${encodeURIComponent(start.toISOString())}&starts_before=${encodeURIComponent(end.toISOString())}&limit=500`,
-        ),
-      ]);
-      setCalendars(calendarPage.items);
-      setCheckedCalendars((prev) => {
-        if (prev.size > 0) return prev;
-        return new Set(calendarPage.items.filter((c) => c.is_visible).map((c) => c.id));
-      });
-      setEvents(eventPage.items);
-    } catch (err) {
-      handleApiError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [handleApiError, month, year]);
-
-  useEffect(() => {
-    void loadCalendarData();
-  }, [loadCalendarData]);
-
   function shiftMonth(delta: number) {
     setCursor(new Date(year, month + delta, 1));
   }
@@ -275,7 +319,12 @@ function CalendarPage() {
 
   const headerLabel = useMemo(() => {
     if (calendarView === "day") {
-      return cursor.toLocaleDateString("en", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      return cursor.toLocaleDateString("en", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
     }
     if (calendarView === "week") {
       const weekDays = getWeekGrid(cursor);
@@ -314,7 +363,7 @@ function CalendarPage() {
       });
       setCreateOpen(false);
       setForm({ title: "", date: fmt(cursor), time: "09:00" });
-      await loadCalendarData();
+      await queryClient.invalidateQueries({ queryKey: ["calendar", "events"] });
     } catch (err) {
       handleApiError(err);
     } finally {
@@ -373,15 +422,16 @@ function CalendarPage() {
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
-          <h1 className="ml-2 text-xl font-normal tracking-tight">
-            {headerLabel}
-          </h1>
+          <h1 className="ml-2 text-xl font-normal tracking-tight">{headerLabel}</h1>
         </div>
 
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 rounded-full border-black/10 bg-white px-4 text-sm font-medium">
+              <Button
+                variant="outline"
+                className="h-9 rounded-full border-black/10 bg-white px-4 text-sm font-medium"
+              >
                 {VIEW_OPTIONS.find((v) => v.value === calendarView)?.label}
                 <ChevronRight className="ml-1 h-3.5 w-3.5 rotate-90" />
               </Button>
@@ -545,7 +595,15 @@ function CalendarPage() {
                       }}
                     >
                       {checked && (
-                        <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          viewBox="0 0 12 12"
+                          className="h-2.5 w-2.5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <path d="M2 6l3 3 5-5" />
                         </svg>
                       )}
@@ -583,7 +641,15 @@ function CalendarPage() {
                       }}
                     >
                       {checked && (
-                        <svg viewBox="0 0 12 12" className="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          viewBox="0 0 12 12"
+                          className="h-2.5 w-2.5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <path d="M2 6l3 3 5-5" />
                         </svg>
                       )}
@@ -597,10 +663,7 @@ function CalendarPage() {
         )}
 
         <main
-          className={cn(
-            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
-            sidebarOpen ? "md:pl-0" : "md:pl-6",
-          )}
+          className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
           {error && (
             <Alert variant="destructive" className="mb-3">
@@ -609,22 +672,37 @@ function CalendarPage() {
           )}
 
           {calendarView === "month" && (
-            <MonthGrid days={days} month={month} today={today} eventsByDate={eventsByDate} loading={loading} />
+            <MonthGrid
+              days={days}
+              month={month}
+              today={today}
+              eventsByDate={eventsByDate}
+              loading={loading}
+            />
           )}
 
           {calendarView === "week" && (
-            <TimeGrid days={getWeekGrid(cursor)} today={today} eventsByDate={eventsByDate} loading={loading} />
+            <TimeGrid
+              days={getWeekGrid(cursor)}
+              today={today}
+              eventsByDate={eventsByDate}
+              loading={loading}
+            />
           )}
 
           {calendarView === "2weeks" && (
-            <TwoWeekGrid days={getTwoWeekGrid(cursor)} today={today} eventsByDate={eventsByDate} loading={loading} />
+            <TwoWeekGrid
+              days={getTwoWeekGrid(cursor)}
+              today={today}
+              eventsByDate={eventsByDate}
+              loading={loading}
+            />
           )}
 
           {calendarView === "day" && (
             <DayGrid day={cursor} today={today} eventsByDate={eventsByDate} loading={loading} />
           )}
         </main>
-
       </div>
     </div>
   );
@@ -670,7 +748,9 @@ function MonthGrid({
     <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
       <div className="grid grid-cols-7 border-b border-black/5 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="py-2">{w}</div>
+          <div key={w} className="py-2">
+            {w}
+          </div>
         ))}
       </div>
       <div className="grid grid-cols-7 grid-rows-6">
@@ -698,14 +778,18 @@ function MonthGrid({
                     !isToday && inMonth && "text-foreground",
                   )}
                 >
-                  {showMonth ? `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}` : d.getDate()}
+                  {showMonth
+                    ? `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}`
+                    : d.getDate()}
                 </span>
               </div>
               <div className="space-y-1">
                 {loading && idx === 0 && (
                   <div className="px-2 py-0.5 text-[11px] text-muted-foreground">Loading...</div>
                 )}
-                {evs.map((e) => <EventChip key={e.id} event={e} />)}
+                {evs.map((e) => (
+                  <EventChip key={e.id} event={e} />
+                ))}
               </div>
             </div>
           );
@@ -749,13 +833,14 @@ function TimeGrid({
           );
         })}
       </div>
-      {loading && (
-        <div className="px-4 py-3 text-[11px] text-muted-foreground">Loading...</div>
-      )}
+      {loading && <div className="px-4 py-3 text-[11px] text-muted-foreground">Loading...</div>}
       <div className="grid grid-cols-[60px_repeat(7,1fr)]">
         <div>
           {HOURS.map((h) => (
-            <div key={h} className="flex h-14 items-start justify-end pr-2 text-[10px] text-muted-foreground">
+            <div
+              key={h}
+              className="flex h-14 items-start justify-end pr-2 text-[10px] text-muted-foreground"
+            >
               {h > 0 ? formatHour(h) : ""}
             </div>
           ))}
@@ -814,7 +899,9 @@ function TwoWeekGrid({
     <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
       <div className="grid grid-cols-7 border-b border-black/5 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="py-2">{w}</div>
+          <div key={w} className="py-2">
+            {w}
+          </div>
         ))}
       </div>
       <div className="grid grid-cols-7 grid-rows-2">
@@ -838,14 +925,18 @@ function TwoWeekGrid({
                     !isToday && "text-foreground",
                   )}
                 >
-                  {d.getDate() === 1 ? `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}` : d.getDate()}
+                  {d.getDate() === 1
+                    ? `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0, 3)}`
+                    : d.getDate()}
                 </span>
               </div>
               <div className="space-y-1">
                 {loading && idx === 0 && (
                   <div className="px-2 py-0.5 text-[11px] text-muted-foreground">Loading...</div>
                 )}
-                {evs.map((e) => <EventChip key={e.id} event={e} />)}
+                {evs.map((e) => (
+                  <EventChip key={e.id} event={e} />
+                ))}
               </div>
             </div>
           );
@@ -884,13 +975,14 @@ function DayGrid({
           {day.getDate()}
         </span>
       </div>
-      {loading && (
-        <div className="px-4 py-3 text-[11px] text-muted-foreground">Loading...</div>
-      )}
+      {loading && <div className="px-4 py-3 text-[11px] text-muted-foreground">Loading...</div>}
       <div className="grid grid-cols-[60px_1fr]">
         <div>
           {HOURS.map((h) => (
-            <div key={h} className="flex h-14 items-start justify-end pr-2 text-[10px] text-muted-foreground">
+            <div
+              key={h}
+              className="flex h-14 items-start justify-end pr-2 text-[10px] text-muted-foreground"
+            >
               {h > 0 ? formatHour(h) : ""}
             </div>
           ))}

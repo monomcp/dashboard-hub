@@ -266,9 +266,11 @@ function FirecrawlPage() {
     return NAV.filter((n) => n.label.toLowerCase().includes(q));
   }, [query]);
 
+  const needsCatalog = section === "access" || section === "audit";
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    enabled: needsCatalog,
     staleTime: 60 * 1000,
   });
   const server = catalog?.find((s) => s.slug === "firecrawl");
@@ -311,7 +313,7 @@ function FirecrawlPage() {
           </div>
         )}
         <div className="flex items-center gap-1">
-          {server && (
+          {needsCatalog && server && (
             <div className="mr-1">
               <EnableMcpServerButton
                 serverSlug="firecrawl"
@@ -365,10 +367,7 @@ function FirecrawlPage() {
         )}
 
         <main
-          className={cn(
-            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
-            sidebarOpen ? "md:pl-0" : "md:pl-6",
-          )}
+          className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
           <div className="mb-4 flex items-center justify-between">
             <h1 className="text-2xl font-normal tracking-tight">

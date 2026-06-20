@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarPlus, Check, Loader2, Plus, Star, ThumbsDown, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,10 +67,7 @@ const EMPTY_SCORES = Object.fromEntries(SCORE_FIELDS.map(([key]) => [key, ""])) 
 >;
 
 export function ContentIdeasBoard({ brandId, query, onError }: Props) {
-  const [ideas, setIdeas] = useState<IdeaResponse[]>([]);
-  const [pillars, setPillars] = useState<PillarResponse[]>([]);
   const [tab, setTab] = useState<IdeaStatus | "all">("all");
-  const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -92,9 +90,9 @@ export function ContentIdeasBoard({ brandId, query, onError }: Props) {
     assigned_agent: "",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const ideasQuery = useQuery({
+    queryKey: ["content", "ideas", brandId, tab, query],
+    queryFn: async () => {
       const params = new URLSearchParams({
         brand_id: brandId,
         sort: "created_at",
@@ -104,46 +102,44 @@ export function ContentIdeasBoard({ brandId, query, onError }: Props) {
       if (tab !== "all") params.set("status", tab);
       if (query.trim()) params.set("q", query.trim());
       const page = await apiRequest<Page<IdeaResponse>>(`/api/v1/content/ideas?${params}`);
-      setIdeas(page.items);
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [brandId, tab, query, onError]);
+      return page.items;
+    },
+    staleTime: 15 * 1000,
+  });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (ideasQuery.error) onError(ideasQuery.error);
+  }, [ideasQuery.error, onError]);
+
+  const strategyQuery = useQuery({
+    queryKey: ["content", "strategy-pillars", brandId],
+    queryFn: async () => {
+      const page = await apiRequest<Page<StrategyResponse>>(
+        `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
+      );
+      const strategy = page.items[0];
+      const pillars = strategy
+        ? await apiRequest<PillarResponse[]>(`/api/v1/content/strategies/${strategy.id}/pillars`)
+        : [];
+      return { strategy, pillars };
+    },
+    staleTime: 30 * 1000,
+  });
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const page = await apiRequest<Page<StrategyResponse>>(
-          `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
-        );
-        const strategy = page.items[0];
-        if (strategy?.auto_approve_threshold != null) {
-          setApproveThreshold(Number(strategy.auto_approve_threshold));
-        }
-        setPillars(
-          strategy
-            ? await apiRequest<PillarResponse[]>(
-                `/api/v1/content/strategies/${strategy.id}/pillars`,
-              )
-            : [],
-        );
-      } catch {
-        setPillars([]);
-      }
-    })();
-  }, [brandId]);
+    const threshold = strategyQuery.data?.strategy?.auto_approve_threshold;
+    if (threshold != null) setApproveThreshold(Number(threshold));
+  }, [strategyQuery.data?.strategy?.auto_approve_threshold]);
+
+  const ideas = ideasQuery.data ?? [];
+  const pillars = strategyQuery.data?.pillars ?? [];
+  const loading = ideasQuery.isLoading;
 
   const run = async (fn: () => Promise<unknown>) => {
     setMutating(true);
     try {
       await fn();
-      await load();
+      await ideasQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {

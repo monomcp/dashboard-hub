@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarPlus,
   Check,
@@ -85,10 +86,8 @@ const EMPTY_SCORES = Object.fromEntries(SOCIAL_SCORE_FIELDS.map(([key]) => [key,
 >;
 
 export function SocialIdeasBoard({ brandId, platformId, platforms, query, onError }: Props) {
-  const [ideas, setIdeas] = useState<SocialIdeaResponse[]>([]);
-  const [pillars, setPillars] = useState<PillarResponse[]>([]);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<SocialIdeaStatus | "all">("all");
-  const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -110,9 +109,10 @@ export function SocialIdeasBoard({ brandId, platformId, platforms, query, onErro
 
   const platformName = (id: string) => platforms.find((p) => p.id === id)?.name ?? "Unknown";
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const ideasQueryKey = ["social", "ideas", brandId, platformId, tab, query] as const;
+  const ideasQuery = useQuery({
+    queryKey: ideasQueryKey,
+    queryFn: async () => {
       const params = new URLSearchParams({
         brand_id: brandId,
         sort: "created_at",
@@ -123,43 +123,38 @@ export function SocialIdeasBoard({ brandId, platformId, platforms, query, onErro
       if (tab !== "all") params.set("status", tab);
       if (query.trim()) params.set("q", query.trim());
       const page = await apiRequest<Page<SocialIdeaResponse>>(`/api/v1/social/ideas?${params}`);
-      setIdeas(page.items);
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [brandId, platformId, tab, query, onError]);
+      return page.items;
+    },
+    staleTime: 15 * 1000,
+  });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (ideasQuery.error) onError(ideasQuery.error);
+  }, [ideasQuery.error, onError]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const page = await apiRequest<Page<StrategyResponse>>(
-          `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
-        );
-        const strategy = page.items[0];
-        setPillars(
-          strategy
-            ? await apiRequest<PillarResponse[]>(
-                `/api/v1/content/strategies/${strategy.id}/pillars`,
-              )
-            : [],
-        );
-      } catch {
-        setPillars([]);
-      }
-    })();
-  }, [brandId]);
+  const pillarsQuery = useQuery({
+    queryKey: ["content", "strategy-pillars", brandId],
+    queryFn: async () => {
+      const page = await apiRequest<Page<StrategyResponse>>(
+        `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
+      );
+      const strategy = page.items[0];
+      return strategy
+        ? apiRequest<PillarResponse[]>(`/api/v1/content/strategies/${strategy.id}/pillars`)
+        : [];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const ideas = ideasQuery.data ?? [];
+  const pillars = pillarsQuery.data ?? [];
+  const loading = ideasQuery.isLoading;
 
   const run = async (fn: () => Promise<unknown>) => {
     setMutating(true);
     try {
       await fn();
-      await load();
+      await ideasQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {
@@ -168,7 +163,7 @@ export function SocialIdeasBoard({ brandId, platformId, platforms, query, onErro
   };
 
   const patchIdea = (ideaId: string, patch: Partial<SocialIdeaResponse>) => {
-    setIdeas((current) => {
+    queryClient.setQueryData<SocialIdeaResponse[]>(ideasQueryKey, (current = []) => {
       if (patch.status && tab !== "all" && patch.status !== tab) {
         return current.filter((idea) => idea.id !== ideaId);
       }
@@ -196,7 +191,9 @@ export function SocialIdeasBoard({ brandId, platformId, platforms, query, onErro
       await apiRequest<void>(`/api/v1/social/ideas/${ideaId}`, {
         method: "DELETE",
       });
-      setIdeas((current) => current.filter((idea) => idea.id !== ideaId));
+      queryClient.setQueryData<SocialIdeaResponse[]>(ideasQueryKey, (current = []) =>
+        current.filter((idea) => idea.id !== ideaId),
+      );
     } catch (err) {
       onError(err);
     } finally {

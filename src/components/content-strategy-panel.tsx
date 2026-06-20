@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +45,6 @@ const EMPTY_PILLAR_FORM = {
 };
 
 export function ContentStrategyPanel({ brandId, onError }: Props) {
-  const [strategy, setStrategy] = useState<StrategyResponse | null>(null);
-  const [pillars, setPillars] = useState<PillarResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [strategyDialog, setStrategyDialog] = useState(false);
   const [strategyForm, setStrategyForm] = useState(EMPTY_STRATEGY_FORM);
@@ -54,31 +52,28 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
   const [editingPillar, setEditingPillar] = useState<PillarResponse | null>(null);
   const [pillarForm, setPillarForm] = useState(EMPTY_PILLAR_FORM);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const strategyQuery = useQuery({
+    queryKey: ["content", "strategy-pillars", brandId],
+    queryFn: async () => {
       const page = await apiRequest<Page<StrategyResponse>>(
         `/api/v1/content/strategies?brand_id=${brandId}&limit=1`,
       );
       const current = page.items[0] ?? null;
-      setStrategy(current);
-      if (current) {
-        setPillars(
-          await apiRequest<PillarResponse[]>(`/api/v1/content/strategies/${current.id}/pillars`),
-        );
-      } else {
-        setPillars([]);
-      }
-    } catch (err) {
-      onError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [brandId, onError]);
+      const pillars = current
+        ? await apiRequest<PillarResponse[]>(`/api/v1/content/strategies/${current.id}/pillars`)
+        : [];
+      return { strategy: current, pillars };
+    },
+    staleTime: 30 * 1000,
+  });
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (strategyQuery.error) onError(strategyQuery.error);
+  }, [strategyQuery.error, onError]);
+
+  const strategy = strategyQuery.data?.strategy ?? null;
+  const pillars = strategyQuery.data?.pillars ?? [];
+  const loading = strategyQuery.isLoading;
 
   const openStrategyDialog = () => {
     setStrategyForm(
@@ -120,7 +115,7 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
         });
       }
       setStrategyDialog(false);
-      await load();
+      await strategyQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {
@@ -170,7 +165,7 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
         });
       }
       setPillarDialog(false);
-      await load();
+      await strategyQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {
@@ -182,7 +177,7 @@ export function ContentStrategyPanel({ brandId, onError }: Props) {
     setMutating(true);
     try {
       await apiRequest<void>(`/api/v1/content/pillars/${pillar.id}`, { method: "DELETE" });
-      await load();
+      await strategyQuery.refetch();
     } catch (err) {
       onError(err);
     } finally {

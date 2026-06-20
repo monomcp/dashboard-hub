@@ -232,9 +232,13 @@ function StatusDot({ outcome }: { outcome: string | null }) {
 
 export function ContentActivityView({
   mode,
+  server,
+  catalogReady = false,
   onApiError,
 }: {
   mode: ContentActivityMode;
+  server?: CatalogServer;
+  catalogReady?: boolean;
   onApiError: (err: unknown, fallback?: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -248,18 +252,20 @@ export function ContentActivityView({
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    enabled: !server,
     staleTime: 60 * 1000,
   });
 
   const activityScope = useMemo<ActivityScope>(() => {
     const moduleSlug = mode === "social" ? "smm" : "content";
     const toolkitIds = new Set<string>();
-    for (const server of catalog ?? []) {
-      if (server.slug !== moduleSlug || !server.enabled) continue;
-      for (const id of server.toolkit_ids) toolkitIds.add(id);
+    const servers = server ? [server] : (catalog ?? []);
+    for (const catalogServer of servers) {
+      if (catalogServer.slug !== moduleSlug || !catalogServer.enabled) continue;
+      for (const id of catalogServer.toolkit_ids) toolkitIds.add(id);
     }
     return { moduleSlug, toolkitIds: Array.from(toolkitIds) };
-  }, [catalog, mode]);
+  }, [catalog, mode, server]);
 
   const { data, isLoading, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, error } =
     useInfiniteQuery({
@@ -272,6 +278,7 @@ export function ContentActivityView({
           },
         ),
       initialPageParam: 0,
+      enabled: server ? catalogReady : true,
       getNextPageParam: (lastPage) => {
         const nextOffset = lastPage.offset + lastPage.items.length;
         return nextOffset < lastPage.total ? nextOffset : undefined;
