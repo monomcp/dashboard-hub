@@ -46,15 +46,42 @@ type RequestLogUptimeResponse = {
   buckets: RequestLogUptimeBucket[];
 };
 
+type UptimeViewTheme = {
+  cardClassName?: string;
+  mutedClassName?: string;
+  headingClassName?: string;
+  linkClassName?: string;
+  emptyChartClassName?: string;
+  chartGridStroke?: string;
+  chartLabelFill?: string;
+  chartLineStroke?: string;
+  skeletonClassName?: string;
+};
+
+const DEFAULT_THEME: Required<UptimeViewTheme> = {
+  cardClassName: "rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6",
+  mutedClassName: "text-muted-foreground",
+  headingClassName: "text-foreground",
+  linkClassName: "text-emerald-600 hover:text-emerald-700",
+  emptyChartClassName: "bg-[hsl(220,33%,98%)] text-muted-foreground ring-1 ring-black/5",
+  chartGridStroke: "hsl(0,0%,90%)",
+  chartLabelFill: "hsl(0,0%,55%)",
+  chartLineStroke: "hsl(142,71%,45%)",
+  skeletonClassName: "",
+};
+
 export function TasksUptimeView({
-  moduleSlug = "tasks",
+  moduleSlug,
   onApiError,
   onViewHistory,
+  theme,
 }: {
-  moduleSlug?: string;
+  moduleSlug: string;
   onApiError: (err: unknown, fallback?: string) => void;
   onViewHistory: () => void;
+  theme?: UptimeViewTheme;
 }) {
+  const viewTheme = { ...DEFAULT_THEME, ...theme };
   const { data, error, isLoading } = useQuery({
     queryKey: ["request-log-uptime", moduleSlug, 90],
     queryFn: () =>
@@ -68,18 +95,18 @@ export function TasksUptimeView({
     if (error) onApiError(error, "Could not load uptime");
   }, [error, onApiError]);
 
-  if (isLoading) return <TasksUptimeSkeleton />;
+  if (isLoading) return <TasksUptimeSkeleton theme={viewTheme} />;
   if (error || !data) return null;
 
   return (
     <div className="grid content-start gap-4">
-      <UptimeCard>
+      <UptimeCard theme={viewTheme}>
         <div className="mb-3 flex items-center justify-between gap-3 text-sm">
-          <span className="text-muted-foreground">Last {data.days} days</span>
+          <span className={viewTheme.mutedClassName}>Last {data.days} days</span>
           <button
             type="button"
             onClick={onViewHistory}
-            className="inline-flex items-center gap-1 text-emerald-600 transition hover:text-emerald-700"
+            className={cn("inline-flex items-center gap-1 transition", viewTheme.linkClassName)}
           >
             <Activity className="h-4 w-4" /> View full history
           </button>
@@ -93,7 +120,7 @@ export function TasksUptimeView({
           >
             {formatPercent(data.uptime_percent)}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className={cn("text-xs", viewTheme.mutedClassName)}>
             {formatSampleCount(data.total_count)}
           </span>
         </div>
@@ -107,8 +134,10 @@ export function TasksUptimeView({
         </div>
       </UptimeCard>
 
-      <UptimeCard>
-        <h2 className="mb-4 text-base font-medium">Overall uptime</h2>
+      <UptimeCard theme={viewTheme}>
+        <h2 className={cn("mb-4 text-base font-medium", viewTheme.headingClassName)}>
+          Overall uptime
+        </h2>
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
           {data.windows.map((window) => (
             <div key={window.label}>
@@ -120,8 +149,8 @@ export function TasksUptimeView({
               >
                 {formatPercent(window.uptime_percent)}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">{window.label}</div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground/80">
+              <div className={cn("mt-1 text-xs", viewTheme.mutedClassName)}>{window.label}</div>
+              <div className={cn("mt-0.5 text-[11px]", viewTheme.mutedClassName)}>
                 {formatSampleCount(window.total_count)}
               </div>
             </div>
@@ -129,12 +158,12 @@ export function TasksUptimeView({
         </div>
       </UptimeCard>
 
-      <UptimeCard>
+      <UptimeCard theme={viewTheme}>
         <div className="mb-2 flex items-baseline gap-2">
-          <h2 className="text-base font-medium">Response Time</h2>
-          <span className="text-xs text-muted-foreground">Last {data.days} days</span>
+          <h2 className={cn("text-base font-medium", viewTheme.headingClassName)}>Response Time</h2>
+          <span className={cn("text-xs", viewTheme.mutedClassName)}>Last {data.days} days</span>
         </div>
-        <TasksResponseChart buckets={data.buckets} />
+        <TasksResponseChart buckets={data.buckets} theme={viewTheme} />
         <div className="mt-3 grid gap-4 text-sm sm:grid-cols-3">
           {[
             [formatMs(data.response_time.avg_response_ms), "Avg. response time"],
@@ -142,8 +171,12 @@ export function TasksUptimeView({
             [formatMs(data.response_time.min_response_ms), "Min. response time"],
           ].map(([value, label]) => (
             <div key={label}>
-              <div className="text-2xl font-semibold tracking-tight">{value}</div>
-              <div className="text-xs text-muted-foreground">{label}</div>
+              <div
+                className={cn("text-2xl font-semibold tracking-tight", viewTheme.headingClassName)}
+              >
+                {value}
+              </div>
+              <div className={cn("text-xs", viewTheme.mutedClassName)}>{label}</div>
             </div>
           ))}
         </div>
@@ -152,12 +185,14 @@ export function TasksUptimeView({
   );
 }
 
-function UptimeCard({ children }: { children: React.ReactNode }) {
-  return (
-    <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-      {children}
-    </section>
-  );
+function UptimeCard({
+  children,
+  theme,
+}: {
+  children: React.ReactNode;
+  theme: Required<UptimeViewTheme>;
+}) {
+  return <section className={theme.cardClassName}>{children}</section>;
 }
 
 function TasksUptimeBar({ bucket }: { bucket: RequestLogUptimeBucket }) {
@@ -176,13 +211,21 @@ function TasksUptimeBar({ bucket }: { bucket: RequestLogUptimeBucket }) {
   return <span className={cn("h-10 w-full rounded-sm", color)} title={label} />;
 }
 
-function TasksResponseChart({ buckets }: { buckets: RequestLogUptimeBucket[] }) {
+function TasksResponseChart({
+  buckets,
+  theme,
+}: {
+  buckets: RequestLogUptimeBucket[];
+  theme: Required<UptimeViewTheme>;
+}) {
   const values = buckets.map((bucket) => bucket.avg_response_ms);
   const sampled = values.filter((value): value is number => value != null);
 
   if (sampled.length === 0) {
     return (
-      <div className="grid h-48 place-items-center rounded-xl bg-[hsl(220,33%,98%)] text-sm text-muted-foreground ring-1 ring-black/5">
+      <div
+        className={cn("grid h-48 place-items-center rounded-xl text-sm", theme.emptyChartClassName)}
+      >
         No response samples yet
       </div>
     );
@@ -202,58 +245,68 @@ function TasksResponseChart({ buckets }: { buckets: RequestLogUptimeBucket[] }) 
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img">
-      <line x1="0" y1="20" x2={width} y2="20" stroke="hsl(0,0%,90%)" strokeDasharray="3 4" />
-      <text x="0" y="14" fontSize="11" fill="hsl(0,0%,55%)">
+      <line
+        x1="0"
+        y1="20"
+        x2={width}
+        y2="20"
+        stroke={theme.chartGridStroke}
+        strokeDasharray="3 4"
+      />
+      <text x="0" y="14" fontSize="11" fill={theme.chartLabelFill}>
         {max}ms
       </text>
-      <path d={path} fill="none" stroke="hsl(142,71%,45%)" strokeWidth="1.4" />
+      <path d={path} fill="none" stroke={theme.chartLineStroke} strokeWidth="1.4" />
     </svg>
   );
 }
 
-function TasksUptimeSkeleton() {
+function TasksUptimeSkeleton({ theme }: { theme: Required<UptimeViewTheme> }) {
   return (
     <div className="grid content-start gap-4">
-      <UptimeCard>
+      <UptimeCard theme={theme}>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-32" />
+          <Skeleton className={cn("h-4 w-24", theme.skeletonClassName)} />
+          <Skeleton className={cn("h-4 w-32", theme.skeletonClassName)} />
         </div>
         <div className="mb-2 flex items-baseline gap-2">
-          <Skeleton className="h-5 w-20" />
-          <Skeleton className="h-3 w-16" />
+          <Skeleton className={cn("h-5 w-20", theme.skeletonClassName)} />
+          <Skeleton className={cn("h-3 w-16", theme.skeletonClassName)} />
         </div>
         <div className="grid grid-cols-[repeat(90,minmax(0,1fr))] items-end gap-[2px]">
           {Array.from({ length: 90 }).map((_, index) => (
-            <Skeleton key={index} className="h-10 w-full rounded-sm" />
+            <Skeleton
+              key={index}
+              className={cn("h-10 w-full rounded-sm", theme.skeletonClassName)}
+            />
           ))}
         </div>
       </UptimeCard>
 
-      <UptimeCard>
-        <Skeleton className="mb-4 h-5 w-36" />
+      <UptimeCard theme={theme}>
+        <Skeleton className={cn("mb-4 h-5 w-36", theme.skeletonClassName)} />
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div key={index} className="space-y-2">
-              <Skeleton className="h-9 w-28" />
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-3 w-14" />
+              <Skeleton className={cn("h-9 w-28", theme.skeletonClassName)} />
+              <Skeleton className={cn("h-3 w-20", theme.skeletonClassName)} />
+              <Skeleton className={cn("h-3 w-14", theme.skeletonClassName)} />
             </div>
           ))}
         </div>
       </UptimeCard>
 
-      <UptimeCard>
+      <UptimeCard theme={theme}>
         <div className="mb-3 flex items-baseline gap-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-3 w-20" />
+          <Skeleton className={cn("h-5 w-32", theme.skeletonClassName)} />
+          <Skeleton className={cn("h-3 w-20", theme.skeletonClassName)} />
         </div>
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className={cn("h-48 w-full rounded-xl", theme.skeletonClassName)} />
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="space-y-2">
-              <Skeleton className="h-8 w-24" />
-              <Skeleton className="h-3 w-32" />
+              <Skeleton className={cn("h-8 w-24", theme.skeletonClassName)} />
+              <Skeleton className={cn("h-3 w-32", theme.skeletonClassName)} />
             </div>
           ))}
         </div>
@@ -284,7 +337,8 @@ function formatBucketDate(value: string) {
 
 function uptimeTextClass(value: number | null, failureCount: number) {
   if (value == null) return "text-muted-foreground";
-  if (failureCount > 0 || value < 99) return "text-rose-600";
-  if (value < 99.9) return "text-amber-600";
+  if (value >= 90) return "text-emerald-600";
+  if (failureCount > 0 || value < 75) return "text-rose-600";
+  if (value < 90) return "text-amber-600";
   return "text-emerald-600";
 }

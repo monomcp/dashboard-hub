@@ -13,6 +13,7 @@ import {
   Bot,
   Dna,
   ExternalLink,
+  Gauge,
   HelpCircle,
   ImagePlus,
   KeyRound,
@@ -40,6 +41,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
+import { TasksUptimeView } from "@/components/tasks-uptime-view";
 import { darkPermissionsTheme } from "@/lib/permissions-theme";
 import { FontPicker } from "@/components/font-picker";
 import { Button } from "@/components/ui/button";
@@ -78,9 +80,9 @@ import { fontStack, useGoogleFonts } from "@/lib/fonts";
 import type { CatalogServer, ToolkitAccessMatrix } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
-type BrandView = "dna" | "tov" | "competitors" | "permissions" | "activity";
+type BrandView = "dna" | "tov" | "competitors" | "permissions" | "activity" | "uptime";
 
-const BRAND_VIEWS: BrandView[] = ["dna", "tov", "competitors", "permissions", "activity"];
+const BRAND_VIEWS: BrandView[] = ["dna", "tov", "competitors", "permissions", "activity", "uptime"];
 
 function isBrandView(value: string): value is BrandView {
   return (BRAND_VIEWS as string[]).includes(value);
@@ -193,6 +195,7 @@ const NAV = [
   { id: "competitors", label: "Competitors", icon: Swords },
   { id: "permissions", label: "Permissions", icon: KeyRound },
   { id: "activity", label: "Activity", icon: ShieldCheck },
+  { id: "uptime", label: "Uptime", icon: Gauge },
 ] satisfies { id: BrandView; label: string; icon: typeof Dna }[];
 
 const EMPTY_PROFILE_FORM: ProfileForm = {
@@ -582,6 +585,25 @@ function BrandDnaPage() {
         brandServer={brandServer}
         catalogReady={catalogReady}
         onApiError={handleApiError}
+      />
+    );
+  } else if (view === "uptime") {
+    viewContent = (
+      <TasksUptimeView
+        moduleSlug="brand"
+        onApiError={handleApiError}
+        onViewHistory={() => setView("activity")}
+        theme={{
+          cardClassName: "rounded-3xl bg-[#33362a] p-5 ring-1 ring-white/5 sm:p-6",
+          mutedClassName: "text-[#c4c8b0]/75",
+          headingClassName: "text-[#e8eadb]",
+          linkClassName: "text-[#cfe09a] hover:text-[#dcebab]",
+          emptyChartClassName: "bg-[#272a1f] text-[#c4c8b0]/70 ring-1 ring-white/5",
+          chartGridStroke: "rgba(232,234,219,0.14)",
+          chartLabelFill: "rgba(196,200,176,0.72)",
+          chartLineStroke: "#86d86d",
+          skeletonClassName: "bg-[#424632]",
+        }}
       />
     );
   } else if (!loading && view === "dna") {

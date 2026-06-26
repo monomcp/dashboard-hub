@@ -8,6 +8,7 @@ import {
   Plus,
   Settings,
   Database,
+  Gauge,
   ChevronDown,
   Edit3,
   Trash2,
@@ -82,6 +83,7 @@ import { LlmsFullView, LlmsView, RobotsView } from "@/components/cms-discovery-v
 import { PermissionsMatrix } from "@/components/permissions-matrix";
 import { lightPermissionsTheme } from "@/lib/permissions-theme";
 import { ActivityLog } from "@/components/activity-log";
+import { TasksUptimeView } from "@/components/tasks-uptime-view";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -286,6 +288,7 @@ type View =
   | { kind: "llms-full" }
   | { kind: "permissions" }
   | { kind: "activity" }
+  | { kind: "uptime" }
   | { kind: "navigation" }
   | { kind: "api-tokens" };
 
@@ -1049,6 +1052,26 @@ function CmsPage() {
                     />
                     <span className="truncate text-left">Activity</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      setView({ kind: "uptime" });
+                      setSelected([]);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition",
+                      view.kind === "uptime"
+                        ? "bg-indigo-50 font-semibold text-indigo-700"
+                        : "text-foreground/80 hover:bg-white/60",
+                    )}
+                  >
+                    <Gauge
+                      className={cn(
+                        "h-4 w-4",
+                        view.kind === "uptime" ? "text-indigo-600" : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="truncate text-left">Uptime</span>
+                  </button>
                 </div>
               )}
 
@@ -1233,6 +1256,17 @@ function CmsPage() {
                   : Boolean(log.path?.startsWith("/api/v1/cms"))
               }
               description="Every change made to your content through Console and via CMS tool calls."
+            />
+          )}
+
+          {!loading && view.kind === "uptime" && (
+            <TasksUptimeView
+              moduleSlug="cms"
+              onApiError={handleApiError}
+              onViewHistory={() => {
+                setView({ kind: "activity" });
+                setSelected([]);
+              }}
             />
           )}
 

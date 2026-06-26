@@ -41,6 +41,7 @@ function TasksUptimePage() {
         </div>
       )}
       <TasksUptimeView
+        moduleSlug="tasks"
         onApiError={handleApiError}
         onViewHistory={() => void navigate({ to: "/tasks/activity" })}
       />
