@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import {
   Bot,
   CalendarClock,
-  Expand,
   FilePlus,
   HelpCircle,
   ListChecks,
@@ -191,14 +190,6 @@ function MonoAgentPage() {
                     Start a chat, launch a task, or choose a common FinOps workflow.
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full text-muted-foreground"
-                  aria-label="Expand composer"
-                >
-                  <Expand className="h-4 w-4" />
-                </Button>
               </div>
 
               <form
