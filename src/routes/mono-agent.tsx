@@ -180,19 +180,24 @@ function MonoAgentPage() {
         <main
           className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
-          <section className="min-h-[calc(100vh-6rem)] rounded-3xl bg-slate-950 px-4 py-8 text-slate-100 shadow-sm ring-1 ring-black/5 sm:px-8 lg:px-12">
+          <section className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-6">
             <div className="mx-auto w-full max-w-6xl">
-              <div className="flex items-start justify-between gap-4">
-                <h1 className="text-3xl font-semibold tracking-normal text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-indigo-400 to-violet-400 sm:text-4xl">
-                  Delegate work to FinOps Agent
-                </h1>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Delegate work to FinOps Agent
+                  </h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Start a chat, launch a task, or choose a common FinOps workflow.
+                  </p>
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="rounded-full text-slate-300 hover:bg-slate-800 hover:text-white"
+                  className="rounded-full text-muted-foreground"
                   aria-label="Expand composer"
                 >
-                  <Expand className="h-5 w-5" />
+                  <Expand className="h-4 w-4" />
                 </Button>
               </div>
 
@@ -208,35 +213,35 @@ function MonoAgentPage() {
                     maxLength={1000}
                     onChange={(event) => setPrompt(event.target.value)}
                     placeholder="Fin"
-                    className="min-h-40 resize-y rounded-xl border-slate-500/80 bg-slate-950 pr-16 text-lg text-slate-100 shadow-none placeholder:text-slate-300 placeholder:italic focus-visible:ring-violet-400"
+                    className="min-h-40 resize-y rounded-lg bg-background pr-14 text-sm shadow-none placeholder:text-muted-foreground placeholder:italic focus-visible:ring-violet-200"
                   />
                   <Button
                     type="submit"
                     variant="ghost"
                     size="icon"
-                    className="absolute bottom-3 right-3 rounded-full text-slate-300 hover:bg-slate-800 hover:text-white"
+                    className="absolute bottom-3 right-3 rounded-full text-muted-foreground hover:bg-violet-50 hover:text-violet-700"
                     aria-label="Send message"
                     disabled={prompt.trim().length === 0}
                   >
-                    <Send className="h-6 w-6" />
+                    <Send className="h-5 w-5" />
                   </Button>
                 </div>
-                <div className="mt-2 text-right text-sm font-medium text-slate-300">
+                <div className="mt-2 text-right text-sm text-muted-foreground">
                   {1000 - remaining}/1000 characters maximum
                 </div>
               </form>
 
-              <div className="mt-14">
-                <p className="text-sm font-semibold text-slate-400">
+              <div className="mt-8">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Get started with a common task:
                 </p>
-                <div className="mt-6 space-y-3">
+                <div className="mt-3 space-y-3">
                   {PRESETS.map((preset) => (
                     <button
                       key={preset}
                       type="button"
                       onClick={() => setPrompt(preset.slice(0, 1000))}
-                      className="w-full rounded-lg border border-violet-500/90 px-4 py-3 text-left text-base font-semibold leading-7 text-violet-300 transition hover:bg-violet-500/10 hover:text-violet-200"
+                      className="w-full rounded-xl border border-black/5 bg-[hsl(220,33%,98%)] px-4 py-3 text-left text-sm font-medium leading-6 text-foreground/80 transition hover:bg-violet-50 hover:text-violet-900"
                     >
                       {preset}
                     </button>

@@ -66,12 +66,45 @@ type Automation = {
   id: string;
   name: string;
   trigger: string;
-  status: "Active" | "Paused" | "Error";
+  status: "Active" | "Paused" | "Creating" | "Error";
   enabled: boolean;
   lastTriggered: string;
 };
 
-const AUTOMATIONS: Automation[] = [];
+const AUTOMATIONS: Automation[] = [
+  {
+    id: "auto-weekly-cost-report",
+    name: "Weekly cost report for CTO",
+    trigger: "Schedule",
+    status: "Creating",
+    enabled: true,
+    lastTriggered: "-",
+  },
+  {
+    id: "auto-s3-daily-cost-check",
+    name: "Daily S3 cost check",
+    trigger: "Daily at 12 PM EST",
+    status: "Active",
+    enabled: true,
+    lastTriggered: "Today, 12:00 PM",
+  },
+  {
+    id: "auto-cost-anomaly-slack",
+    name: "Cost anomaly Slack alerts",
+    trigger: "Cost Anomaly Detection event",
+    status: "Active",
+    enabled: true,
+    lastTriggered: "Yesterday, 4:18 PM",
+  },
+  {
+    id: "auto-idle-rds-jira",
+    name: "Idle RDS Jira ticket",
+    trigger: "Weekly on Monday",
+    status: "Paused",
+    enabled: false,
+    lastTriggered: "Jun 29, 2026",
+  },
+];
 
 function MonoAgentAutomationsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -317,10 +350,32 @@ function MonoAgentAutomationsPage() {
                           }}
                           aria-label={`Select ${a.name}`}
                         />
-                        <span className="truncate text-sm font-medium">{a.name}</span>
+                        <Link
+                          to="/mono-agent/create"
+                          className="truncate text-sm font-medium text-violet-700 underline-offset-4 hover:underline"
+                        >
+                          {a.name}
+                        </Link>
                         <span className="truncate text-sm text-foreground/80">{a.trigger}</span>
-                        <span className="text-sm">{a.status}</span>
-                        <span className="text-sm">{a.enabled ? "Yes" : "No"}</span>
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            a.status === "Active" && "text-emerald-700",
+                            a.status === "Paused" && "text-muted-foreground",
+                            a.status === "Creating" && "text-foreground/70",
+                            a.status === "Error" && "text-destructive",
+                          )}
+                        >
+                          {a.status}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            a.enabled ? "text-emerald-700" : "text-muted-foreground",
+                          )}
+                        >
+                          {a.enabled ? "Yes" : "No"}
+                        </span>
                         <span className="text-sm text-muted-foreground">{a.lastTriggered}</span>
                       </li>
                     );
