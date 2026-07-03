@@ -14,6 +14,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PrincipalsRouteImport } from './routes/principals'
 import { Route as PinterestRouteImport } from './routes/pinterest'
 import { Route as PermissionsRouteImport } from './routes/permissions'
+import { Route as MonoAgentRouteImport } from './routes/mono-agent'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
@@ -33,6 +34,7 @@ import { Route as TasksPermissionsRouteImport } from './routes/tasks.permissions
 import { Route as TasksActivityRouteImport } from './routes/tasks.activity'
 import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
+import { Route as MonoAgentCreateRouteImport } from './routes/mono-agent.create'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
@@ -60,6 +62,11 @@ const PinterestRoute = PinterestRouteImport.update({
 const PermissionsRoute = PermissionsRouteImport.update({
   id: '/permissions',
   path: '/permissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonoAgentRoute = MonoAgentRouteImport.update({
+  id: '/mono-agent',
+  path: '/mono-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -157,6 +164,11 @@ const PermissionsToolkitIdRoute = PermissionsToolkitIdRouteImport.update({
   path: '/$toolkitId',
   getParentRoute: () => PermissionsRoute,
 } as any)
+const MonoAgentCreateRoute = MonoAgentCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => MonoAgentRoute,
+} as any)
 const ContentViewRoute = ContentViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -187,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/mono-agent': typeof MonoAgentRouteWithChildren
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
   '/principals': typeof PrincipalsRoute
@@ -194,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
   '/tasks/activity': typeof TasksActivityRoute
@@ -216,6 +230,7 @@ export interface FileRoutesByTo {
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/mono-agent': typeof MonoAgentRouteWithChildren
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
   '/principals': typeof PrincipalsRoute
@@ -223,6 +238,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
   '/tasks/activity': typeof TasksActivityRoute
@@ -246,6 +262,7 @@ export interface FileRoutesById {
   '/firecrawl': typeof FirecrawlRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/mono-agent': typeof MonoAgentRouteWithChildren
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
   '/principals': typeof PrincipalsRoute
@@ -253,6 +270,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
   '/tasks/activity': typeof TasksActivityRoute
@@ -277,6 +295,7 @@ export interface FileRouteTypes {
     | '/firecrawl'
     | '/login'
     | '/mcp'
+    | '/mono-agent'
     | '/permissions'
     | '/pinterest'
     | '/principals'
@@ -284,6 +303,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
     | '/tasks/activity'
@@ -306,6 +326,7 @@ export interface FileRouteTypes {
     | '/firecrawl'
     | '/login'
     | '/mcp'
+    | '/mono-agent'
     | '/permissions'
     | '/pinterest'
     | '/principals'
@@ -313,6 +334,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
     | '/tasks/activity'
@@ -335,6 +357,7 @@ export interface FileRouteTypes {
     | '/firecrawl'
     | '/login'
     | '/mcp'
+    | '/mono-agent'
     | '/permissions'
     | '/pinterest'
     | '/principals'
@@ -342,6 +365,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
     | '/tasks/activity'
@@ -365,6 +389,7 @@ export interface RootRouteChildren {
   FirecrawlRoute: typeof FirecrawlRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
+  MonoAgentRoute: typeof MonoAgentRouteWithChildren
   PermissionsRoute: typeof PermissionsRouteWithChildren
   PinterestRoute: typeof PinterestRouteWithChildren
   PrincipalsRoute: typeof PrincipalsRoute
@@ -413,6 +438,13 @@ declare module '@tanstack/react-router' {
       path: '/permissions'
       fullPath: '/permissions'
       preLoaderRoute: typeof PermissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mono-agent': {
+      id: '/mono-agent'
+      path: '/mono-agent'
+      fullPath: '/mono-agent'
+      preLoaderRoute: typeof MonoAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -548,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PermissionsToolkitIdRouteImport
       parentRoute: typeof PermissionsRoute
     }
+    '/mono-agent/create': {
+      id: '/mono-agent/create'
+      path: '/create'
+      fullPath: '/mono-agent/create'
+      preLoaderRoute: typeof MonoAgentCreateRouteImport
+      parentRoute: typeof MonoAgentRoute
+    }
     '/content/$view': {
       id: '/content/$view'
       path: '/$view'
@@ -582,6 +621,18 @@ const ContentRouteChildren: ContentRouteChildren = {
 
 const ContentRouteWithChildren =
   ContentRoute._addFileChildren(ContentRouteChildren)
+
+interface MonoAgentRouteChildren {
+  MonoAgentCreateRoute: typeof MonoAgentCreateRoute
+}
+
+const MonoAgentRouteChildren: MonoAgentRouteChildren = {
+  MonoAgentCreateRoute: MonoAgentCreateRoute,
+}
+
+const MonoAgentRouteWithChildren = MonoAgentRoute._addFileChildren(
+  MonoAgentRouteChildren,
+)
 
 interface PermissionsRouteChildren {
   PermissionsToolkitIdRoute: typeof PermissionsToolkitIdRoute
@@ -621,6 +672,7 @@ const rootRouteChildren: RootRouteChildren = {
   FirecrawlRoute: FirecrawlRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
+  MonoAgentRoute: MonoAgentRouteWithChildren,
   PermissionsRoute: PermissionsRouteWithChildren,
   PinterestRoute: PinterestRouteWithChildren,
   PrincipalsRoute: PrincipalsRoute,
@@ -636,13 +688,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
