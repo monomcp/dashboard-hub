@@ -35,6 +35,7 @@ import { Route as TasksActivityRouteImport } from './routes/tasks.activity'
 import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as MonoAgentCreateRouteImport } from './routes/mono-agent_.create'
+import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.automations'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
@@ -169,6 +170,11 @@ const MonoAgentCreateRoute = MonoAgentCreateRouteImport.update({
   path: '/mono-agent/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonoAgentAutomationsRoute = MonoAgentAutomationsRouteImport.update({
+  id: '/mono-agent_/automations',
+  path: '/mono-agent/automations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContentViewRoute = ContentViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -207,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/mono-agent_/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent_/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
@@ -303,6 +312,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
@@ -365,6 +376,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/mono-agent_/automations'
     | '/mono-agent_/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
@@ -396,6 +408,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
+  MonoAgentAutomationsRoute: typeof MonoAgentAutomationsRoute
   MonoAgentCreateRoute: typeof MonoAgentCreateRoute
   TasksActivityRoute: typeof TasksActivityRoute
   TasksPermissionsRoute: typeof TasksPermissionsRoute
@@ -588,6 +601,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonoAgentCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mono-agent_/automations': {
+      id: '/mono-agent_/automations'
+      path: '/mono-agent/automations'
+      fullPath: '/mono-agent/automations'
+      preLoaderRoute: typeof MonoAgentAutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/content/$view': {
       id: '/content/$view'
       path: '/$view'
@@ -668,6 +688,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,
+  MonoAgentAutomationsRoute: MonoAgentAutomationsRoute,
   MonoAgentCreateRoute: MonoAgentCreateRoute,
   TasksActivityRoute: TasksActivityRoute,
   TasksPermissionsRoute: TasksPermissionsRoute,

@@ -1,13 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  Menu,
-  Search,
-  HelpCircle,
-  Settings,
-  Bot,
-  ChevronRight,
-} from "lucide-react";
+import { Menu, Search, HelpCircle, Settings, Bot, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,14 +22,12 @@ export const Route = createFileRoute("/mono-agent_/create")({
       { title: "Create automation — Mono Agent" },
       {
         name: "description",
-        content:
-          "Create a recurring or event-triggered automation for the Mono Agent.",
+        content: "Create a recurring or event-triggered automation for the Mono Agent.",
       },
       { property: "og:title", content: "Create automation — Mono Agent" },
       {
         property: "og:description",
-        content:
-          "Create a recurring or event-triggered automation for the Mono Agent.",
+        content: "Create a recurring or event-triggered automation for the Mono Agent.",
       },
     ],
     links: [{ rel: "canonical", href: "/mono-agent/create" }],
@@ -97,7 +88,7 @@ function CreateAutomationPage() {
 
       <main className="mx-auto w-full max-w-4xl px-4 pb-16 md:px-6">
         <nav className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
-          <Link to="/mono-agent" className="text-violet-700 hover:underline">
+          <Link to="/mono-agent/automations" className="text-violet-700 hover:underline">
             Automations
           </Link>
           <ChevronRight className="h-4 w-4" />
@@ -110,7 +101,7 @@ function CreateAutomationPage() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!canSubmit) return;
-            navigate({ to: "/mono-agent" });
+            navigate({ to: "/mono-agent/automations" });
           }}
         >
           <Section title="Instructions">
@@ -267,8 +258,8 @@ function CreateAutomationPage() {
               <div className="mt-4 space-y-2">
                 <Label>Delivery time</Label>
                 <p className="text-xs text-muted-foreground">
-                  Time is converted to UTC before scheduling. Schedules may shift by one hour
-                  during daylight saving transitions.
+                  Time is converted to UTC before scheduling. Schedules may shift by one hour during
+                  daylight saving transitions.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Input
@@ -330,7 +321,7 @@ function CreateAutomationPage() {
               type="button"
               variant="outline"
               className="rounded-full"
-              onClick={() => navigate({ to: "/mono-agent" })}
+              onClick={() => navigate({ to: "/mono-agent/automations" })}
             >
               Cancel
             </Button>
