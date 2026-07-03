@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Grip, Pencil, X } from "lucide-react";
+import { Bot, Grip, Pencil, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,13 @@ const FAVOURITE_APPS: App[] = [
     to: "/contacts",
   },
   { name: "Tasks", color: "bg-gradient-to-br from-sky-400 to-indigo-500", letter: "✓", to: "/" },
+  {
+    name: "Mono Agent",
+    color: "bg-gradient-to-br from-violet-600 via-indigo-500 to-sky-500",
+    letter: "M",
+    icon: <Bot className="h-6 w-6 text-white" />,
+    to: "/mono-agent",
+  },
   {
     name: "Email",
     color: "bg-gradient-to-br from-rose-500 via-amber-400 to-rose-400",

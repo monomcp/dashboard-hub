@@ -23,7 +23,7 @@ import { AppsMenu } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/mono-agent/create")({
+export const Route = createFileRoute("/mono-agent_/create")({
   head: () => ({
     meta: [
       { title: "Create automation — Mono Agent" },
