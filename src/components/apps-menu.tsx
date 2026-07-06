@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Grip, Pencil, X } from "lucide-react";
+import { Bot, Github, Grip, Pencil, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
@@ -111,6 +111,13 @@ const FAVOURITE_APPS: App[] = [
     letter: "P",
     icon: <PinterestIcon className="h-6 w-6" />,
     to: "/pinterest",
+  },
+  {
+    name: "GitHub",
+    color: "bg-neutral-900",
+    letter: "G",
+    icon: <Github className="h-6 w-6 text-white" />,
+    to: "/github",
   },
 ];
 
