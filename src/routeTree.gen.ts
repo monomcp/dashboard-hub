@@ -17,6 +17,7 @@ import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as MonoAgentRouteImport } from './routes/mono-agent'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GithubRouteImport } from './routes/github'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DriveRouteImport } from './routes/drive'
@@ -36,6 +37,7 @@ import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as MonoAgentCreateRouteImport } from './routes/mono-agent_.create'
 import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.automations'
+import { Route as GithubViewRouteImport } from './routes/github.$view'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
@@ -78,6 +80,11 @@ const McpRoute = McpRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GithubRoute = GithubRouteImport.update({
+  id: '/github',
+  path: '/github',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FirecrawlRoute = FirecrawlRouteImport.update({
@@ -175,6 +182,11 @@ const MonoAgentAutomationsRoute = MonoAgentAutomationsRouteImport.update({
   path: '/mono-agent/automations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GithubViewRoute = GithubViewRouteImport.update({
+  id: '/$view',
+  path: '/$view',
+  getParentRoute: () => GithubRoute,
+} as any)
 const ContentViewRoute = ContentViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -203,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
+  '/github': typeof GithubRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -213,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/github/$view': typeof GithubViewRoute
   '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -235,6 +249,7 @@ export interface FileRoutesByTo {
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
+  '/github': typeof GithubRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -245,6 +260,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/github/$view': typeof GithubViewRoute
   '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -268,6 +284,7 @@ export interface FileRoutesById {
   '/drive': typeof DriveRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
+  '/github': typeof GithubRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -278,6 +295,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/github/$view': typeof GithubViewRoute
   '/mono-agent_/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent_/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -302,6 +320,7 @@ export interface FileRouteTypes {
     | '/drive'
     | '/email'
     | '/firecrawl'
+    | '/github'
     | '/login'
     | '/mcp'
     | '/mono-agent'
@@ -312,6 +331,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/github/$view'
     | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
@@ -334,6 +354,7 @@ export interface FileRouteTypes {
     | '/drive'
     | '/email'
     | '/firecrawl'
+    | '/github'
     | '/login'
     | '/mcp'
     | '/mono-agent'
@@ -344,6 +365,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/github/$view'
     | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
@@ -366,6 +388,7 @@ export interface FileRouteTypes {
     | '/drive'
     | '/email'
     | '/firecrawl'
+    | '/github'
     | '/login'
     | '/mcp'
     | '/mono-agent'
@@ -376,6 +399,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/github/$view'
     | '/mono-agent_/automations'
     | '/mono-agent_/create'
     | '/permissions/$toolkitId'
@@ -399,6 +423,7 @@ export interface RootRouteChildren {
   DriveRoute: typeof DriveRoute
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
+  GithubRoute: typeof GithubRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   MonoAgentRoute: typeof MonoAgentRoute
@@ -473,6 +498,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/github': {
+      id: '/github'
+      path: '/github'
+      fullPath: '/github'
+      preLoaderRoute: typeof GithubRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/firecrawl': {
@@ -608,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonoAgentAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/github/$view': {
+      id: '/github/$view'
+      path: '/$view'
+      fullPath: '/github/$view'
+      preLoaderRoute: typeof GithubViewRouteImport
+      parentRoute: typeof GithubRoute
+    }
     '/content/$view': {
       id: '/content/$view'
       path: '/$view'
@@ -642,6 +681,17 @@ const ContentRouteChildren: ContentRouteChildren = {
 
 const ContentRouteWithChildren =
   ContentRoute._addFileChildren(ContentRouteChildren)
+
+interface GithubRouteChildren {
+  GithubViewRoute: typeof GithubViewRoute
+}
+
+const GithubRouteChildren: GithubRouteChildren = {
+  GithubViewRoute: GithubViewRoute,
+}
+
+const GithubRouteWithChildren =
+  GithubRoute._addFileChildren(GithubRouteChildren)
 
 interface PermissionsRouteChildren {
   PermissionsToolkitIdRoute: typeof PermissionsToolkitIdRoute
@@ -679,6 +729,7 @@ const rootRouteChildren: RootRouteChildren = {
   DriveRoute: DriveRoute,
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
+  GithubRoute: GithubRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   MonoAgentRoute: MonoAgentRoute,
@@ -699,13 +750,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
