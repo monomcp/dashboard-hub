@@ -29,6 +29,22 @@ import { GithubIcon } from "@/components/github-icon";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -283,6 +299,33 @@ function GithubPage() {
       <div className="flex">
         {sidebarOpen && (
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
+                  disabled={install.isPending}
+                >
+                  <Plus className="mr-1 h-5 w-5" /> Add
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 rounded-2xl p-1.5">
+                <DropdownMenuItem
+                  className="gap-3 rounded-lg py-2.5"
+                  disabled={install.isPending}
+                  onSelect={() => install.mutate()}
+                >
+                  <Building2 className="h-4 w-4" /> Add account
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="gap-3 rounded-lg py-2.5"
+                  disabled={install.isPending}
+                  onSelect={() => install.mutate()}
+                >
+                  <BookOpen className="h-4 w-4" /> Add repositories
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <nav className="space-y-1">
               {GITHUB_NAV.map((item) => {
                 const isActive = view === item.id;
@@ -517,6 +560,8 @@ function AccountsView({
   onDisconnect: (id: string) => void;
   disconnectingId: string | null;
 }) {
+  const [pendingDisconnect, setPendingDisconnect] = useState<GithubInstallation | null>(null);
+
   return (
     <>
       <ViewHeader
@@ -603,7 +648,7 @@ function AccountsView({
                   className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
                   aria-label={`Disconnect ${installation.account_login}`}
                   disabled={disconnectingId === installation.id}
-                  onClick={() => onDisconnect(installation.id)}
+                  onClick={() => setPendingDisconnect(installation)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -621,6 +666,36 @@ function AccountsView({
           );
         })}
       </div>
+
+      <AlertDialog
+        open={pendingDisconnect !== null}
+        onOpenChange={(open) => {
+          if (!open && !disconnectingId) setPendingDisconnect(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Disconnect {pendingDisconnect?.account_login ?? "this account"} from MonoMCP?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(disconnectingId)} className="rounded-lg">
+              No
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!pendingDisconnect || Boolean(disconnectingId)}
+              className="rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDisconnect) onDisconnect(pendingDisconnect.id);
+              }}
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
