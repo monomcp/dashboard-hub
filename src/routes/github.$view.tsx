@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
+import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { GithubAuditLog } from "@/components/github-audit-log";
 import { GithubIcon } from "@/components/github-icon";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
@@ -200,7 +201,6 @@ function GithubPage() {
   const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
-    enabled: view === "permissions",
     staleTime: 60 * 1000,
   });
   const githubServer = catalog?.find((server) => server.slug === "github");
@@ -266,6 +266,15 @@ function GithubPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {githubServer && (
+            <div className="mr-1">
+              <EnableMcpServerButton
+                serverSlug="github"
+                enabled={githubServer.enabled}
+                toolkitIds={githubServer.toolkit_ids}
+              />
+            </div>
+          )}
           <AppsMenu />
           <AccountMenu />
         </div>
