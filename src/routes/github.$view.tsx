@@ -50,7 +50,13 @@ import {
 import { cn } from "@/lib/utils";
 
 type GithubView =
-  "connect" | "accounts" | "repositories" | "permissions" | "audit" | "status" | "releases";
+  | "connect"
+  | "accounts"
+  | "repositories"
+  | "permissions"
+  | "audit"
+  | "status"
+  | "releases";
 
 const GITHUB_VIEWS: GithubView[] = [
   "connect",
@@ -160,11 +166,23 @@ function GithubPage() {
   });
 
   const install = useMutation({
-    mutationFn: () => apiRequest<GithubInstallUrlResponse>("/api/v1/github/install-url"),
-    onSuccess: (data) => {
-      window.location.href = data.url;
+    mutationFn: (installTab: Window | null) =>
+      apiRequest<GithubInstallUrlResponse>("/api/v1/github/install-url").then((data) => ({
+        data,
+        installTab,
+      })),
+    onSuccess: ({ data, installTab }) => {
+      if (installTab) {
+        installTab.location.href = data.url;
+        return;
+      }
+
+      window.open(data.url, "_blank", "noopener,noreferrer");
     },
-    onError: (err) => handleApiError(err, "Couldn't start the GitHub install flow"),
+    onError: (err, installTab) => {
+      installTab?.close();
+      handleApiError(err, "Couldn't start the GitHub install flow");
+    },
   });
 
   const disconnectInstallation = useMutation({
@@ -250,7 +268,7 @@ function GithubPage() {
             <ConnectView
               connectedCount={connectedCount}
               installing={install.isPending}
-              onInstall={() => install.mutate()}
+              onInstall={() => install.mutate(window.open("", "_blank", "noopener,noreferrer"))}
             />
           )}
 
@@ -259,7 +277,7 @@ function GithubPage() {
               installations={installations.data?.items ?? []}
               isLoading={installations.isLoading}
               isError={installations.isError}
-              onInstall={() => install.mutate()}
+              onInstall={() => install.mutate(window.open("", "_blank", "noopener,noreferrer"))}
               installing={install.isPending}
               onDisconnect={(id) => disconnectInstallation.mutate(id)}
               disconnectingId={
@@ -275,7 +293,7 @@ function GithubPage() {
               isError={repositories.isError}
               search={search}
               onSearchChange={setSearch}
-              onInstall={() => install.mutate()}
+              onInstall={() => install.mutate(window.open("", "_blank", "noopener,noreferrer"))}
               installing={install.isPending}
               onToggle={(repositoryId, connected) =>
                 toggleRepository.mutate({ repositoryId, connected })
