@@ -360,13 +360,13 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
               stacked
             >
               {toolkitsLoading ? (
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-3">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                    <Skeleton key={i} className="h-20 w-full rounded-lg" />
                   ))}
                 </div>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-3">
                   {toolkits.map((t) => {
                     const checked = selected.has(t.id);
                     return (
@@ -376,7 +376,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                         onClick={() => toggle(t.id)}
                         aria-pressed={checked}
                         className={cn(
-                          "relative flex min-h-24 w-full flex-col items-start justify-between rounded-lg border p-3 pr-10 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          "relative flex min-h-20 w-full flex-col items-start justify-between rounded-lg border p-3 pr-9 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           checked
                             ? "border-foreground/30 bg-muted hover:bg-muted"
                             : "border-border bg-background hover:bg-muted/60",
@@ -404,7 +404,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                       type="button"
                       onClick={cancelNew}
                       aria-pressed="true"
-                      className="relative flex min-h-24 w-full flex-col items-start justify-between rounded-lg border border-emerald-600/40 bg-emerald-50 p-3 pr-10 text-left text-sm transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="relative flex min-h-20 w-full flex-col items-start justify-between rounded-lg border border-emerald-600/40 bg-emerald-50 p-3 pr-9 text-left text-sm transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <span className="min-w-0 max-w-full">
                         <span className="block truncate font-medium text-foreground">
@@ -417,7 +417,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                   )}
 
                   {addingNew ? (
-                    <div className="flex min-h-24 w-full flex-col justify-center rounded-lg border bg-background p-3">
+                    <div className="flex min-h-20 w-full flex-col justify-center rounded-lg border bg-background p-3">
                       <Input
                         id="new-toolkit-name"
                         autoFocus
@@ -458,7 +458,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                       <button
                         type="button"
                         onClick={() => setAddingNew(true)}
-                        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-background p-3 text-sm text-muted-foreground transition hover:border-foreground/30 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex min-h-20 w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-background p-3 text-sm text-muted-foreground transition hover:border-foreground/30 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         <span className="grid h-5 w-5 place-items-center rounded-full border border-current">
                           <Plus className="h-3.5 w-3.5" />
