@@ -152,6 +152,29 @@ function Section({
   );
 }
 
+function ToolkitSelectionIndicator({
+  checked,
+  className,
+}: {
+  checked: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "grid h-4 w-4 shrink-0 place-items-center rounded-full border",
+        checked
+          ? "border-emerald-600 bg-emerald-600 text-white"
+          : "border-muted-foreground/40 bg-background",
+        className,
+      )}
+      aria-hidden="true"
+    >
+      {checked && <Check className="h-3 w-3" />}
+    </span>
+  );
+}
+
 export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -334,15 +357,16 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
             <Section
               title="Toolkits"
               hint="Select one or more toolkits to expose these tools, or create a new one. Click a selected toolkit to remove it."
+              stacked
             >
               {toolkitsLoading ? (
-                <div className="space-y-1.5">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-11 w-full rounded-lg" />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-24 w-full rounded-lg" />
                   ))}
                 </div>
               ) : (
-                <div className="space-y-1.5">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {toolkits.map((t) => {
                     const checked = selected.has(t.id);
                     return (
@@ -350,25 +374,26 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                         key={t.id}
                         type="button"
                         onClick={() => toggle(t.id)}
+                        aria-pressed={checked}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition hover:bg-muted",
-                          checked ? "border-foreground/30 bg-muted" : "border-border",
+                          "relative flex min-h-24 w-full flex-col items-start justify-between rounded-lg border p-3 pr-10 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          checked
+                            ? "border-foreground/30 bg-muted hover:bg-muted"
+                            : "border-border bg-background hover:bg-muted/60",
                         )}
                       >
-                        <span className="min-w-0 truncate">
-                          {t.name}
-                          <span className="ml-1.5 text-xs text-muted-foreground">/{t.slug}</span>
+                        <span className="min-w-0 max-w-full">
+                          <span className="block truncate font-medium text-foreground">
+                            {t.name}
+                          </span>
+                          <span className="mt-1 block truncate text-xs text-muted-foreground">
+                            /{t.slug}
+                          </span>
                         </span>
-                        <span
-                          className={cn(
-                            "grid h-4 w-4 shrink-0 place-items-center rounded-full border",
-                            checked
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-muted-foreground/40",
-                          )}
-                        >
-                          {checked && <Check className="h-3 w-3" />}
-                        </span>
+                        <ToolkitSelectionIndicator
+                          checked={checked}
+                          className="absolute right-3 top-3"
+                        />
                       </button>
                     );
                   })}
@@ -378,70 +403,72 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                     <button
                       type="button"
                       onClick={cancelNew}
-                      className="flex w-full items-center justify-between rounded-lg border border-emerald-600/40 bg-emerald-50 px-3 py-2.5 text-left text-sm transition hover:bg-emerald-100"
+                      aria-pressed="true"
+                      className="relative flex min-h-24 w-full flex-col items-start justify-between rounded-lg border border-emerald-600/40 bg-emerald-50 p-3 pr-10 text-left text-sm transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <span className="min-w-0 truncate">
-                        {trimmedNew}
-                        <span className="ml-1.5 text-xs text-emerald-700">new toolkit</span>
+                      <span className="min-w-0 max-w-full">
+                        <span className="block truncate font-medium text-foreground">
+                          {trimmedNew}
+                        </span>
+                        <span className="mt-1 block text-xs text-emerald-700">new toolkit</span>
                       </span>
-                      <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
-                        <Check className="h-3 w-3" />
-                      </span>
+                      <ToolkitSelectionIndicator checked className="absolute right-3 top-3" />
                     </button>
+                  )}
+
+                  {addingNew ? (
+                    <div className="flex min-h-24 w-full flex-col justify-center rounded-lg border bg-background p-3">
+                      <Input
+                        id="new-toolkit-name"
+                        autoFocus
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            saveNew();
+                          } else if (e.key === "Escape") {
+                            cancelNew();
+                          }
+                        }}
+                        placeholder="New toolkit name"
+                        className="h-9"
+                      />
+                      <div className="mt-2 flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className="h-9 rounded-lg"
+                          onClick={saveNew}
+                          disabled={!newName.trim()}
+                        >
+                          Save
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={cancelNew}
+                          aria-label="Cancel"
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    !trimmedNew && (
+                      <button
+                        type="button"
+                        onClick={() => setAddingNew(true)}
+                        className="flex min-h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed bg-background p-3 text-sm text-muted-foreground transition hover:border-foreground/30 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <span className="grid h-5 w-5 place-items-center rounded-full border border-current">
+                          <Plus className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="font-medium">Add toolkit</span>
+                      </button>
+                    )
                   )}
                 </div>
               )}
-
-              {!toolkitsLoading &&
-                (addingNew ? (
-                  <div className="flex items-center gap-2 pt-1">
-                    <Input
-                      id="new-toolkit-name"
-                      autoFocus
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          saveNew();
-                        } else if (e.key === "Escape") {
-                          cancelNew();
-                        }
-                      }}
-                      placeholder="New toolkit name"
-                      className="h-9"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-9 rounded-lg"
-                      onClick={saveNew}
-                      disabled={!newName.trim()}
-                    >
-                      Save
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={cancelNew}
-                      aria-label="Cancel"
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  !trimmedNew && (
-                    <button
-                      type="button"
-                      onClick={() => setAddingNew(true)}
-                      className="flex items-center gap-2 rounded-lg px-1 pt-1 text-sm text-muted-foreground transition hover:text-foreground"
-                    >
-                      <span className="grid h-5 w-5 place-items-center rounded-full border border-current">
-                        <Plus className="h-3.5 w-3.5" />
-                      </span>
-                      Add toolkit
-                    </button>
-                  )
-                ))}
               <Label htmlFor="new-toolkit-name" className="sr-only">
                 New toolkit name
               </Label>
