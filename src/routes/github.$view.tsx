@@ -25,6 +25,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
 import { GithubAuditLog } from "@/components/github-audit-log";
 import { GithubIcon } from "@/components/github-icon";
+import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,11 +44,12 @@ import {
   githubManageUrl,
   type GithubInstallation,
   type GithubInstallUrlResponse,
-  type GithubPermissionsResponse,
   type GithubRepository,
   type GithubStatusResponse,
   type Page,
 } from "@/lib/github-types";
+import type { CatalogServer } from "@/lib/mcp-types";
+import { lightPermissionsTheme } from "@/lib/permissions-theme";
 import { cn } from "@/lib/utils";
 
 type GithubView =
@@ -195,12 +197,13 @@ function GithubPage() {
   const repositoriesError =
     repositories.isError || (shouldSearchRepositoriesOnServer && searchedRepositories.isError);
 
-  const permissions = useQuery({
-    queryKey: ["github-permissions"],
-    queryFn: () => apiRequest<GithubPermissionsResponse>("/api/v1/github/permissions"),
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     enabled: view === "permissions",
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000,
   });
+  const githubServer = catalog?.find((server) => server.slug === "github");
 
   const status = useQuery({
     queryKey: ["github-status"],
@@ -335,9 +338,9 @@ function GithubPage() {
 
           {view === "permissions" && (
             <PermissionsView
-              scopes={permissions.data?.scopes ?? []}
-              isLoading={permissions.isLoading}
-              isError={permissions.isError}
+              server={githubServer}
+              catalogLoading={catalogLoading}
+              onApiError={handleApiError}
             />
           )}
 
@@ -720,62 +723,32 @@ function RepositoriesView({
 }
 
 function PermissionsView({
-  scopes,
-  isLoading,
-  isError,
+  server,
+  catalogLoading,
+  onApiError,
 }: {
-  scopes: GithubPermissionsResponse["scopes"];
-  isLoading: boolean;
-  isError: boolean;
+  server: CatalogServer | undefined;
+  catalogLoading: boolean;
+  onApiError: (err: unknown, fallback?: string) => void;
 }) {
+  const toolkitIds = useMemo(() => server?.toolkit_ids ?? [], [server]);
+
+  if (catalogLoading && !server) {
+    return <PermissionsMatrixLoading theme={lightPermissionsTheme} />;
+  }
+
   return (
-    <>
-      <ViewHeader
-        title="Permissions"
-        description="Scopes requested by the MonoMCP GitHub App, and what's actually granted per installation."
-      />
-
-      {isError && (
-        <p className="mb-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Couldn&apos;t load permissions. Please try again.
-        </p>
-      )}
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-2xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
-          <ul className="divide-y divide-black/5">
-            {scopes.map((scope) => (
-              <li key={scope.key} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div>
-                  <div className="text-sm font-medium">{scope.label}</div>
-                  <code className="text-xs text-muted-foreground">{scope.key}</code>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] uppercase">
-                    requested: {scope.requested_level}
-                  </Badge>
-                  {scope.granted_levels.length > 0 ? (
-                    <Badge className="text-[10px] uppercase">
-                      granted: {scope.granted_levels.join(", ")}
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-[10px] uppercase">
-                      not granted yet
-                    </Badge>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </>
+    <PermissionsMatrix
+      toolkitIds={toolkitIds}
+      moduleSlugs={["github"]}
+      enabled={Boolean(server?.enabled)}
+      theme={lightPermissionsTheme}
+      toolsNoun="GitHub"
+      stripToolPrefix={/^github_/}
+      disabledHint="Who can use the GitHub tools, and how. Enable the GitHub MCP server first to start granting access."
+      connectHint="No GitHub toolkit is connected yet — enable GitHub from the MCP catalog."
+      onApiError={onApiError}
+    />
   );
 }
 
