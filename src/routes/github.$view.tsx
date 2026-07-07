@@ -166,23 +166,11 @@ function GithubPage() {
   });
 
   const install = useMutation({
-    mutationFn: (installTab: Window | null) =>
-      apiRequest<GithubInstallUrlResponse>("/api/v1/github/install-url").then((data) => ({
-        data,
-        installTab,
-      })),
-    onSuccess: ({ data, installTab }) => {
-      if (installTab) {
-        installTab.location.href = data.url;
-        return;
-      }
-
-      window.open(data.url, "_blank", "noopener,noreferrer");
+    mutationFn: () => apiRequest<GithubInstallUrlResponse>("/api/v1/github/install-url"),
+    onSuccess: (data) => {
+      window.location.href = data.url;
     },
-    onError: (err, installTab) => {
-      installTab?.close();
-      handleApiError(err, "Couldn't start the GitHub install flow");
-    },
+    onError: (err) => handleApiError(err, "Couldn't start the GitHub install flow"),
   });
 
   const disconnectInstallation = useMutation({
@@ -268,7 +256,7 @@ function GithubPage() {
             <ConnectView
               connectedCount={connectedCount}
               installing={install.isPending}
-              onInstall={() => install.mutate(window.open("", "_blank", "noopener,noreferrer"))}
+              onInstall={() => install.mutate()}
             />
           )}
 
@@ -277,7 +265,7 @@ function GithubPage() {
               installations={installations.data?.items ?? []}
               isLoading={installations.isLoading}
               isError={installations.isError}
-              onInstall={() => install.mutate(window.open("", "_blank", "noopener,noreferrer"))}
+              onInstall={() => install.mutate()}
               installing={install.isPending}
               onDisconnect={(id) => disconnectInstallation.mutate(id)}
               disconnectingId={
@@ -293,7 +281,7 @@ function GithubPage() {
               isError={repositories.isError}
               search={search}
               onSearchChange={setSearch}
-              onInstall={() => install.mutate(window.open("", "_blank", "noopener,noreferrer"))}
+              onInstall={() => install.mutate()}
               installing={install.isPending}
               onToggle={(repositoryId, connected) =>
                 toggleRepository.mutate({ repositoryId, connected })
