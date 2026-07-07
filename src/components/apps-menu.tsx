@@ -119,6 +119,12 @@ const FAVOURITE_APPS: App[] = [
     icon: <Github className="h-6 w-6 text-white" />,
     to: "/github",
   },
+  {
+    name: "Postman",
+    color: "bg-[#FF6C37]",
+    letter: "P",
+    to: "/postman",
+  },
 ];
 
 const MORE_APPS: App[] = [

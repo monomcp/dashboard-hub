@@ -34,6 +34,7 @@ import { Route as BrandIndexRouteImport } from './routes/brand.index'
 import { Route as TasksUptimeRouteImport } from './routes/tasks.uptime'
 import { Route as TasksPermissionsRouteImport } from './routes/tasks.permissions'
 import { Route as TasksActivityRouteImport } from './routes/tasks.activity'
+import { Route as PostmanViewRouteImport } from './routes/postman.$view'
 import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as MonoAgentCreateRouteImport } from './routes/mono-agent_.create'
@@ -168,6 +169,11 @@ const TasksActivityRoute = TasksActivityRouteImport.update({
   path: '/tasks/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PostmanViewRoute = PostmanViewRouteImport.update({
+  id: '/$view',
+  path: '/$view',
+  getParentRoute: () => PostmanRoute,
+} as any)
 const PinterestViewRoute = PinterestViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -227,7 +233,7 @@ export interface FileRoutesByFullPath {
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
-  '/postman': typeof PostmanRoute
+  '/postman': typeof PostmanRouteWithChildren
   '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
+  '/postman/$view': typeof PostmanViewRoute
   '/tasks/activity': typeof TasksActivityRoute
   '/tasks/permissions': typeof TasksPermissionsRoute
   '/tasks/uptime': typeof TasksUptimeRoute
@@ -262,7 +269,7 @@ export interface FileRoutesByTo {
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
-  '/postman': typeof PostmanRoute
+  '/postman': typeof PostmanRouteWithChildren
   '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -273,6 +280,7 @@ export interface FileRoutesByTo {
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
+  '/postman/$view': typeof PostmanViewRoute
   '/tasks/activity': typeof TasksActivityRoute
   '/tasks/permissions': typeof TasksPermissionsRoute
   '/tasks/uptime': typeof TasksUptimeRoute
@@ -298,7 +306,7 @@ export interface FileRoutesById {
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
-  '/postman': typeof PostmanRoute
+  '/postman': typeof PostmanRouteWithChildren
   '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -309,6 +317,7 @@ export interface FileRoutesById {
   '/mono-agent_/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
   '/pinterest/$view': typeof PinterestViewRoute
+  '/postman/$view': typeof PostmanViewRoute
   '/tasks/activity': typeof TasksActivityRoute
   '/tasks/permissions': typeof TasksPermissionsRoute
   '/tasks/uptime': typeof TasksUptimeRoute
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
+    | '/postman/$view'
     | '/tasks/activity'
     | '/tasks/permissions'
     | '/tasks/uptime'
@@ -381,6 +391,7 @@ export interface FileRouteTypes {
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
+    | '/postman/$view'
     | '/tasks/activity'
     | '/tasks/permissions'
     | '/tasks/uptime'
@@ -416,6 +427,7 @@ export interface FileRouteTypes {
     | '/mono-agent_/create'
     | '/permissions/$toolkitId'
     | '/pinterest/$view'
+    | '/postman/$view'
     | '/tasks/activity'
     | '/tasks/permissions'
     | '/tasks/uptime'
@@ -441,7 +453,7 @@ export interface RootRouteChildren {
   MonoAgentRoute: typeof MonoAgentRoute
   PermissionsRoute: typeof PermissionsRouteWithChildren
   PinterestRoute: typeof PinterestRouteWithChildren
-  PostmanRoute: typeof PostmanRoute
+  PostmanRoute: typeof PostmanRouteWithChildren
   PrincipalsRoute: typeof PrincipalsRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
@@ -632,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/postman/$view': {
+      id: '/postman/$view'
+      path: '/$view'
+      fullPath: '/postman/$view'
+      preLoaderRoute: typeof PostmanViewRouteImport
+      parentRoute: typeof PostmanRoute
+    }
     '/pinterest/$view': {
       id: '/pinterest/$view'
       path: '/$view'
@@ -737,6 +756,17 @@ const PinterestRouteWithChildren = PinterestRoute._addFileChildren(
   PinterestRouteChildren,
 )
 
+interface PostmanRouteChildren {
+  PostmanViewRoute: typeof PostmanViewRoute
+}
+
+const PostmanRouteChildren: PostmanRouteChildren = {
+  PostmanViewRoute: PostmanViewRoute,
+}
+
+const PostmanRouteWithChildren =
+  PostmanRoute._addFileChildren(PostmanRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
@@ -755,7 +785,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonoAgentRoute: MonoAgentRoute,
   PermissionsRoute: PermissionsRouteWithChildren,
   PinterestRoute: PinterestRouteWithChildren,
-  PostmanRoute: PostmanRoute,
+  PostmanRoute: PostmanRouteWithChildren,
   PrincipalsRoute: PrincipalsRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
