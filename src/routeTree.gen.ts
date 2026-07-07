@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PrincipalsRouteImport } from './routes/principals'
+import { Route as PostmanRouteImport } from './routes/postman'
 import { Route as PinterestRouteImport } from './routes/pinterest'
 import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as MonoAgentRouteImport } from './routes/mono-agent'
@@ -55,6 +56,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const PrincipalsRoute = PrincipalsRouteImport.update({
   id: '/principals',
   path: '/principals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PostmanRoute = PostmanRouteImport.update({
+  id: '/postman',
+  path: '/postman',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinterestRoute = PinterestRouteImport.update({
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
+  '/postman': typeof PostmanRoute
   '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -255,6 +262,7 @@ export interface FileRoutesByTo {
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
+  '/postman': typeof PostmanRoute
   '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -290,6 +298,7 @@ export interface FileRoutesById {
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
+  '/postman': typeof PostmanRoute
   '/principals': typeof PrincipalsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -326,6 +335,7 @@ export interface FileRouteTypes {
     | '/mono-agent'
     | '/permissions'
     | '/pinterest'
+    | '/postman'
     | '/principals'
     | '/privacy'
     | '/terms'
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/mono-agent'
     | '/permissions'
     | '/pinterest'
+    | '/postman'
     | '/principals'
     | '/privacy'
     | '/terms'
@@ -394,6 +405,7 @@ export interface FileRouteTypes {
     | '/mono-agent'
     | '/permissions'
     | '/pinterest'
+    | '/postman'
     | '/principals'
     | '/privacy'
     | '/terms'
@@ -429,6 +441,7 @@ export interface RootRouteChildren {
   MonoAgentRoute: typeof MonoAgentRoute
   PermissionsRoute: typeof PermissionsRouteWithChildren
   PinterestRoute: typeof PinterestRouteWithChildren
+  PostmanRoute: typeof PostmanRoute
   PrincipalsRoute: typeof PrincipalsRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       path: '/principals'
       fullPath: '/principals'
       preLoaderRoute: typeof PrincipalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/postman': {
+      id: '/postman'
+      path: '/postman'
+      fullPath: '/postman'
+      preLoaderRoute: typeof PostmanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pinterest': {
@@ -735,6 +755,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonoAgentRoute: MonoAgentRoute,
   PermissionsRoute: PermissionsRouteWithChildren,
   PinterestRoute: PinterestRouteWithChildren,
+  PostmanRoute: PostmanRoute,
   PrincipalsRoute: PrincipalsRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
@@ -750,13 +771,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
