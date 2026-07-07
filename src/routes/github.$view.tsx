@@ -1,9 +1,10 @@
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
   Activity,
+  AlertTriangle,
   BookOpen,
   Building2,
   CheckCircle2,
@@ -101,6 +102,8 @@ const GITHUB_NAV = [
   { id: "releases", label: "Release Notes Tracking", icon: Tag },
 ] satisfies { id: GithubView; label: string; icon: typeof Link2 }[];
 
+const REPOSITORIES_LIMIT = 200;
+
 const AVATAR_COLORS = [
   "bg-violet-500",
   "bg-teal-500",
@@ -114,6 +117,16 @@ function avatarColor(login: string): string {
   let hash = 0;
   for (const char of login) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function repositoryMatchesSearch(repository: GithubRepository, search: string): boolean {
+  const query = search.toLowerCase();
+  return [
+    repository.full_name,
+    repository.name,
+    repository.default_branch,
+    repository.language,
+  ].some((value) => value?.toLowerCase().includes(query));
 }
 
 function GithubPage() {
@@ -142,14 +155,45 @@ function GithubPage() {
   });
 
   const repositories = useQuery({
-    queryKey: ["github-repositories", search],
+    queryKey: ["github-repositories"],
     queryFn: () =>
-      apiRequest<Page<GithubRepository>>(
-        `/api/v1/github/repositories?limit=200${search ? `&q=${encodeURIComponent(search)}` : ""}`,
-      ),
+      apiRequest<Page<GithubRepository>>(`/api/v1/github/repositories?limit=${REPOSITORIES_LIMIT}`),
     enabled: view === "repositories",
     staleTime: 15 * 1000,
   });
+
+  const trimmedRepositorySearch = search.trim();
+  const repositoriesSpanMultiplePages = Boolean(
+    repositories.data && repositories.data.total > repositories.data.limit,
+  );
+  const shouldSearchRepositoriesOnServer =
+    view === "repositories" && trimmedRepositorySearch.length > 0 && repositoriesSpanMultiplePages;
+
+  const searchedRepositories = useQuery({
+    queryKey: ["github-repositories", "search", trimmedRepositorySearch],
+    queryFn: () =>
+      apiRequest<Page<GithubRepository>>(
+        `/api/v1/github/repositories?limit=${REPOSITORIES_LIMIT}&q=${encodeURIComponent(trimmedRepositorySearch)}`,
+      ),
+    enabled: shouldSearchRepositoriesOnServer,
+    staleTime: 15 * 1000,
+  });
+
+  const visibleRepositories = useMemo(() => {
+    const items = repositories.data?.items ?? [];
+    if (!trimmedRepositorySearch || repositoriesSpanMultiplePages) return items;
+    return items.filter((repository) =>
+      repositoryMatchesSearch(repository, trimmedRepositorySearch),
+    );
+  }, [repositories.data, repositoriesSpanMultiplePages, trimmedRepositorySearch]);
+
+  const repositoryItems = shouldSearchRepositoriesOnServer
+    ? (searchedRepositories.data?.items ?? [])
+    : visibleRepositories;
+  const repositoriesLoading =
+    repositories.isLoading || (shouldSearchRepositoriesOnServer && searchedRepositories.isLoading);
+  const repositoriesError =
+    repositories.isError || (shouldSearchRepositoriesOnServer && searchedRepositories.isError);
 
   const permissions = useQuery({
     queryKey: ["github-permissions"],
@@ -276,9 +320,9 @@ function GithubPage() {
 
           {view === "repositories" && (
             <RepositoriesView
-              repositories={repositories.data?.items ?? []}
-              isLoading={repositories.isLoading}
-              isError={repositories.isError}
+              repositories={repositoryItems}
+              isLoading={repositoriesLoading}
+              isError={repositoriesError}
               search={search}
               onSearchChange={setSearch}
               onInstall={() => install.mutate()}
@@ -495,53 +539,75 @@ function AccountsView({
       )}
 
       <div className="space-y-3">
-        {installations.map((installation) => (
-          <div
-            key={installation.id}
-            className="flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-black/5"
-          >
+        {installations.map((installation) => {
+          const isSuspended = installation.status === "suspended";
+          return (
             <div
+              key={installation.id}
               className={cn(
-                "grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold text-white",
-                avatarColor(installation.account_login),
+                "rounded-2xl bg-white p-4 ring-1",
+                isSuspended ? "ring-amber-500/30" : "ring-black/5",
               )}
             >
-              {installation.account_login.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="truncate font-medium">{installation.account_login}</span>
-                <Badge variant="secondary" className="text-[10px] uppercase">
-                  {installation.account_type}
-                </Badge>
+              <div className="flex items-center gap-4">
+                <div
+                  className={cn(
+                    "grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold text-white",
+                    avatarColor(installation.account_login),
+                  )}
+                >
+                  {installation.account_login.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium">{installation.account_login}</span>
+                    <Badge variant="secondary" className="text-[10px] uppercase">
+                      {installation.account_type}
+                    </Badge>
+                    {isSuspended && (
+                      <Badge className="bg-amber-500 text-[10px] uppercase text-white hover:bg-amber-500">
+                        Suspended
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {installation.repository_count}{" "}
+                    {installation.repository_count === 1 ? "repository" : "repositories"} ·
+                    installed {new Date(installation.installed_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <a
+                  href={githubManageUrl(installation)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex shrink-0 items-center gap-1 text-sm font-medium text-foreground/80 hover:text-foreground"
+                >
+                  Manage on GitHub
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+                  aria-label={`Disconnect ${installation.account_login}`}
+                  disabled={disconnectingId === installation.id}
+                  onClick={() => onDisconnect(installation.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {installation.repository_count}{" "}
-                {installation.repository_count === 1 ? "repository" : "repositories"} · installed{" "}
-                {new Date(installation.installed_at).toLocaleDateString()}
-              </p>
+              {isSuspended && (
+                <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    GitHub access is suspended. MonoMCP cannot read or write repositories until this
+                    app is reactivated.
+                  </span>
+                </div>
+              )}
             </div>
-            <a
-              href={githubManageUrl(installation)}
-              target="_blank"
-              rel="noreferrer"
-              className="flex shrink-0 items-center gap-1 text-sm font-medium text-foreground/80 hover:text-foreground"
-            >
-              Manage on GitHub
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
-              aria-label={`Disconnect ${installation.account_login}`}
-              disabled={disconnectingId === installation.id}
-              onClick={() => onDisconnect(installation.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
