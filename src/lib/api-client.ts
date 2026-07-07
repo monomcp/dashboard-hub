@@ -16,6 +16,26 @@ export function clearAuthTokens() {
   localStorage.removeItem("token_type");
 }
 
+let loginRedirectStarted = false;
+
+function redirectToLogin() {
+  if (typeof window === "undefined" || loginRedirectStarted) return;
+
+  loginRedirectStarted = true;
+  clearAuthTokens();
+  localStorage.removeItem("organization_id");
+
+  if (window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
+
+function interceptApiResponse(response: Response) {
+  if (response.status === 401) {
+    redirectToLogin();
+  }
+}
+
 function buildHeaders(init: RequestInit): Headers {
   const accessToken = localStorage.getItem("access_token");
   const organizationId = localStorage.getItem("organization_id");
@@ -40,6 +60,8 @@ export async function apiRequestText(path: string, init: RequestInit = {}): Prom
     ...init,
     headers: buildHeaders(init),
   });
+  interceptApiResponse(response);
+
   const text = await response.text();
   if (!response.ok) {
     throw new ApiError(response.status, "Request failed");
@@ -52,6 +74,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     ...init,
     headers: buildHeaders(init),
   });
+  interceptApiResponse(response);
 
   if (response.status === 204) {
     return undefined as T;
