@@ -22,9 +22,9 @@ import {
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
+import { ActivityLog, type RequestLogSummary } from "@/components/activity-log";
 import { AppsMenu } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
-import { GithubAuditLog } from "@/components/github-audit-log";
 import { GithubIcon } from "@/components/github-icon";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
 import { Badge } from "@/components/ui/badge";
@@ -74,28 +74,33 @@ type GithubView =
   | "accounts"
   | "repositories"
   | "permissions"
-  | "audit"
+  | "activity"
   | "status"
   | "releases";
+type GithubRouteView = GithubView | "audit";
 
-const GITHUB_VIEWS: GithubView[] = [
+const GITHUB_VIEWS: GithubRouteView[] = [
   "connect",
   "accounts",
   "repositories",
   "permissions",
+  "activity",
   "audit",
   "status",
   "releases",
 ];
 
-function isGithubView(value: string): value is GithubView {
+function isGithubRouteView(value: string): value is GithubRouteView {
   return (GITHUB_VIEWS as string[]).includes(value);
 }
 
 export const Route = createFileRoute("/github/$view")({
   beforeLoad: ({ params }) => {
-    if (!isGithubView(params.view)) {
+    if (!isGithubRouteView(params.view)) {
       throw redirect({ to: "/github/$view", params: { view: "connect" }, replace: true });
+    }
+    if (params.view === "audit") {
+      throw redirect({ to: "/github/$view", params: { view: "activity" }, replace: true });
     }
   },
   head: ({ params }) => ({
@@ -116,7 +121,7 @@ const GITHUB_NAV = [
   { id: "accounts", label: "Installed accounts", icon: Building2 },
   { id: "repositories", label: "Repositories", icon: BookOpen },
   { id: "permissions", label: "Permissions", icon: KeyRound },
-  { id: "audit", label: "Audit log", icon: Activity },
+  { id: "activity", label: "Activity", icon: Activity },
   { id: "status", label: "Status", icon: CheckCircle2 },
   { id: "releases", label: "Release Notes Tracking", icon: Tag },
 ] satisfies { id: GithubView; label: string; icon: typeof Link2 }[];
@@ -219,7 +224,9 @@ function GithubPage() {
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 60 * 1000,
   });
+  const catalogReady = !catalogLoading;
   const githubServer = catalog?.find((server) => server.slug === "github");
+  const githubToolkitIds = useMemo(() => githubServer?.toolkit_ids ?? [], [githubServer]);
 
   const status = useQuery({
     queryKey: ["github-status"],
@@ -258,8 +265,11 @@ function GithubPage() {
     onError: (err) => handleApiError(err, "Couldn't update that repository"),
   });
 
+  const githubLogFilter = useCallback((log: RequestLogSummary) => {
+    return Boolean(log.tool_name?.startsWith("github_") || log.path?.startsWith("/api/v1/github"));
+  }, []);
+
   const connectedCount = installations.data?.items.length ?? 0;
-  const active = GITHUB_NAV.find((n) => n.id === view) ?? GITHUB_NAV[0];
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -396,16 +406,17 @@ function GithubPage() {
             />
           )}
 
-          {view === "audit" && (
-            <div className="mt-2">
-              <div className="mb-6">
-                <h1 className="text-2xl font-medium tracking-tight">{active.label}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Every connect, disconnect, and repository toggle — who did it and when.
-                </p>
-              </div>
-              <GithubAuditLog onApiError={handleApiError} />
-            </div>
+          {view === "activity" && (
+            <ActivityLog
+              title="Activity"
+              description="Every GitHub change made through Console and via MCP tool calls."
+              onApiError={handleApiError}
+              logFilter={githubLogFilter}
+              nameServerSlugs={["github"]}
+              moduleSlug="github"
+              toolkitIds={githubToolkitIds}
+              enabled={catalogReady}
+            />
           )}
 
           {view === "status" && (
