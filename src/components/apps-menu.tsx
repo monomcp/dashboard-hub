@@ -114,6 +114,13 @@ const FAVOURITE_APPS: App[] = [
     to: "/pinterest",
   },
   {
+    name: "Instagram",
+    color: "bg-white ring-1 ring-black/5",
+    letter: "I",
+    icon: <InstagramIcon className="h-6 w-6" />,
+    to: "/instagram",
+  },
+  {
     name: "GitHub",
     color: "bg-neutral-900",
     letter: "G",
