@@ -18,6 +18,7 @@ import { Route as PermissionsRouteImport } from './routes/permissions'
 import { Route as MonoAgentRouteImport } from './routes/mono-agent'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InstagramRouteImport } from './routes/instagram'
 import { Route as GithubRouteImport } from './routes/github'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
@@ -87,6 +88,11 @@ const McpRoute = McpRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstagramRoute = InstagramRouteImport.update({
+  id: '/instagram',
+  path: '/instagram',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GithubRoute = GithubRouteImport.update({
@@ -228,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
+  '/instagram': typeof InstagramRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -264,6 +271,7 @@ export interface FileRoutesByTo {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
+  '/instagram': typeof InstagramRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
+  '/instagram': typeof InstagramRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -339,6 +348,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/firecrawl'
     | '/github'
+    | '/instagram'
     | '/login'
     | '/mcp'
     | '/mono-agent'
@@ -375,6 +385,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/firecrawl'
     | '/github'
+    | '/instagram'
     | '/login'
     | '/mcp'
     | '/mono-agent'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/email'
     | '/firecrawl'
     | '/github'
+    | '/instagram'
     | '/login'
     | '/mcp'
     | '/mono-agent'
@@ -448,6 +460,7 @@ export interface RootRouteChildren {
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
   GithubRoute: typeof GithubRouteWithChildren
+  InstagramRoute: typeof InstagramRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   MonoAgentRoute: typeof MonoAgentRoute
@@ -530,6 +543,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/instagram': {
+      id: '/instagram'
+      path: '/instagram'
+      fullPath: '/instagram'
+      preLoaderRoute: typeof InstagramRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/github': {
@@ -780,6 +800,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
   GithubRoute: GithubRouteWithChildren,
+  InstagramRoute: InstagramRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   MonoAgentRoute: MonoAgentRoute,
