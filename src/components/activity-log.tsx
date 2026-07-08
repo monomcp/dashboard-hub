@@ -447,6 +447,8 @@ export function ActivityLog({
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  const loadingRows = !enabled || isLoading || (filtering && isFetching && !isFetchingNextPage);
+
   return (
     <div className="grid content-start gap-4">
       <div className={cn(card, "flex min-h-28 items-end justify-between gap-4")}>
@@ -573,11 +575,8 @@ export function ActivityLog({
             </tr>
           </thead>
           <tbody>
-            {(isLoading || (filtering && isFetching && !isFetchingNextPage)) && (
-              <ActivityTableSkeletonRows />
-            )}
-            {!isLoading &&
-              !(filtering && isFetching && !isFetchingNextPage) &&
+            {loadingRows && <ActivityTableSkeletonRows />}
+            {!loadingRows &&
               logs.map((log) => (
                 <tr
                   key={log.id}
@@ -610,20 +609,16 @@ export function ActivityLog({
                   </td>
                 </tr>
               ))}
-            {!isLoading &&
-              !(filtering && isFetching && !isFetchingNextPage) &&
-              logs.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                    {filtersActive
-                      ? "No activity matches these filters."
-                      : "No activity recorded yet."}
-                  </td>
-                </tr>
-              )}
-            {!isLoading &&
-              !(filtering && isFetching && !isFetchingNextPage) &&
-              isFetchingNextPage && <ActivityTableSkeletonRows />}
+            {!loadingRows && logs.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                  {filtersActive
+                    ? "No activity matches these filters."
+                    : "No activity recorded yet."}
+                </td>
+              </tr>
+            )}
+            {!loadingRows && isFetchingNextPage && <ActivityTableSkeletonRows />}
           </tbody>
         </table>
       </div>
