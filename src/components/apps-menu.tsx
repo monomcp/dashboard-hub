@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Github, Grip, Pencil, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
+import { InstagramIcon } from "@/components/instagram-icon";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

@@ -40,6 +40,7 @@ import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as MonoAgentCreateRouteImport } from './routes/mono-agent_.create'
 import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.automations'
+import { Route as InstagramViewRouteImport } from './routes/instagram.$view'
 import { Route as GithubViewRouteImport } from './routes/github.$view'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
@@ -200,6 +201,11 @@ const MonoAgentAutomationsRoute = MonoAgentAutomationsRouteImport.update({
   path: '/mono-agent/automations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InstagramViewRoute = InstagramViewRouteImport.update({
+  id: '/$view',
+  path: '/$view',
+  getParentRoute: () => InstagramRoute,
+} as any)
 const GithubViewRoute = GithubViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -234,7 +240,7 @@ export interface FileRoutesByFullPath {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
-  '/instagram': typeof InstagramRoute
+  '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/github/$view': typeof GithubViewRoute
+  '/instagram/$view': typeof InstagramViewRoute
   '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -271,7 +278,7 @@ export interface FileRoutesByTo {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
-  '/instagram': typeof InstagramRoute
+  '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -284,6 +291,7 @@ export interface FileRoutesByTo {
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/github/$view': typeof GithubViewRoute
+  '/instagram/$view': typeof InstagramViewRoute
   '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -309,7 +317,7 @@ export interface FileRoutesById {
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
-  '/instagram': typeof InstagramRoute
+  '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mono-agent': typeof MonoAgentRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/github/$view': typeof GithubViewRoute
+  '/instagram/$view': typeof InstagramViewRoute
   '/mono-agent_/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent_/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -361,6 +370,7 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/github/$view'
+    | '/instagram/$view'
     | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/github/$view'
+    | '/instagram/$view'
     | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/github/$view'
+    | '/instagram/$view'
     | '/mono-agent_/automations'
     | '/mono-agent_/create'
     | '/permissions/$toolkitId'
@@ -460,7 +472,7 @@ export interface RootRouteChildren {
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
   GithubRoute: typeof GithubRouteWithChildren
-  InstagramRoute: typeof InstagramRoute
+  InstagramRoute: typeof InstagramRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   MonoAgentRoute: typeof MonoAgentRoute
@@ -699,6 +711,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonoAgentAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/instagram/$view': {
+      id: '/instagram/$view'
+      path: '/$view'
+      fullPath: '/instagram/$view'
+      preLoaderRoute: typeof InstagramViewRouteImport
+      parentRoute: typeof InstagramRoute
+    }
     '/github/$view': {
       id: '/github/$view'
       path: '/$view'
@@ -752,6 +771,18 @@ const GithubRouteChildren: GithubRouteChildren = {
 const GithubRouteWithChildren =
   GithubRoute._addFileChildren(GithubRouteChildren)
 
+interface InstagramRouteChildren {
+  InstagramViewRoute: typeof InstagramViewRoute
+}
+
+const InstagramRouteChildren: InstagramRouteChildren = {
+  InstagramViewRoute: InstagramViewRoute,
+}
+
+const InstagramRouteWithChildren = InstagramRoute._addFileChildren(
+  InstagramRouteChildren,
+)
+
 interface PermissionsRouteChildren {
   PermissionsToolkitIdRoute: typeof PermissionsToolkitIdRoute
 }
@@ -800,7 +831,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
   GithubRoute: GithubRouteWithChildren,
-  InstagramRoute: InstagramRoute,
+  InstagramRoute: InstagramRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   MonoAgentRoute: MonoAgentRoute,
