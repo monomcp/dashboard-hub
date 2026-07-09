@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   Copy,
@@ -57,14 +57,18 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, apiRequest } from "@/lib/api-client";
+import { brandIcon } from "@/lib/brand-icons";
 import type {
   ApiKey,
   ApiKeyCreate,
   ApiKeyCreated,
+  CatalogServer,
   Page,
   Principal,
   PrincipalCreate,
   PrincipalType,
+  Toolkit,
+  ToolkitAccessMatrix,
 } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
@@ -102,6 +106,79 @@ function StatusBadge({ status }: { status: Principal["status"] }) {
   );
 }
 
+/** A single toolkit tile — the owning server's brand icon, or its initial. */
+function ToolkitChip({ toolkit, server }: { toolkit: Toolkit; server?: CatalogServer }) {
+  const icon = server?.logo_url ? (
+    <img src={server.logo_url} alt="" className="h-5 w-5 object-contain" loading="lazy" />
+  ) : (
+    brandIcon(server?.icon_key)
+  );
+
+  if (icon) {
+    return (
+      <div
+        title={toolkit.name}
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white ring-1 ring-black/5"
+      >
+        {icon}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      title={toolkit.name}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-[11px] font-semibold uppercase text-white"
+    >
+      {toolkit.name.charAt(0)}
+    </div>
+  );
+}
+
+/** The MCP toolkits an identity carries — up to 5 brand icons, then a +N overflow. */
+function ToolkitCluster({
+  toolkits,
+  serverFor,
+  loading,
+}: {
+  toolkits: Toolkit[];
+  serverFor: (toolkitId: string) => CatalogServer | undefined;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-8 w-8 rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  if (toolkits.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const shown = toolkits.slice(0, 5);
+  const extra = toolkits.length - shown.length;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {shown.map((toolkit) => (
+        <ToolkitChip key={toolkit.id} toolkit={toolkit} server={serverFor(toolkit.id)} />
+      ))}
+      {extra > 0 && (
+        <span
+          title={`${extra} more`}
+          className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-muted px-1.5 text-xs font-medium text-muted-foreground"
+        >
+          +{extra}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PrincipalsPage() {
   const [keysFor, setKeysFor] = useState<Principal | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -128,6 +205,58 @@ function PrincipalsPage() {
     }
     return counts;
   }, [keyPage]);
+
+  // The org's MCP toolkits (name + id), shared cache with the permissions page.
+  const { data: toolkitPage } = useQuery({
+    queryKey: ["toolkits-list"],
+    queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?sort=name&direction=asc&limit=200"),
+    staleTime: 30 * 1000,
+  });
+  const toolkits = useMemo(() => toolkitPage?.items ?? [], [toolkitPage]);
+
+  // Catalog gives each toolkit its brand icon via the server that owns its tools.
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog", "all"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 5 * 60 * 1000,
+  });
+  const serverByToolkit = useMemo(() => {
+    const map = new Map<string, CatalogServer>();
+    for (const server of catalog ?? []) {
+      for (const id of server.toolkit_ids) {
+        if (!map.has(id)) map.set(id, server);
+      }
+    }
+    return map;
+  }, [catalog]);
+
+  // One access matrix per toolkit tells us which identities can use it.
+  const matrices = useQueries({
+    queries: toolkits.map((toolkit) => ({
+      queryKey: ["toolkit-access-matrix", toolkit.id],
+      queryFn: () =>
+        apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${toolkit.id}/access-matrix`),
+      staleTime: 30 * 1000,
+    })),
+  });
+  const toolkitsLoading = toolkits.length > 0 && matrices.some((m) => m.isLoading);
+
+  // principal_id → the toolkits it has an enabled grant on (in toolkit sort order).
+  const toolkitsByPrincipal = useMemo(() => {
+    const map = new Map<string, Toolkit[]>();
+    matrices.forEach((result, index) => {
+      const toolkit = toolkits[index];
+      if (!toolkit || !result.data) return;
+      for (const row of result.data.principals) {
+        if (!row.enabled) continue;
+        const list = map.get(row.id) ?? [];
+        list.push(toolkit);
+        map.set(row.id, list);
+      }
+    });
+    return map;
+    // matrices is a fresh array each render; recompute is cheap for a handful of toolkits.
+  }, [matrices, toolkits]);
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -204,6 +333,7 @@ function PrincipalsPage() {
               <thead>
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th className="px-5 py-3 font-medium">Name</th>
+                  <th className="px-5 py-3 font-medium">Toolkits</th>
                   <th className="px-5 py-3 font-medium">Type</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">API keys</th>
@@ -217,6 +347,13 @@ function PrincipalsPage() {
                       <td className="px-5 py-4">
                         <Skeleton className="h-5 w-48 max-w-full" />
                         <Skeleton className="mt-2 h-3 w-24 max-w-full" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5">
+                          {Array.from({ length: 3 }).map((_, j) => (
+                            <Skeleton key={j} className="h-8 w-8 rounded-lg" />
+                          ))}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <Skeleton className="h-5 w-24" />
@@ -235,7 +372,7 @@ function PrincipalsPage() {
 
                 {!isLoading && principals.length === 0 && (
                   <tr>
-                    <td className="px-5 py-8 text-center text-muted-foreground" colSpan={5}>
+                    <td className="px-5 py-8 text-center text-muted-foreground" colSpan={6}>
                       No identities yet.
                     </td>
                   </tr>
@@ -246,6 +383,13 @@ function PrincipalsPage() {
                     <td className="px-5 py-4">
                       <div className="font-medium">{p.name}</div>
                       {p.slug && <div className="text-xs text-muted-foreground">/{p.slug}</div>}
+                    </td>
+                    <td className="px-5 py-4">
+                      <ToolkitCluster
+                        toolkits={toolkitsByPrincipal.get(p.id) ?? []}
+                        serverFor={(id) => serverByToolkit.get(id)}
+                        loading={toolkitsLoading}
+                      />
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">{TYPE_LABEL[p.type]}</td>
                     <td className="px-5 py-4">

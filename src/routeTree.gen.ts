@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as IdentitiesRouteImport } from './routes/identities'
 import { Route as PostmanRouteImport } from './routes/postman'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as PinterestRouteImport } from './routes/pinterest'
@@ -20,9 +19,11 @@ import { Route as MonoAgentRouteImport } from './routes/mono-agent'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InstagramRouteImport } from './routes/instagram'
+import { Route as IdentitiesRouteImport } from './routes/identities'
 import { Route as GithubRouteImport } from './routes/github'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
+import { Route as DuckduckgoRouteImport } from './routes/duckduckgo'
 import { Route as DriveRouteImport } from './routes/drive'
 import { Route as DatabaseRouteImport } from './routes/database'
 import { Route as ContentRouteImport } from './routes/content'
@@ -31,6 +32,7 @@ import { Route as CompanyRouteImport } from './routes/company'
 import { Route as CmsRouteImport } from './routes/cms'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BrandIndexRouteImport } from './routes/brand.index'
 import { Route as TasksUptimeRouteImport } from './routes/tasks.uptime'
@@ -56,11 +58,6 @@ const TermsRoute = TermsRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IdentitiesRoute = IdentitiesRouteImport.update({
-  id: '/identities',
-  path: '/identities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PostmanRoute = PostmanRouteImport.update({
@@ -103,6 +100,11 @@ const InstagramRoute = InstagramRouteImport.update({
   path: '/instagram',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IdentitiesRoute = IdentitiesRouteImport.update({
+  id: '/identities',
+  path: '/identities',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GithubRoute = GithubRouteImport.update({
   id: '/github',
   path: '/github',
@@ -116,6 +118,11 @@ const FirecrawlRoute = FirecrawlRouteImport.update({
 const EmailRoute = EmailRouteImport.update({
   id: '/email',
   path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DuckduckgoRoute = DuckduckgoRouteImport.update({
+  id: '/duckduckgo',
+  path: '/duckduckgo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriveRoute = DriveRouteImport.update({
@@ -156,6 +163,11 @@ const CalendarRoute = CalendarRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentRoute = AgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -241,6 +253,7 @@ const AuthMagicLinkConfirmRoute = AuthMagicLinkConfirmRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/audit': typeof AuditRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
@@ -249,9 +262,11 @@ export interface FileRoutesByFullPath {
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
+  '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
+  '/identities': typeof IdentitiesRoute
   '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRouteWithChildren
@@ -260,7 +275,6 @@ export interface FileRoutesByFullPath {
   '/pinterest': typeof PinterestRouteWithChildren
   '/playground': typeof PlaygroundRoute
   '/postman': typeof PostmanRouteWithChildren
-  '/identities': typeof IdentitiesRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -281,6 +295,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/audit': typeof AuditRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
@@ -289,9 +304,11 @@ export interface FileRoutesByTo {
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
+  '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
+  '/identities': typeof IdentitiesRoute
   '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRouteWithChildren
@@ -300,7 +317,6 @@ export interface FileRoutesByTo {
   '/pinterest': typeof PinterestRouteWithChildren
   '/playground': typeof PlaygroundRoute
   '/postman': typeof PostmanRouteWithChildren
-  '/identities': typeof IdentitiesRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -322,6 +338,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/audit': typeof AuditRoute
   '/calendar': typeof CalendarRoute
   '/cms': typeof CmsRoute
@@ -330,9 +347,11 @@ export interface FileRoutesById {
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
   '/drive': typeof DriveRoute
+  '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
   '/github': typeof GithubRouteWithChildren
+  '/identities': typeof IdentitiesRoute
   '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRouteWithChildren
@@ -341,7 +360,6 @@ export interface FileRoutesById {
   '/pinterest': typeof PinterestRouteWithChildren
   '/playground': typeof PlaygroundRoute
   '/postman': typeof PostmanRouteWithChildren
-  '/identities': typeof IdentitiesRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -364,6 +382,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agent'
     | '/audit'
     | '/calendar'
     | '/cms'
@@ -372,9 +391,11 @@ export interface FileRouteTypes {
     | '/content'
     | '/database'
     | '/drive'
+    | '/duckduckgo'
     | '/email'
     | '/firecrawl'
     | '/github'
+    | '/identities'
     | '/instagram'
     | '/login'
     | '/mcp'
@@ -383,7 +404,6 @@ export interface FileRouteTypes {
     | '/pinterest'
     | '/playground'
     | '/postman'
-    | '/identities'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -404,6 +424,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agent'
     | '/audit'
     | '/calendar'
     | '/cms'
@@ -412,9 +433,11 @@ export interface FileRouteTypes {
     | '/content'
     | '/database'
     | '/drive'
+    | '/duckduckgo'
     | '/email'
     | '/firecrawl'
     | '/github'
+    | '/identities'
     | '/instagram'
     | '/login'
     | '/mcp'
@@ -423,7 +446,6 @@ export interface FileRouteTypes {
     | '/pinterest'
     | '/playground'
     | '/postman'
-    | '/identities'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -444,6 +466,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/agent'
     | '/audit'
     | '/calendar'
     | '/cms'
@@ -452,9 +475,11 @@ export interface FileRouteTypes {
     | '/content'
     | '/database'
     | '/drive'
+    | '/duckduckgo'
     | '/email'
     | '/firecrawl'
     | '/github'
+    | '/identities'
     | '/instagram'
     | '/login'
     | '/mcp'
@@ -463,7 +488,6 @@ export interface FileRouteTypes {
     | '/pinterest'
     | '/playground'
     | '/postman'
-    | '/identities'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -485,6 +509,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentRoute: typeof AgentRoute
   AuditRoute: typeof AuditRoute
   CalendarRoute: typeof CalendarRoute
   CmsRoute: typeof CmsRoute
@@ -493,9 +518,11 @@ export interface RootRouteChildren {
   ContentRoute: typeof ContentRouteWithChildren
   DatabaseRoute: typeof DatabaseRoute
   DriveRoute: typeof DriveRoute
+  DuckduckgoRoute: typeof DuckduckgoRoute
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
   GithubRoute: typeof GithubRouteWithChildren
+  IdentitiesRoute: typeof IdentitiesRoute
   InstagramRoute: typeof InstagramRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRouteWithChildren
@@ -504,7 +531,6 @@ export interface RootRouteChildren {
   PinterestRoute: typeof PinterestRouteWithChildren
   PlaygroundRoute: typeof PlaygroundRoute
   PostmanRoute: typeof PostmanRouteWithChildren
-  IdentitiesRoute: typeof IdentitiesRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
@@ -531,13 +557,6 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/identities': {
-      id: '/identities'
-      path: '/identities'
-      fullPath: '/identities'
-      preLoaderRoute: typeof IdentitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/postman': {
@@ -596,6 +615,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InstagramRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/identities': {
+      id: '/identities'
+      path: '/identities'
+      fullPath: '/identities'
+      preLoaderRoute: typeof IdentitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/github': {
       id: '/github'
       path: '/github'
@@ -615,6 +641,13 @@ declare module '@tanstack/react-router' {
       path: '/email'
       fullPath: '/email'
       preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/duckduckgo': {
+      id: '/duckduckgo'
+      path: '/duckduckgo'
+      fullPath: '/duckduckgo'
+      preLoaderRoute: typeof DuckduckgoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/drive': {
@@ -671,6 +704,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent': {
+      id: '/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -869,6 +909,7 @@ const PostmanRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentRoute: AgentRoute,
   AuditRoute: AuditRoute,
   CalendarRoute: CalendarRoute,
   CmsRoute: CmsRoute,
@@ -877,9 +918,11 @@ const rootRouteChildren: RootRouteChildren = {
   ContentRoute: ContentRouteWithChildren,
   DatabaseRoute: DatabaseRoute,
   DriveRoute: DriveRoute,
+  DuckduckgoRoute: DuckduckgoRoute,
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
   GithubRoute: GithubRouteWithChildren,
+  IdentitiesRoute: IdentitiesRoute,
   InstagramRoute: InstagramRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRouteWithChildren,
@@ -888,7 +931,6 @@ const rootRouteChildren: RootRouteChildren = {
   PinterestRoute: PinterestRouteWithChildren,
   PlaygroundRoute: PlaygroundRoute,
   PostmanRoute: PostmanRouteWithChildren,
-  IdentitiesRoute: IdentitiesRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,
@@ -903,3 +945,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
