@@ -20,15 +20,6 @@ function isMcpCatalogView(value: string): value is McpCatalogView {
   return (MCP_CATALOG_VIEWS as readonly string[]).includes(value);
 }
 
-function isRecommendedServer(server: CatalogServer): boolean {
-  return (
-    server.recommended === true ||
-    server.is_recommended === true ||
-    server.category === "recommended" ||
-    server.tags?.includes("recommended") === true
-  );
-}
-
 const SERVER_ICONS: Record<string, ReactNode> = {
   instagram: <InstagramIcon className="h-6 w-6" />,
   pinterest: <PinterestIcon className="h-6 w-6" />,
@@ -56,21 +47,21 @@ export const Route = createFileRoute("/mcp/$view")({
 
 function McpCatalogPage() {
   const view = Route.useParams().view as McpCatalogView;
+  const catalogPath =
+    view === "recommended"
+      ? "/api/v1/mcp-catalog?view=recommended"
+      : "/api/v1/mcp-catalog?view=registry";
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["mcp-catalog"],
-    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    queryKey: ["mcp-catalog", view],
+    queryFn: () => apiRequest<CatalogServer[]>(catalogPath),
     staleTime: 60 * 1000,
   });
-
-  const servers =
-    view === "recommended"
-      ? data?.filter(isRecommendedServer)
-      : data?.filter((server) => server.enabled);
 
   const intro =
     view === "recommended"
       ? "Browse recommended servers and add their tools to a toolkit."
       : "Your enabled MCP servers and the tools currently exposed through your gateway.";
+  const servers = data ?? [];
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -83,6 +74,9 @@ function McpCatalogPage() {
             <div className="text-xl font-medium leading-tight tracking-tight">MCP store</div>
           </Link>
         </div>
+        <div className="hidden flex-1 items-center md:flex">
+          <CatalogTabs view={view} />
+        </div>
         <div className="flex items-center gap-1">
           <AppsMenu />
           <AccountMenu />
@@ -94,13 +88,8 @@ function McpCatalogPage() {
 
       <main className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
         <div className="mb-6 mt-2">
-          <div className="mb-5 inline-flex rounded-full bg-muted/70 p-1 text-muted-foreground">
-            <CatalogTab view="registry" active={view === "registry"}>
-              Your registry
-            </CatalogTab>
-            <CatalogTab view="recommended" active={view === "recommended"}>
-              Recommended servers
-            </CatalogTab>
+          <div className="mb-5 md:hidden">
+            <CatalogTabs view={view} />
           </div>
           <h1 className="text-2xl font-medium tracking-tight">MCP store</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{intro}</p>
@@ -125,21 +114,13 @@ function McpCatalogPage() {
             ))}
 
           {!isLoading &&
-            servers?.map((server) => (
+            servers.map((server) => (
               <div
                 key={server.slug}
                 className="flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5"
               >
                 <div className="flex items-start justify-between">
-                  {server.icon_key && SERVER_ICONS[server.icon_key] ? (
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
-                      {SERVER_ICONS[server.icon_key]}
-                    </div>
-                  ) : (
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-sm font-semibold uppercase text-white">
-                      {server.name.charAt(0)}
-                    </div>
-                  )}
+                  <ServerLogo server={server} />
                   <span className="text-xs text-muted-foreground">
                     {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
                   </span>
@@ -167,8 +148,50 @@ function McpCatalogPage() {
             ))}
         </div>
 
-        {!isLoading && !isError && servers?.length === 0 && <EmptyCatalogState view={view} />}
+        {!isLoading && !isError && servers.length === 0 && <EmptyCatalogState view={view} />}
       </main>
+    </div>
+  );
+}
+
+function ServerLogo({ server }: { server: CatalogServer }) {
+  if (server.logo_url) {
+    return (
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
+        <img
+          src={server.logo_url}
+          alt={`${server.name} logo`}
+          className="h-7 w-7 object-contain"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  if (server.icon_key && SERVER_ICONS[server.icon_key]) {
+    return (
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
+        {SERVER_ICONS[server.icon_key]}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-sm font-semibold uppercase text-white">
+      {server.name.charAt(0)}
+    </div>
+  );
+}
+
+function CatalogTabs({ view }: { view: McpCatalogView }) {
+  return (
+    <div className="inline-flex rounded-full bg-muted/70 p-1 text-muted-foreground">
+      <CatalogTab view="registry" active={view === "registry"}>
+        Your registry
+      </CatalogTab>
+      <CatalogTab view="recommended" active={view === "recommended"}>
+        Recommended servers
+      </CatalogTab>
     </div>
   );
 }

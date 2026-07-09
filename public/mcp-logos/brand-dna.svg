@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="brand-dna-title">
+  <title id="brand-dna-title">Brand DNA</title>
+  <defs>
+    <linearGradient id="brand-dna-bg" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8" />
+      <stop offset="0.48" stop-color="#4f46e5" />
+      <stop offset="1" stop-color="#22c55e" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#brand-dna-bg)" />
+  <path d="M22 16c15 5 20 27 20 32" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" />
+  <path d="M42 16c-15 5-20 27-20 32" fill="none" stroke="#d9f99d" stroke-width="5" stroke-linecap="round" />
+  <path d="M25 24h14M23 32h18M25 40h14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.9" />
+</svg>

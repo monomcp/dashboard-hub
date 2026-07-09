@@ -24,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
-import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
+import { AppsMenu } from "@/components/apps-menu";
 import { InstagramIcon } from "@/components/instagram-icon";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
@@ -338,7 +338,6 @@ function PlaygroundPage() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
-          <PlaygroundHeaderButton />
           <AppsMenu />
           <AccountMenu />
         </div>

@@ -18,6 +18,7 @@ export type CatalogServer = {
   description: string;
   configure_path?: string | null;
   icon_key?: string | null;
+  logo_url?: string | null;
   tools: CatalogTool[];
   recommended?: boolean;
   is_recommended?: boolean;
