@@ -654,7 +654,7 @@ function ArgField({
         type={arg.kind === "number" ? "number" : "text"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={arg.kind === "text" ? arg.placeholder : undefined}
+        placeholder={arg.kind === "text" ? arg.placeholder : arg.kind === "number" ? arg.placeholder : undefined}
         className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground/60"
       />
     </label>
