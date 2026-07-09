@@ -65,8 +65,8 @@ function McpCatalogPage() {
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
-      <header className="flex items-center justify-between gap-3 px-4 py-3 md:px-6">
-        <div className="flex items-center gap-3">
+      <header className="relative flex items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <div className="relative z-10 flex items-center gap-3">
           <Link to="/mcp/$view" params={{ view: "registry" }} className="flex items-center gap-2">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sm">
               <Blocks className="h-5 w-5 text-white" />
@@ -74,10 +74,10 @@ function McpCatalogPage() {
             <div className="text-xl font-medium leading-tight tracking-tight">MCP store</div>
           </Link>
         </div>
-        <div className="hidden flex-1 items-center md:flex">
+        <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 items-center md:flex">
           <CatalogTabs view={view} />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="relative z-10 flex items-center gap-1">
           <AppsMenu />
           <AccountMenu />
         </div>
@@ -185,7 +185,7 @@ function ServerLogo({ server }: { server: CatalogServer }) {
 
 function CatalogTabs({ view }: { view: McpCatalogView }) {
   return (
-    <div className="inline-flex rounded-full bg-muted/70 p-1 text-muted-foreground">
+    <div className="pointer-events-auto inline-flex rounded-full bg-muted/70 p-1 text-muted-foreground">
       <CatalogTab view="registry" active={view === "registry"}>
         Your registry
       </CatalogTab>
