@@ -1119,7 +1119,7 @@ function TasksPage() {
             <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
               <Select value={taskPrincipalId} onValueChange={setTaskPrincipalId}>
                 <SelectTrigger className="bg-stone-100 border-0 rounded-lg">
-                  <SelectValue placeholder="Assign principal" />
+                  <SelectValue placeholder="Assign identity" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Unassigned</SelectItem>

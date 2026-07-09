@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
   Copy,
+  Fingerprint,
   KeyRound,
   Loader2,
   Menu,
   MoreVertical,
   Plus,
-  Squircle,
   Trash2,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
@@ -71,7 +71,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/principals")({
   head: () => ({
     meta: [
-      { title: "Principals" },
+      { title: "Identities" },
       {
         name: "description",
         content: "Manage the identities that call your MCP gateway and their API keys.",
@@ -144,13 +144,14 @@ function PrincipalsPage() {
           </Button>
           <Link to="/permissions" className="flex items-center gap-2">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-indigo-600 shadow-sm">
-              <KeyRound className="h-4 w-4 text-white" />
+              <Fingerprint className="h-4 w-4 text-white" />
             </div>
-            <span className="text-xl font-medium tracking-tight">Principals</span>
+            <span className="text-xl font-medium tracking-tight">Identities</span>
           </Link>
         </div>
         <div className="flex items-center gap-1">
-          <PlaygroundHeaderButton /><AppsMenu />
+          <PlaygroundHeaderButton />
+          <AppsMenu />
           <AccountMenu />
         </div>
       </header>
@@ -166,12 +167,12 @@ function PrincipalsPage() {
                 to="/permissions"
                 className="flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm text-foreground/80 transition hover:bg-white/60"
               >
-                <Squircle className="h-5 w-5 shrink-0 text-foreground/70" />
+                <KeyRound className="h-5 w-5 shrink-0 text-foreground/70" />
                 <span className="flex-1 truncate text-left">Permissions</span>
               </Link>
               <span className="flex w-full items-center gap-3 rounded-full bg-sky-100 px-3 py-2 text-sm text-sky-900">
-                <KeyRound className="h-5 w-5 shrink-0" />
-                <span className="flex-1 truncate text-left">Principals</span>
+                <Fingerprint className="h-5 w-5 shrink-0" />
+                <span className="flex-1 truncate text-left">Identities</span>
               </span>
             </nav>
           </aside>
@@ -180,21 +181,21 @@ function PrincipalsPage() {
         <main className="min-w-0 flex-1 px-4 pb-16 md:pr-6">
           <div className="mb-6 mt-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-medium tracking-tight">Principals</h1>
+              <h1 className="text-2xl font-medium tracking-tight">Identities</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                The identities that call your MCP gateway. Issue an API key for any principal to
+                The identities that call your MCP gateway. Issue an API key for any identity to
                 connect an agent (Codex, Claude, …) without OAuth.
               </p>
             </div>
             <Button className="shrink-0 rounded-full" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
-              New principal
+              New identity
             </Button>
           </div>
 
           {isError && (
             <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              Couldn't load principals. Please try again.
+              Couldn't load identities. Please try again.
             </p>
           )}
 
@@ -235,7 +236,7 @@ function PrincipalsPage() {
                 {!isLoading && principals.length === 0 && (
                   <tr>
                     <td className="px-5 py-8 text-center text-muted-foreground" colSpan={5}>
-                      No principals yet.
+                      No identities yet.
                     </td>
                   </tr>
                 )}
@@ -328,14 +329,14 @@ function CreatePrincipalDialog({
     create.error instanceof ApiError
       ? create.error.message
       : create.error
-        ? "Couldn't create principal."
+        ? "Couldn't create identity."
         : null;
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create principal</DialogTitle>
+          <DialogTitle>Create identity</DialogTitle>
           <DialogDescription>
             Add a new identity for an agent, service, or API client that will call the MCP gateway.
           </DialogDescription>
@@ -500,7 +501,7 @@ function ApiKeysSheet({
             <SheetTitle className="text-xl">API keys</SheetTitle>
             <SheetDescription>
               {principal ? `For ${principal.name}. ` : ""}A key authenticates the gateway as this
-              principal — it works on every toolkit this principal can access.
+              identity — it works on every toolkit this identity can access.
             </SheetDescription>
           </SheetHeader>
 

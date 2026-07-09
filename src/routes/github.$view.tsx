@@ -521,7 +521,7 @@ function ConnectView({
         />
         <FeatureCard
           icon={Users}
-          title="Per-principal permissions"
+          title="Per-identity permissions"
           description="Decide which agents & teammates can call each GitHub tool."
         />
         <FeatureCard

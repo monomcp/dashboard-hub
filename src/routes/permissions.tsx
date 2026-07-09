@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { HelpCircle, KeyRound, Menu, Settings, Squircle } from "lucide-react";
+import { Fingerprint, HelpCircle, KeyRound, Menu, Settings, Squircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
@@ -84,7 +84,8 @@ function PermissionsLayout() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <PlaygroundHeaderButton /><AppsMenu />
+          <PlaygroundHeaderButton />
+          <AppsMenu />
           <AccountMenu />
         </div>
       </header>
@@ -100,8 +101,8 @@ function PermissionsLayout() {
                 to="/principals"
                 className="flex w-full items-center gap-3 rounded-full px-3 py-2 text-sm text-foreground/80 transition hover:bg-white/60"
               >
-                <KeyRound className="h-5 w-5 shrink-0 text-foreground/70" />
-                <span className="flex-1 truncate text-left">Principals</span>
+                <Fingerprint className="h-5 w-5 shrink-0 text-foreground/70" />
+                <span className="flex-1 truncate text-left">Identities</span>
               </Link>
             </nav>
             <div className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">

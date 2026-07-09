@@ -13,10 +13,11 @@ const GRADIENT_ID = "instagram-brand-gradient";
 export function InstagramIcon({ className, color }: Props) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="-1 -1 26 26"
       role="img"
       aria-label="Instagram"
       className={className}
+      overflow="visible"
       xmlns="http://www.w3.org/2000/svg"
     >
       {!color && (

@@ -565,13 +565,13 @@ export function PermissionsMatrix({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className={cn("text-sm", theme.countText)}>
-            {withAccessCount} of {data?.principals.length ?? 0} principals have access
+            {withAccessCount} of {data?.principals.length ?? 0} identities have access
           </p>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
               {(
                 [
-                  { id: "principals", label: "By principal" },
+                  { id: "principals", label: "By identity" },
                   { id: "tools", label: "By tool" },
                 ] as const
               ).map((opt) => (
@@ -581,8 +581,8 @@ export function PermissionsMatrix({
                   onClick={() => setOrientation(opt.id)}
                   title={
                     opt.id === "principals"
-                      ? "Principals as rows, tools as columns"
-                      : "Tools as rows, principals as columns"
+                      ? "Identities as rows, tools as columns"
+                      : "Tools as rows, identities as columns"
                   }
                   className={cn(
                     "rounded-full px-3 py-1.5 text-xs transition",
@@ -625,7 +625,7 @@ export function PermissionsMatrix({
                           theme.headerStickyBg,
                         )}
                       >
-                        Principal
+                        Identity
                       </th>
                       {tools.map((tool) => (
                         <th key={tool.id} className="px-3 py-3 text-center font-medium">
@@ -674,8 +674,8 @@ export function PermissionsMatrix({
                           className={cn("px-4 py-10 text-center", theme.emptyText)}
                         >
                           {onlyWithAccess
-                            ? "No principal has access to these tools yet."
-                            : "No principals in this organization yet."}
+                            ? "No identity has access to these tools yet."
+                            : "No identities in this organization yet."}
                         </td>
                       </tr>
                     )}
@@ -750,8 +750,8 @@ export function PermissionsMatrix({
                         >
                           {principals.length === 0
                             ? onlyWithAccess
-                              ? "No principal has access to these tools yet."
-                              : "No principals in this organization yet."
+                              ? "No identity has access to these tools yet."
+                              : "No identities in this organization yet."
                             : "No tools in this toolkit yet."}
                         </td>
                       </tr>
@@ -783,7 +783,7 @@ export function PermissionsMatrixLoading({ theme }: { theme: PermissionsTheme })
         <table className="w-full border-collapse text-sm">
           <thead className={cn("text-xs uppercase tracking-wide", theme.thead)}>
             <tr>
-              <th className="px-4 py-3 text-left font-medium">Principal</th>
+              <th className="px-4 py-3 text-left font-medium">Identity</th>
               {Array.from({ length: 5 }).map((_, index) => (
                 <th key={index} className="px-3 py-3 text-center font-medium">
                   {sk("mx-auto h-4 w-20 rounded-full")}

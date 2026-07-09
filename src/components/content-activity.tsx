@@ -468,14 +468,14 @@ export function ContentActivityView({
               ]}
             />
           </FilterField>
-          <FilterField label="Principal">
+          <FilterField label="Identity">
             <select
               value={filters.principal}
               onChange={(e) => updateFilters((f) => ({ ...f, principal: e.target.value }))}
               className={activityControl}
-              aria-label="Filter by principal"
+              aria-label="Filter by identity"
             >
-              <option value="all">All principals</option>
+              <option value="all">All identities</option>
               {principalOptions.map((p) => (
                 <option key={p.key} value={p.key}>
                   {p.label}
@@ -533,7 +533,7 @@ export function ContentActivityView({
           <thead className="bg-[hsl(220,33%,97%)] text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Event</th>
-              <th className="px-4 py-3 text-left font-medium">Principal</th>
+              <th className="px-4 py-3 text-left font-medium">Identity</th>
               <th className="px-4 py-3 text-left font-medium">Source</th>
               <th className="px-4 py-3 text-left font-medium">When</th>
               <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -736,7 +736,7 @@ function ActivityDetailDialog({
           <div className="mt-4 grid gap-4">
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <Detail label="Source" value={data.source === "mcp" ? "MCP" : "Console"} />
-              <Detail label="Principal" value={logPrincipal(data, userNames).label} />
+              <Detail label="Identity" value={logPrincipal(data, userNames).label} />
               <Detail label="Status" value={data.outcome ?? statusLabel(data.status_code)} />
               <Detail label="When" value={new Date(data.created_at).toLocaleString()} />
               <Detail

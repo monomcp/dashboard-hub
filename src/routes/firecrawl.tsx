@@ -483,7 +483,7 @@ function FirecrawlPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-[hsl(220,33%,97%)] text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-2 text-left font-medium">Principal</th>
+                      <th className="px-4 py-2 text-left font-medium">Identity</th>
                       <th className="px-4 py-2 text-left font-medium">Type</th>
                       <th className="px-4 py-2 text-left font-medium">Scope</th>
                       <th className="px-4 py-2 text-left font-medium">Granted</th>

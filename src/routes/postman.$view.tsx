@@ -208,7 +208,7 @@ const FLOWS: Flow[] = [
   {
     id: "f1",
     name: "Onboard new workspace",
-    description: "Create workspace, seed principals, enable default toolkits.",
+    description: "Create workspace, seed identities, enable default toolkits.",
     steps: 6,
     updated: "2h ago",
   },

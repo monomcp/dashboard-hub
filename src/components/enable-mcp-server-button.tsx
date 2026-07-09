@@ -343,7 +343,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
 
         <SheetContent
           side="right"
-          className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+          className="inset-y-2 right-2 flex h-auto w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl"
         >
           <SheetHeader className="border-b px-6 py-5 text-left">
             <SheetTitle className="text-xl">Connect to your MCP server</SheetTitle>
