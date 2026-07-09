@@ -92,8 +92,7 @@ function McpCatalogPage() {
           <div className="mb-5 md:hidden">
             <CatalogTabs view={view} />
           </div>
-          <h1 className="text-2xl font-medium tracking-tight">MCP store</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{intro}</p>
+          <p className="max-w-3xl text-sm text-muted-foreground">{intro}</p>
         </div>
 
         {isError && (
