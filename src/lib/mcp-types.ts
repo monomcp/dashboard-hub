@@ -8,13 +8,21 @@ export type CatalogTool = {
   name: string;
   description: string;
   handler: string;
+  input_schema?: Record<string, unknown>;
+  version?: number;
 };
 
 export type CatalogServer = {
   slug: string;
   name: string;
   description: string;
+  configure_path?: string | null;
+  icon_key?: string | null;
   tools: CatalogTool[];
+  recommended?: boolean;
+  is_recommended?: boolean;
+  category?: string;
+  tags?: string[];
   // Org-specific state from GET /api/v1/mcp-catalog.
   enabled: boolean;
   toolkit_ids: string[];
