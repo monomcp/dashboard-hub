@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Menu,
   Search,
@@ -9,28 +9,31 @@ import {
   LayoutDashboard,
   Sparkles,
   Download,
-  Lock,
+  KeyRound,
   FileCode2,
-  ShieldCheck,
   Activity,
+  Gauge,
   SlidersHorizontal,
   MoreVertical,
   Copy,
   CheckCircle2,
-  ExternalLink,
   Mail,
   Bell,
   Send,
   MessageSquare,
   Phone,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
-import { apiRequest } from "@/lib/api-client";
+import { ActivityLog, type RequestLogSummary } from "@/components/activity-log";
+import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
+import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import type { CatalogServer } from "@/lib/mcp-types";
+import { lightPermissionsTheme } from "@/lib/permissions-theme";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/duckduckgo")({
@@ -58,9 +61,9 @@ type SectionId =
   | "overview"
   | "features"
   | "installation"
-  | "access"
+  | "permissions"
   | "schemas"
-  | "audit"
+  | "activity"
   | "uptime"
   | "settings";
 
@@ -68,10 +71,10 @@ const NAV: { id: SectionId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "features", label: "Features", icon: Sparkles },
   { id: "installation", label: "Installation", icon: Download },
-  { id: "access", label: "Access", icon: Lock },
+  { id: "permissions", label: "Permissions", icon: KeyRound },
   { id: "schemas", label: "Schemas", icon: FileCode2 },
-  { id: "audit", label: "Audit", icon: ShieldCheck },
-  { id: "uptime", label: "Uptime", icon: Activity },
+  { id: "activity", label: "Activity", icon: Activity },
+  { id: "uptime", label: "Uptime", icon: Gauge },
   { id: "settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
@@ -243,6 +246,7 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 }
 
 function DuckDuckGoPage() {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [section, setSection] = useState<SectionId>("overview");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -254,14 +258,33 @@ function DuckDuckGoPage() {
     return NAV.filter((n) => n.label.toLowerCase().includes(q));
   }, [query]);
 
-  const needsCatalog = section === "installation" || section === "access" || section === "audit";
-  const { data: catalog } = useQuery({
+  const handleApiError = useCallback(
+    (err: unknown, fallback = "DuckDuckGo request failed") => {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        clearAuthTokens();
+        void navigate({ to: "/login", replace: true });
+        return;
+      }
+      toast.error(err instanceof Error ? err.message : fallback);
+    },
+    [navigate],
+  );
+
+  const needsCatalog =
+    section === "installation" || section === "permissions" || section === "activity";
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     enabled: needsCatalog,
     staleTime: 60 * 1000,
   });
+  const catalogReady = needsCatalog && !catalogLoading;
   const server = catalog?.find((s) => s.slug === "duckduckgo");
+  const toolkitIds = useMemo(() => server?.toolkit_ids ?? [], [server]);
+
+  const duckLogFilter = useCallback((log: RequestLogSummary) => {
+    return Boolean(log.tool_name?.startsWith("duckduckgo_"));
+  }, []);
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -325,7 +348,8 @@ function DuckDuckGoPage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <SettingsIcon className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <PlaygroundHeaderButton /><AppsMenu />
+          <PlaygroundHeaderButton />
+          <AppsMenu />
           <AccountMenu />
         </div>
       </header>
@@ -421,8 +445,8 @@ function DuckDuckGoPage() {
                 <div>
                   <h3 className="mb-2 text-sm font-medium">1. No API key needed</h3>
                   <p className="text-sm text-muted-foreground">
-                    DuckDuckGo search and page fetching are keyless — there's nothing to
-                    provision or rotate before you start.
+                    DuckDuckGo search and page fetching are keyless — there's nothing to provision
+                    or rotate before you start.
                   </p>
                 </div>
                 <div>
@@ -430,8 +454,8 @@ function DuckDuckGoPage() {
                   <p className="text-sm text-muted-foreground">
                     Use "Enable this MCP server" above to expose{" "}
                     <span className="font-mono">duckduckgo_search</span> and{" "}
-                    <span className="font-mono">duckduckgo_fetch_content</span> through one or
-                    more toolkits.
+                    <span className="font-mono">duckduckgo_fetch_content</span> through one or more
+                    toolkits.
                   </p>
                 </div>
                 <div>
@@ -454,48 +478,22 @@ function DuckDuckGoPage() {
             </SectionCard>
           )}
 
-          {section === "access" && (
-            <SectionCard>
-              <div className="mb-5 flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-medium">Access control</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Roles and bundles that can invoke this tool.
-                  </p>
-                </div>
-                <Button className="rounded-full" size="sm">
-                  Grant access
-                </Button>
-              </div>
-              <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
-                <table className="w-full text-sm">
-                  <thead className="bg-[hsl(220,33%,97%)] text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium">Identity</th>
-                      <th className="px-4 py-2 text-left font-medium">Type</th>
-                      <th className="px-4 py-2 text-left font-medium">Scope</th>
-                      <th className="px-4 py-2 text-left font-medium">Granted</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["agents.research", "Role", "search, fetch_content", "2026-03-11"],
-                      ["bundle.web-context", "Bundle", "search", "2026-04-02"],
-                      ["carla@acme.com", "User", "all", "2026-05-14"],
-                      ["ci-pipeline", "Service", "fetch_content", "2026-06-01"],
-                    ].map(([p, t, s, d]) => (
-                      <tr key={p} className="border-t border-black/5">
-                        <td className="px-4 py-3 font-medium">{p}</td>
-                        <td className="px-4 py-3 text-foreground/80">{t}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{s}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{d}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          )}
+          {section === "permissions" &&
+            (catalogLoading && !server ? (
+              <PermissionsMatrixLoading theme={lightPermissionsTheme} />
+            ) : (
+              <PermissionsMatrix
+                toolkitIds={toolkitIds}
+                moduleSlugs={["duckduckgo"]}
+                enabled={Boolean(server?.enabled)}
+                theme={lightPermissionsTheme}
+                toolsNoun="DuckDuckGo"
+                stripToolPrefix={/^duckduckgo_/}
+                disabledHint="Who can use the DuckDuckGo tools, and how. Enable the DuckDuckGo MCP server first to start granting access."
+                connectHint="No DuckDuckGo toolkit is connected yet — enable DuckDuckGo from the MCP catalog."
+                onApiError={handleApiError}
+              />
+            ))}
 
           {section === "schemas" && (
             <div className="space-y-4">
@@ -586,60 +584,17 @@ function DuckDuckGoPage() {
             </div>
           )}
 
-          {section === "audit" && (
-            <SectionCard>
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-medium">Recent activity</h2>
-                  <p className="text-sm text-muted-foreground">Latest MCP calls for this tool.</p>
-                </div>
-                <Link
-                  to="/audit"
-                  className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs text-foreground/80 ring-1 ring-black/5 hover:bg-sky-50"
-                >
-                  Open audit log <ExternalLink className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
-                <table className="w-full text-sm">
-                  <thead className="bg-[hsl(220,33%,97%)] text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium">Action</th>
-                      <th className="px-4 py-2 text-left font-medium">Actor</th>
-                      <th className="px-4 py-2 text-left font-medium">When</th>
-                      <th className="px-4 py-2 text-left font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["duckduckgo_search", "agent@assistant", "3m ago", "success", "640ms"],
-                      ["duckduckgo_search", "agent@assistant", "9m ago", "success", "512ms"],
-                      ["duckduckgo_fetch_content", "ci-pipeline", "42m ago", "success", "980ms"],
-                      ["duckduckgo_search", "carla@acme.com", "2h ago", "error", "12.0s"],
-                      ["duckduckgo_fetch_content", "agent@assistant", "yesterday", "success", "1.4s"],
-                    ].map(([a, who, when, st, dur]) => (
-                      <tr key={a + when} className="border-t border-black/5">
-                        <td className="px-4 py-3 font-mono text-[13px]">{a}</td>
-                        <td className="px-4 py-3 text-foreground/80">{who}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{when}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-2">
-                            <span
-                              className={cn(
-                                "h-2 w-2 rounded-full",
-                                st === "success" ? "bg-emerald-500" : "bg-rose-500",
-                              )}
-                            />
-                            <span className="capitalize">{st}</span>
-                            <span className="text-xs text-muted-foreground">· {dur}</span>
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
+          {section === "activity" && (
+            <ActivityLog
+              title="Activity"
+              description="Every DuckDuckGo search and content fetch made through Console and via MCP tool calls."
+              onApiError={handleApiError}
+              logFilter={duckLogFilter}
+              nameServerSlugs={["duckduckgo"]}
+              moduleSlug="duckduckgo"
+              toolkitIds={toolkitIds}
+              enabled={catalogReady}
+            />
           )}
 
           {section === "uptime" && (
