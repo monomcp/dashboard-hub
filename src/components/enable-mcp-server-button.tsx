@@ -162,10 +162,10 @@ function ToolkitSelectionIndicator({
   return (
     <span
       className={cn(
-        "grid h-4 w-4 shrink-0 place-items-center rounded-full border",
+        "grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border transition-all duration-200",
         checked
-          ? "border-emerald-600 bg-emerald-600 text-white"
-          : "border-muted-foreground/40 bg-background",
+          ? "border-emerald-600 bg-emerald-600 text-white opacity-100"
+          : "border-muted-foreground/40 bg-background opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
         className,
       )}
       aria-hidden="true"
@@ -376,7 +376,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                         onClick={() => toggle(t.id)}
                         aria-pressed={checked}
                         className={cn(
-                          "relative flex min-h-20 w-full flex-col items-start justify-between rounded-lg border p-3 pr-9 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          "group relative flex min-h-20 w-full flex-col items-start justify-between rounded-lg border p-3 pr-9 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           checked
                             ? "border-foreground/30 bg-muted hover:bg-muted"
                             : "border-border bg-background hover:bg-muted/60",
