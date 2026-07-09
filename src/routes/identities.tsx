@@ -56,6 +56,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
 import type {
@@ -106,7 +107,7 @@ function StatusBadge({ status }: { status: Principal["status"] }) {
   );
 }
 
-/** A single toolkit tile — the owning server's brand icon, or its initial. */
+/** A single toolkit tile — the owning server's brand icon, or its initial. Hover for its name. */
 function ToolkitChip({ toolkit, server }: { toolkit: Toolkit; server?: CatalogServer }) {
   const icon = server?.logo_url ? (
     <img src={server.logo_url} alt="" className="h-5 w-5 object-contain" loading="lazy" />
@@ -114,28 +115,29 @@ function ToolkitChip({ toolkit, server }: { toolkit: Toolkit; server?: CatalogSe
     brandIcon(server?.icon_key)
   );
 
-  if (icon) {
-    return (
-      <div
-        title={toolkit.name}
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white ring-1 ring-black/5"
-      >
-        {icon}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      title={toolkit.name}
-      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-[11px] font-semibold uppercase text-white"
-    >
+  const tile = icon ? (
+    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white ring-1 ring-black/5">
+      {icon}
+    </div>
+  ) : (
+    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-[11px] font-semibold uppercase text-white">
       {toolkit.name.charAt(0)}
     </div>
   );
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{tile}</TooltipTrigger>
+      <TooltipContent side="top">{toolkit.name}</TooltipContent>
+    </Tooltip>
+  );
 }
 
-/** The MCP toolkits an identity carries — up to 5 brand icons, then a +N overflow. */
+/**
+ * The MCP toolkits an identity carries — up to 5 brand icons, then a +N overflow.
+ * Renders nothing when there are none, so it drops out of the inline name row cleanly.
+ * Relies on an ancestor TooltipProvider (see PrincipalsPage).
+ */
 function ToolkitCluster({
   toolkits,
   serverFor,
@@ -148,32 +150,34 @@ function ToolkitCluster({
   if (loading) {
     return (
       <div className="flex items-center gap-1.5">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: 2 }).map((_, i) => (
           <Skeleton key={i} className="h-8 w-8 rounded-lg" />
         ))}
       </div>
     );
   }
 
-  if (toolkits.length === 0) {
-    return <span className="text-muted-foreground">—</span>;
-  }
+  if (toolkits.length === 0) return null;
 
   const shown = toolkits.slice(0, 5);
-  const extra = toolkits.length - shown.length;
+  const overflow = toolkits.slice(5);
 
   return (
     <div className="flex items-center gap-1.5">
       {shown.map((toolkit) => (
         <ToolkitChip key={toolkit.id} toolkit={toolkit} server={serverFor(toolkit.id)} />
       ))}
-      {extra > 0 && (
-        <span
-          title={`${extra} more`}
-          className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-muted px-1.5 text-xs font-medium text-muted-foreground"
-        >
-          +{extra}
-        </span>
+      {overflow.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-muted px-1.5 text-xs font-medium text-muted-foreground">
+              +{overflow.length}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            {overflow.map((t) => t.name).join(", ")}
+          </TooltipContent>
+        </Tooltip>
       )}
     </div>
   );
@@ -329,88 +333,97 @@ function PrincipalsPage() {
           )}
 
           <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-3 font-medium">Name</th>
-                  <th className="px-5 py-3 font-medium">Toolkits</th>
-                  <th className="px-5 py-3 font-medium">Type</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">API keys</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading &&
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i} className="border-b last:border-0">
-                      <td className="px-5 py-4">
-                        <Skeleton className="h-5 w-48 max-w-full" />
-                        <Skeleton className="mt-2 h-3 w-24 max-w-full" />
+            <TooltipProvider delayDuration={200}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="px-5 py-3 font-medium">Name</th>
+                    <th className="px-5 py-3 font-medium">Type</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">API keys</th>
+                    <th className="px-5 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading &&
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                              {Array.from({ length: 2 }).map((_, j) => (
+                                <Skeleton key={j} className="h-8 w-8 rounded-lg" />
+                              ))}
+                            </div>
+                            <div>
+                              <Skeleton className="h-5 w-48 max-w-full" />
+                              <Skeleton className="mt-2 h-3 w-24 max-w-full" />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <Skeleton className="h-5 w-24" />
+                        </td>
+                        <td className="px-5 py-4">
+                          <Skeleton className="h-6 w-16 rounded-full" />
+                        </td>
+                        <td className="px-5 py-4">
+                          <Skeleton className="h-5 w-8" />
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <Skeleton className="ml-auto h-9 w-32 rounded-full" />
+                        </td>
+                      </tr>
+                    ))}
+
+                  {!isLoading && principals.length === 0 && (
+                    <tr>
+                      <td className="px-5 py-8 text-center text-muted-foreground" colSpan={5}>
+                        No identities yet.
                       </td>
+                    </tr>
+                  )}
+
+                  {principals.map((p) => (
+                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/40">
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-1.5">
-                          {Array.from({ length: 3 }).map((_, j) => (
-                            <Skeleton key={j} className="h-8 w-8 rounded-lg" />
-                          ))}
+                        <div className="flex items-center gap-3">
+                          <ToolkitCluster
+                            toolkits={toolkitsByPrincipal.get(p.id) ?? []}
+                            serverFor={(id) => serverByToolkit.get(id)}
+                            loading={toolkitsLoading}
+                          />
+                          <div className="min-w-0">
+                            <div className="font-medium">{p.name}</div>
+                            {p.slug && (
+                              <div className="text-xs text-muted-foreground">/{p.slug}</div>
+                            )}
+                          </div>
                         </div>
                       </td>
+                      <td className="px-5 py-4 text-muted-foreground">{TYPE_LABEL[p.type]}</td>
                       <td className="px-5 py-4">
-                        <Skeleton className="h-5 w-24" />
+                        <StatusBadge status={p.status} />
                       </td>
-                      <td className="px-5 py-4">
-                        <Skeleton className="h-6 w-16 rounded-full" />
-                      </td>
-                      <td className="px-5 py-4">
-                        <Skeleton className="h-5 w-8" />
+                      <td className="px-5 py-4 text-muted-foreground">
+                        {keyCounts.get(p.id) ?? 0}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <Skeleton className="ml-auto h-9 w-32 rounded-full" />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={() => setKeysFor(p)}
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                          Manage keys
+                        </Button>
                       </td>
                     </tr>
                   ))}
-
-                {!isLoading && principals.length === 0 && (
-                  <tr>
-                    <td className="px-5 py-8 text-center text-muted-foreground" colSpan={6}>
-                      No identities yet.
-                    </td>
-                  </tr>
-                )}
-
-                {principals.map((p) => (
-                  <tr key={p.id} className="border-b last:border-0 hover:bg-muted/40">
-                    <td className="px-5 py-4">
-                      <div className="font-medium">{p.name}</div>
-                      {p.slug && <div className="text-xs text-muted-foreground">/{p.slug}</div>}
-                    </td>
-                    <td className="px-5 py-4">
-                      <ToolkitCluster
-                        toolkits={toolkitsByPrincipal.get(p.id) ?? []}
-                        serverFor={(id) => serverByToolkit.get(id)}
-                        loading={toolkitsLoading}
-                      />
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">{TYPE_LABEL[p.type]}</td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={p.status} />
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">{keyCounts.get(p.id) ?? 0}</td>
-                    <td className="px-5 py-4 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-full"
-                        onClick={() => setKeysFor(p)}
-                      >
-                        <KeyRound className="h-3.5 w-3.5" />
-                        Manage keys
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </TooltipProvider>
           </div>
         </main>
       </div>
