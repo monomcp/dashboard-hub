@@ -23,7 +23,7 @@ import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
 import { ActivityLog, type RequestLogSummary } from "@/components/activity-log";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { GithubIcon } from "@/components/github-icon";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
@@ -301,7 +301,7 @@ function GithubPage() {
               />
             </div>
           )}
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

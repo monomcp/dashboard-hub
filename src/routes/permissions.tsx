@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { HelpCircle, KeyRound, Menu, Settings, Squircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { PermissionsMatrixLoading } from "@/components/permissions-matrix";
 import { apiRequest } from "@/lib/api-client";
@@ -84,7 +84,7 @@ function PermissionsLayout() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Menu, ChevronUp } from "lucide-react";
 
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +53,7 @@ function LegalHeader() {
         />
       </div>
       <div className="flex items-center gap-2">
-        <AppsMenu />
+        <PlaygroundHeaderButton /><AppsMenu />
         <AccountMenu />
       </div>
     </header>

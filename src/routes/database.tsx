@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { cn } from "@/lib/utils";
 
@@ -409,7 +409,7 @@ function DatabasePage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <SettingsIcon className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

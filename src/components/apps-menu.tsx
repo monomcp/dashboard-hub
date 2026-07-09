@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Github, Grip, Pencil, X } from "lucide-react";
+import { Bot, Github, Grip, Pencil, Sparkles, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { InstagramIcon } from "@/components/instagram-icon";
 import { PinterestIcon } from "@/components/pinterest-icon";
@@ -8,6 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+
+export function PlaygroundHeaderButton() {
+  return (
+    <Link
+      to="/playground"
+      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-br from-violet-600 via-fuchsia-500 to-orange-500 px-3.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+      aria-label="Open Playground"
+    >
+      <Sparkles className="h-4 w-4" />
+      Playground
+    </Link>
+  );
+}
 
 // `letter` is rendered inside the colored tile; pass `icon` to render a custom
 // glyph (e.g. a brand logo) instead.

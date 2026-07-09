@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,7 +150,7 @@ function PrincipalsPage() {
           </Link>
         </div>
         <div className="flex items-center gap-1">
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

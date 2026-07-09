@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { cn } from "@/lib/utils";
 
@@ -325,7 +325,7 @@ function EmailPage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

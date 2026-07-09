@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Blocks, Menu } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +46,7 @@ function McpCatalogPage() {
           </Link>
         </div>
         <div className="flex items-center gap-1">
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
         <button type="button" className="sr-only" aria-label="Menu">

@@ -73,7 +73,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import type { CatalogServer } from "@/lib/mcp-types";
@@ -792,7 +792,7 @@ function CmsPage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

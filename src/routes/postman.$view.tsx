@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,7 +278,7 @@ function PostmanPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>
