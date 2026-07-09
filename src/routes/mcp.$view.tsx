@@ -6,6 +6,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { InstagramIcon } from "@/components/instagram-icon";
+import { PillTabs } from "@/components/pill-tabs";
 import { PinterestIcon } from "@/components/pinterest-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
@@ -183,39 +184,30 @@ function ServerLogo({ server }: { server: CatalogServer }) {
   );
 }
 
+const MCP_CATALOG_TABS: { id: McpCatalogView; label: string }[] = [
+  { id: "registry", label: "Your registry" },
+  { id: "recommended", label: "Recommended servers" },
+];
+
 function CatalogTabs({ view }: { view: McpCatalogView }) {
   return (
-    <div className="pointer-events-auto inline-flex rounded-full bg-muted/70 p-1 text-muted-foreground">
-      <CatalogTab view="registry" active={view === "registry"}>
-        Your registry
-      </CatalogTab>
-      <CatalogTab view="recommended" active={view === "recommended"}>
-        Recommended servers
-      </CatalogTab>
-    </div>
-  );
-}
-
-function CatalogTab({
-  view,
-  active,
-  children,
-}: {
-  view: McpCatalogView;
-  active: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <Link
-      to="/mcp/$view"
-      params={{ view }}
-      className={cn(
-        "rounded-full px-5 py-2 text-sm font-medium transition",
-        active ? "bg-white text-foreground shadow-sm" : "hover:text-foreground",
+    <PillTabs
+      tabs={MCP_CATALOG_TABS}
+      activeId={view}
+      className="pointer-events-auto text-muted-foreground"
+      renderTab={(tab, active) => (
+        <Link
+          to="/mcp/$view"
+          params={{ view: tab.id }}
+          className={cn(
+            "flex items-center justify-center rounded-full px-5 py-1.5 text-sm font-medium transition-colors duration-200",
+            active ? "text-foreground" : "text-foreground/60 hover:text-foreground",
+          )}
+        >
+          {tab.label}
+        </Link>
       )}
-    >
-      {children}
-    </Link>
+    />
   );
 }
 

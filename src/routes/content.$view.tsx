@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
+import { PillTabs } from "@/components/pill-tabs";
 import { ContentIdeasBoard } from "@/components/content-ideas-board";
 import { ContentCalendarList } from "@/components/content-calendar-list";
 import { ContentStrategyPanel } from "@/components/content-strategy-panel";
@@ -250,47 +251,12 @@ function ContentPage() {
   }, [section, mode]);
 
   const modeToggle = (
-    <div
-      className="relative grid overflow-hidden rounded-full bg-[hsl(220,33%,95%)] p-1"
-      style={{ gridTemplateColumns: `repeat(${CONTENT_MODE_TABS.length}, minmax(0, 1fr))` }}
-    >
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-1 left-1 rounded-full bg-white shadow-sm transition-transform duration-300 ease-out"
-        style={{
-          width: `calc((100% - 8px) / ${CONTENT_MODE_TABS.length})`,
-          transform: `translateX(${
-            Math.max(
-              0,
-              CONTENT_MODE_TABS.findIndex((tab) => tab.id === mode),
-            ) * 100
-          }%)`,
-        }}
-      />
-      {CONTENT_MODE_TABS.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          onClick={() => {
-            if (!tab.disabled) selectMode(tab.id);
-          }}
-          aria-disabled={tab.disabled || undefined}
-          disabled={tab.disabled}
-          className={cn(
-            "relative z-10 flex items-center justify-center gap-1.5 rounded-full px-5 py-1.5 text-sm transition-colors duration-200",
-            mode === tab.id ? "text-foreground" : "text-foreground/60 hover:text-foreground",
-            tab.disabled && "cursor-not-allowed hover:text-foreground/60",
-          )}
-        >
-          <span>{tab.label}</span>
-          {tab.badge && (
-            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium leading-none text-foreground/50 shadow-sm">
-              {tab.badge}
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
+    <PillTabs
+      tabs={CONTENT_MODE_TABS}
+      activeId={mode}
+      onSelect={(id) => selectMode(id as ContentMode)}
+      className="bg-[hsl(220,33%,95%)]"
+    />
   );
 
   const viewToggle = (
@@ -384,7 +350,8 @@ function ContentPage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Settings">
             <Settings className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <PlaygroundHeaderButton /><AppsMenu />
+          <PlaygroundHeaderButton />
+          <AppsMenu />
           <AccountMenu />
         </div>
       </header>
