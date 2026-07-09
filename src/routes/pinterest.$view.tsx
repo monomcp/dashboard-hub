@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { ActivityLog, type RequestLogSummary } from "@/components/activity-log";
 import { AccountMenu } from "@/components/account-menu";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { PermissionsMatrix } from "@/components/permissions-matrix";
 import { PinterestIcon } from "@/components/pinterest-icon";
@@ -236,7 +236,7 @@ function PinterestPage() {
               toolkitIds={server.toolkit_ids}
             />
           )}
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>

@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
-import { AppsMenu } from "@/components/apps-menu";
+import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
 import { TasksUptimeView } from "@/components/tasks-uptime-view";
@@ -696,7 +696,7 @@ function BrandDnaPage() {
           >
             <Settings className="h-5 w-5" />
           </Button>
-          <AppsMenu />
+          <PlaygroundHeaderButton /><AppsMenu />
           <AccountMenu />
         </div>
       </header>
