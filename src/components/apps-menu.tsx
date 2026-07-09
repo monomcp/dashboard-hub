@@ -95,7 +95,7 @@ const FAVOURITE_APPS: App[] = [
     to: "/brand",
   },
   {
-    name: "MCP tools",
+    name: "MCP store",
     color: "bg-gradient-to-br from-sky-500 to-indigo-600",
     letter: "⊞",
     to: "/mcp",

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Hash,
@@ -22,6 +22,7 @@ import { InstagramIcon } from "@/components/instagram-icon";
 import { PermissionsMatrix } from "@/components/permissions-matrix";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import type { CatalogServer } from "@/lib/mcp-types";
@@ -94,7 +95,8 @@ const TOOL_OPTIONS = [
     name: "instagram_list_fields",
     icon: ListChecks,
     title: "List fields",
-    description: "Discover every available response field per resource, marking required vs optional.",
+    description:
+      "Discover every available response field per resource, marking required vs optional.",
     args: [],
   },
 ] as const;
@@ -136,7 +138,12 @@ const FIELD_CATALOG: { resource: Resource; fields: FieldInfo[] }[] = [
       { name: "media_url", required: true, default: true, description: "Primary media URL." },
       { name: "caption", required: false, default: true, description: "Post caption text." },
       { name: "like_count", required: false, default: true, description: "Number of likes." },
-      { name: "comment_count", required: false, default: false, description: "Number of comments." },
+      {
+        name: "comment_count",
+        required: false,
+        default: false,
+        description: "Number of comments.",
+      },
       { name: "video_url", required: false, default: false, description: "Video URL (reels)." },
     ],
   },
@@ -160,8 +167,39 @@ const FIELD_CATALOG: { resource: Resource; fields: FieldInfo[] }[] = [
   },
 ];
 
+type InstagramFieldsResponse = {
+  resources: { resource: Resource; fields: FieldInfo[] }[];
+  allow_agent_field_override: boolean;
+};
+
+type InstagramSettingsUpdate = {
+  search_default_fields: string[];
+  post_default_fields: string[];
+  profile_default_fields: string[];
+  hashtag_default_fields: string[];
+  allow_agent_field_override: boolean;
+};
+
+function selectionFromResources(
+  resources: { resource: Resource; fields: FieldInfo[] }[],
+): Record<Resource, Set<string>> {
+  const next: Record<Resource, Set<string>> = {
+    search: new Set(),
+    post: new Set(),
+    profile: new Set(),
+    hashtag: new Set(),
+  };
+  for (const res of resources) {
+    for (const field of res.fields) {
+      if (!field.required && field.default) next[res.resource].add(field.name);
+    }
+  }
+  return next;
+}
+
 function InstagramPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const view = Route.useParams().view as InstagramView;
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -173,6 +211,16 @@ function InstagramPage() {
   const catalogReady = !catalogLoading;
   const server = catalog?.find((s) => s.slug === "instagram");
   const toolkitIds = server?.toolkit_ids ?? [];
+
+  const {
+    data: fieldData,
+    isLoading: fieldsLoading,
+    isError: fieldsError,
+  } = useQuery({
+    queryKey: ["instagram-fields"],
+    queryFn: () => apiRequest<InstagramFieldsResponse>("/api/v1/instagram/fields"),
+    staleTime: 60 * 1000,
+  });
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "Instagram request failed") => {
@@ -190,48 +238,46 @@ function InstagramPage() {
     return Boolean(log.tool_name?.startsWith("instagram_") || log.path?.includes("/instagram"));
   }, []);
 
-  // Local-only draft state — same UX as Pinterest, without a backend to save to yet.
-  const [selected, setSelected] = useState<Record<Resource, Set<string>>>(() => {
-    const next: Record<Resource, Set<string>> = {
-      search: new Set(),
-      post: new Set(),
-      profile: new Set(),
-      hashtag: new Set(),
-    };
-    for (const res of FIELD_CATALOG) {
-      for (const f of res.fields) {
-        if (!f.required && f.default) next[res.resource].add(f.name);
-      }
-    }
-    return next;
-  });
+  const [selected, setSelected] = useState<Record<Resource, Set<string>>>(() =>
+    selectionFromResources(FIELD_CATALOG),
+  );
   const [allowOverride, setAllowOverride] = useState(true);
+  const resources = fieldData?.resources ?? FIELD_CATALOG;
+
+  useEffect(() => {
+    if (!fieldData) return;
+    setSelected(selectionFromResources(fieldData.resources));
+    setAllowOverride(fieldData.allow_agent_field_override);
+  }, [fieldData]);
 
   const originalSelected = useMemo(() => {
-    const map: Record<Resource, Set<string>> = {
-      search: new Set(),
-      post: new Set(),
-      profile: new Set(),
-      hashtag: new Set(),
-    };
-    for (const res of FIELD_CATALOG) {
-      for (const f of res.fields) {
-        if (!f.required && f.default) map[res.resource].add(f.name);
-      }
-    }
-    return map;
-  }, []);
+    return selectionFromResources(resources);
+  }, [resources]);
 
   const dirty = useMemo(() => {
-    if (!allowOverride) return true;
-    for (const res of FIELD_CATALOG) {
+    if (!fieldData) return false;
+    if (allowOverride !== fieldData.allow_agent_field_override) return true;
+    for (const res of resources) {
       const orig = originalSelected[res.resource];
       const cur = selected[res.resource];
       if (orig.size !== cur.size) return true;
       for (const n of cur) if (!orig.has(n)) return true;
     }
     return false;
-  }, [selected, allowOverride, originalSelected]);
+  }, [selected, allowOverride, originalSelected, fieldData, resources]);
+
+  const saveFields = useMutation({
+    mutationFn: (payload: InstagramSettingsUpdate) =>
+      apiRequest("/api/v1/instagram/settings", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["instagram-fields"] });
+      toast.success("Instagram fields saved");
+    },
+    onError: (err) => handleApiError(err, "Couldn't save Instagram fields"),
+  });
 
   function toggle(resource: Resource, name: string) {
     setSelected((prev) => {
@@ -243,7 +289,13 @@ function InstagramPage() {
   }
 
   function onSave() {
-    toast.success("Instagram fields saved");
+    saveFields.mutate({
+      search_default_fields: [...selected.search],
+      post_default_fields: [...selected.post],
+      profile_default_fields: [...selected.profile],
+      hashtag_default_fields: [...selected.hashtag],
+      allow_agent_field_override: allowOverride,
+    });
   }
 
   return (
@@ -351,76 +403,95 @@ function InstagramPage() {
                   <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
                     Response fields
                   </h2>
-                  <Button size="sm" disabled={!dirty} onClick={onSave}>
-                    Save changes
+                  <Button
+                    size="sm"
+                    disabled={!dirty || fieldsLoading || saveFields.isPending}
+                    onClick={onSave}
+                  >
+                    {saveFields.isPending ? "Saving..." : "Save changes"}
                   </Button>
                 </div>
 
+                {fieldsError && (
+                  <p className="mb-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    Couldn't load Instagram field settings. Please try again.
+                  </p>
+                )}
+
                 <div className="space-y-6">
-                  {FIELD_CATALOG.map((res) => {
-                    const Icon = RESOURCE_ICONS[res.resource];
-                    return (
-                      <div
-                        key={res.resource}
-                        className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5"
-                      >
-                        <div className="flex items-center gap-2 border-b border-black/5 px-5 py-3">
-                          <Icon className="h-4 w-4 text-[#C13584]" />
-                          <span className="text-sm font-medium">
-                            {RESOURCE_LABELS[res.resource]}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {res.fields.filter((f) => f.required).length} required ·{" "}
-                            {res.fields.filter((f) => !f.required).length} optional
-                          </span>
-                        </div>
-                        <ul className="divide-y divide-black/5">
-                          {res.fields.map((f) => (
-                            <li
-                              key={f.name}
-                              className="flex items-center justify-between gap-4 px-5 py-3"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <code className="text-sm font-medium">{f.name}</code>
-                                  {f.required ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className="gap-1 text-[10px] uppercase"
-                                    >
-                                      <Lock className="h-3 w-3" /> Required
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-[10px] uppercase">
-                                      Optional
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                  {f.description}
-                                </p>
-                              </div>
-                              {f.required ? (
-                                <span className="text-xs text-muted-foreground">Always</span>
-                              ) : (
-                                <Switch
-                                  checked={selected[res.resource].has(f.name)}
-                                  onCheckedChange={() => toggle(res.resource, f.name)}
-                                  aria-label={`Include ${f.name} by default`}
-                                />
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                  {fieldsLoading &&
+                    Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="mt-4 h-12 w-full" />
+                        <Skeleton className="mt-2 h-12 w-full" />
+                        <Skeleton className="mt-2 h-12 w-full" />
                       </div>
-                    );
-                  })}
+                    ))}
+
+                  {!fieldsLoading &&
+                    resources.map((res) => {
+                      const Icon = RESOURCE_ICONS[res.resource];
+                      return (
+                        <div
+                          key={res.resource}
+                          className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5"
+                        >
+                          <div className="flex items-center gap-2 border-b border-black/5 px-5 py-3">
+                            <Icon className="h-4 w-4 text-[#C13584]" />
+                            <span className="text-sm font-medium">
+                              {RESOURCE_LABELS[res.resource]}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {res.fields.filter((f) => f.required).length} required ·{" "}
+                              {res.fields.filter((f) => !f.required).length} optional
+                            </span>
+                          </div>
+                          <ul className="divide-y divide-black/5">
+                            {res.fields.map((f) => (
+                              <li
+                                key={f.name}
+                                className="flex items-center justify-between gap-4 px-5 py-3"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <code className="text-sm font-medium">{f.name}</code>
+                                    {f.required ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="gap-1 text-[10px] uppercase"
+                                      >
+                                        <Lock className="h-3 w-3" /> Required
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] uppercase">
+                                        Optional
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                    {f.description}
+                                  </p>
+                                </div>
+                                {f.required ? (
+                                  <span className="text-xs text-muted-foreground">Always</span>
+                                ) : (
+                                  <Switch
+                                    checked={selected[res.resource].has(f.name)}
+                                    onCheckedChange={() => toggle(res.resource, f.name)}
+                                    aria-label={`Include ${f.name} by default`}
+                                  />
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
 
                   <div className="flex items-start justify-between gap-4 rounded-2xl bg-white px-5 py-4 ring-1 ring-black/5">
                     <div>
-                      <div className="text-sm font-medium">
-                        Allow agents to request more fields
-                      </div>
+                      <div className="text-sm font-medium">Allow agents to request more fields</div>
                       <p className="mt-0.5 max-w-2xl text-xs text-muted-foreground">
                         When on, an agent's per-call <code>fields</code> request can add optional
                         fields beyond the defaults above. When off, responses are limited to the

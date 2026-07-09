@@ -40,6 +40,7 @@ import { Route as PinterestViewRouteImport } from './routes/pinterest.$view'
 import { Route as PermissionsToolkitIdRouteImport } from './routes/permissions.$toolkitId'
 import { Route as MonoAgentCreateRouteImport } from './routes/mono-agent_.create'
 import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.automations'
+import { Route as McpViewRouteImport } from './routes/mcp.$view'
 import { Route as InstagramViewRouteImport } from './routes/instagram.$view'
 import { Route as GithubViewRouteImport } from './routes/github.$view'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
@@ -201,6 +202,11 @@ const MonoAgentAutomationsRoute = MonoAgentAutomationsRouteImport.update({
   path: '/mono-agent/automations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpViewRoute = McpViewRouteImport.update({
+  id: '/$view',
+  path: '/$view',
+  getParentRoute: () => McpRoute,
+} as any)
 const InstagramViewRoute = InstagramViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -242,7 +248,7 @@ export interface FileRoutesByFullPath {
   '/github': typeof GithubRouteWithChildren
   '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
-  '/mcp': typeof McpRoute
+  '/mcp': typeof McpRouteWithChildren
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
@@ -254,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/content/$view': typeof ContentViewRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
+  '/mcp/$view': typeof McpViewRoute
   '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -280,7 +287,7 @@ export interface FileRoutesByTo {
   '/github': typeof GithubRouteWithChildren
   '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
-  '/mcp': typeof McpRoute
+  '/mcp': typeof McpRouteWithChildren
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
@@ -292,6 +299,7 @@ export interface FileRoutesByTo {
   '/content/$view': typeof ContentViewRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
+  '/mcp/$view': typeof McpViewRoute
   '/mono-agent/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -319,7 +327,7 @@ export interface FileRoutesById {
   '/github': typeof GithubRouteWithChildren
   '/instagram': typeof InstagramRouteWithChildren
   '/login': typeof LoginRoute
-  '/mcp': typeof McpRoute
+  '/mcp': typeof McpRouteWithChildren
   '/mono-agent': typeof MonoAgentRoute
   '/permissions': typeof PermissionsRouteWithChildren
   '/pinterest': typeof PinterestRouteWithChildren
@@ -331,6 +339,7 @@ export interface FileRoutesById {
   '/content/$view': typeof ContentViewRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
+  '/mcp/$view': typeof McpViewRoute
   '/mono-agent_/automations': typeof MonoAgentAutomationsRoute
   '/mono-agent_/create': typeof MonoAgentCreateRoute
   '/permissions/$toolkitId': typeof PermissionsToolkitIdRoute
@@ -371,6 +380,7 @@ export interface FileRouteTypes {
     | '/content/$view'
     | '/github/$view'
     | '/instagram/$view'
+    | '/mcp/$view'
     | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
     | '/content/$view'
     | '/github/$view'
     | '/instagram/$view'
+    | '/mcp/$view'
     | '/mono-agent/automations'
     | '/mono-agent/create'
     | '/permissions/$toolkitId'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/content/$view'
     | '/github/$view'
     | '/instagram/$view'
+    | '/mcp/$view'
     | '/mono-agent_/automations'
     | '/mono-agent_/create'
     | '/permissions/$toolkitId'
@@ -474,7 +486,7 @@ export interface RootRouteChildren {
   GithubRoute: typeof GithubRouteWithChildren
   InstagramRoute: typeof InstagramRouteWithChildren
   LoginRoute: typeof LoginRoute
-  McpRoute: typeof McpRoute
+  McpRoute: typeof McpRouteWithChildren
   MonoAgentRoute: typeof MonoAgentRoute
   PermissionsRoute: typeof PermissionsRouteWithChildren
   PinterestRoute: typeof PinterestRouteWithChildren
@@ -711,6 +723,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonoAgentAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp/$view': {
+      id: '/mcp/$view'
+      path: '/$view'
+      fullPath: '/mcp/$view'
+      preLoaderRoute: typeof McpViewRouteImport
+      parentRoute: typeof McpRoute
+    }
     '/instagram/$view': {
       id: '/instagram/$view'
       path: '/$view'
@@ -783,6 +802,16 @@ const InstagramRouteWithChildren = InstagramRoute._addFileChildren(
   InstagramRouteChildren,
 )
 
+interface McpRouteChildren {
+  McpViewRoute: typeof McpViewRoute
+}
+
+const McpRouteChildren: McpRouteChildren = {
+  McpViewRoute: McpViewRoute,
+}
+
+const McpRouteWithChildren = McpRoute._addFileChildren(McpRouteChildren)
+
 interface PermissionsRouteChildren {
   PermissionsToolkitIdRoute: typeof PermissionsToolkitIdRoute
 }
@@ -833,7 +862,7 @@ const rootRouteChildren: RootRouteChildren = {
   GithubRoute: GithubRouteWithChildren,
   InstagramRoute: InstagramRouteWithChildren,
   LoginRoute: LoginRoute,
-  McpRoute: McpRoute,
+  McpRoute: McpRouteWithChildren,
   MonoAgentRoute: MonoAgentRoute,
   PermissionsRoute: PermissionsRouteWithChildren,
   PinterestRoute: PinterestRouteWithChildren,
