@@ -464,7 +464,10 @@ function PlaygroundPage() {
                     onChange={(e) =>
                       setValues((v) => ({ ...v, [tool.args[0].name]: e.target.value }))
                     }
-                    placeholder={tool.args[0].placeholder ?? tool.args[0].label}
+                    placeholder={
+                      ("placeholder" in tool.args[0] ? tool.args[0].placeholder : undefined) ??
+                      tool.args[0].label
+                    }
                     className="h-12 border-0 bg-transparent px-0 text-base shadow-none focus-visible:ring-0"
                   />
                 </div>
