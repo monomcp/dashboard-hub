@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as PrincipalsRouteImport } from './routes/principals'
+import { Route as IdentitiesRouteImport } from './routes/identities'
 import { Route as PostmanRouteImport } from './routes/postman'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as PinterestRouteImport } from './routes/pinterest'
@@ -58,9 +58,9 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PrincipalsRoute = PrincipalsRouteImport.update({
-  id: '/principals',
-  path: '/principals',
+const IdentitiesRoute = IdentitiesRouteImport.update({
+  id: '/identities',
+  path: '/identities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PostmanRoute = PostmanRouteImport.update({
@@ -260,7 +260,7 @@ export interface FileRoutesByFullPath {
   '/pinterest': typeof PinterestRouteWithChildren
   '/playground': typeof PlaygroundRoute
   '/postman': typeof PostmanRouteWithChildren
-  '/principals': typeof PrincipalsRoute
+  '/identities': typeof IdentitiesRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -300,7 +300,7 @@ export interface FileRoutesByTo {
   '/pinterest': typeof PinterestRouteWithChildren
   '/playground': typeof PlaygroundRoute
   '/postman': typeof PostmanRouteWithChildren
-  '/principals': typeof PrincipalsRoute
+  '/identities': typeof IdentitiesRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -341,7 +341,7 @@ export interface FileRoutesById {
   '/pinterest': typeof PinterestRouteWithChildren
   '/playground': typeof PlaygroundRoute
   '/postman': typeof PostmanRouteWithChildren
-  '/principals': typeof PrincipalsRoute
+  '/identities': typeof IdentitiesRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
@@ -383,7 +383,7 @@ export interface FileRouteTypes {
     | '/pinterest'
     | '/playground'
     | '/postman'
-    | '/principals'
+    | '/identities'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -423,7 +423,7 @@ export interface FileRouteTypes {
     | '/pinterest'
     | '/playground'
     | '/postman'
-    | '/principals'
+    | '/identities'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -463,7 +463,7 @@ export interface FileRouteTypes {
     | '/pinterest'
     | '/playground'
     | '/postman'
-    | '/principals'
+    | '/identities'
     | '/privacy'
     | '/terms'
     | '/brand/$view'
@@ -504,7 +504,7 @@ export interface RootRouteChildren {
   PinterestRoute: typeof PinterestRouteWithChildren
   PlaygroundRoute: typeof PlaygroundRoute
   PostmanRoute: typeof PostmanRouteWithChildren
-  PrincipalsRoute: typeof PrincipalsRoute
+  IdentitiesRoute: typeof IdentitiesRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
@@ -533,11 +533,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/principals': {
-      id: '/principals'
-      path: '/principals'
-      fullPath: '/principals'
-      preLoaderRoute: typeof PrincipalsRouteImport
+    '/identities': {
+      id: '/identities'
+      path: '/identities'
+      fullPath: '/identities'
+      preLoaderRoute: typeof IdentitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/postman': {
@@ -888,7 +888,7 @@ const rootRouteChildren: RootRouteChildren = {
   PinterestRoute: PinterestRouteWithChildren,
   PlaygroundRoute: PlaygroundRoute,
   PostmanRoute: PostmanRouteWithChildren,
-  PrincipalsRoute: PrincipalsRoute,
+  IdentitiesRoute: IdentitiesRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,

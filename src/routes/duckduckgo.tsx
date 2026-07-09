@@ -305,7 +305,6 @@ function DuckDuckGoPage() {
             </div>
             <div className="leading-tight">
               <div className="text-xl font-medium tracking-tight">DuckDuckGo</div>
-              <div className="text-xs text-muted-foreground">v1.0.0 · active</div>
             </div>
           </Link>
         </div>

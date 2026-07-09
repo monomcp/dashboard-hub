@@ -68,7 +68,7 @@ import type {
 } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/principals")({
+export const Route = createFileRoute("/identities")({
   head: () => ({
     meta: [
       { title: "Identities" },
@@ -77,7 +77,7 @@ export const Route = createFileRoute("/principals")({
         content: "Manage the identities that call your MCP gateway and their API keys.",
       },
     ],
-    links: [{ rel: "canonical", href: "/principals" }],
+    links: [{ rel: "canonical", href: "/identities" }],
   }),
   component: PrincipalsPage,
 });

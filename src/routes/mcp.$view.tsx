@@ -1,15 +1,13 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Blocks, Menu } from "lucide-react";
-import type { ReactNode } from "react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
-import { InstagramIcon } from "@/components/instagram-icon";
 import { PillTabs } from "@/components/pill-tabs";
-import { PinterestIcon } from "@/components/pinterest-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
+import { brandIcon } from "@/lib/brand-icons";
 import { cn } from "@/lib/utils";
 import type { CatalogServer } from "@/lib/mcp-types";
 
@@ -20,11 +18,6 @@ const MCP_CATALOG_VIEWS = ["registry", "recommended"] as const;
 function isMcpCatalogView(value: string): value is McpCatalogView {
   return (MCP_CATALOG_VIEWS as readonly string[]).includes(value);
 }
-
-const SERVER_ICONS: Record<string, ReactNode> = {
-  instagram: <InstagramIcon className="h-6 w-6" />,
-  pinterest: <PinterestIcon className="h-6 w-6" />,
-};
 
 export const Route = createFileRoute("/mcp/$view")({
   beforeLoad: ({ params }) => {
@@ -168,10 +161,11 @@ function ServerLogo({ server }: { server: CatalogServer }) {
     );
   }
 
-  if (server.icon_key && SERVER_ICONS[server.icon_key]) {
+  const icon = brandIcon(server.icon_key);
+  if (icon) {
     return (
       <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
-        {SERVER_ICONS[server.icon_key]}
+        {icon}
       </div>
     );
   }

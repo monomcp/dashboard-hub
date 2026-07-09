@@ -2,11 +2,10 @@ import { type ReactNode, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Github, Grip, Pencil, Sparkles, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { InstagramIcon } from "@/components/instagram-icon";
-import { PinterestIcon } from "@/components/pinterest-icon";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiRequest } from "@/lib/api-client";
+import { brandIcon } from "@/lib/brand-icons";
 import { cn } from "@/lib/utils";
 
 export function PlaygroundHeaderButton() {
@@ -22,9 +21,17 @@ export function PlaygroundHeaderButton() {
   );
 }
 
-// `letter` is rendered inside the colored tile; pass `icon` to render a custom
-// glyph (e.g. a brand logo) instead.
-type App = { name: string; color: string; letter: string; icon?: ReactNode; to?: string };
+// `letter` is rendered inside the colored tile. Pass `iconKey` to render a
+// shared brand glyph from the brand-icons registry, or `icon` for a one-off
+// custom glyph.
+type App = {
+  name: string;
+  color: string;
+  letter: string;
+  iconKey?: string;
+  icon?: ReactNode;
+  to?: string;
+};
 
 const FAVOURITE_APPS: App[] = [
   { name: "Account", color: "bg-stone-500", letter: "C" },
@@ -68,7 +75,7 @@ const FAVOURITE_APPS: App[] = [
     name: "DuckDuckGo",
     color: "bg-white ring-1 ring-black/5",
     letter: "D",
-    icon: <img src="/mcp-logos/DuckDuckGo.svg" alt="" className="h-7 w-7" />,
+    iconKey: "duckduckgo",
     to: "/duckduckgo",
   },
   { name: "Calendar", color: "bg-sky-500", letter: "31", to: "/calendar" },
@@ -130,14 +137,14 @@ const FAVOURITE_APPS: App[] = [
     name: "Pinterest",
     color: "bg-white ring-1 ring-black/5",
     letter: "P",
-    icon: <PinterestIcon className="h-6 w-6" />,
+    iconKey: "pinterest",
     to: "/pinterest",
   },
   {
     name: "Instagram",
     color: "bg-white ring-1 ring-black/5",
     letter: "I",
-    icon: <InstagramIcon className="h-6 w-6" />,
+    iconKey: "instagram",
     to: "/instagram",
   },
   {
@@ -251,15 +258,16 @@ export function AppsMenu() {
           </div>
           <div className="grid grid-cols-3 gap-y-4">
             {favourites.map((app) => {
+              const glyph = app.icon ?? brandIcon(app.iconKey);
               const icon = (
                 <div
                   className={cn(
                     "grid h-11 w-11 place-items-center rounded-full font-semibold shadow-sm",
-                    app.icon ? "" : "text-white",
+                    glyph ? "" : "text-white",
                     app.color,
                   )}
                 >
-                  {app.icon ?? app.letter}
+                  {glyph ?? app.letter}
                 </div>
               );
               const label = <span className="text-xs text-foreground/80">{app.name}</span>;
