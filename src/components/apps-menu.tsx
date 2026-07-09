@@ -64,6 +64,13 @@ const FAVOURITE_APPS: App[] = [
     color: "bg-gradient-to-br from-blue-500 via-red-500 to-yellow-500",
     letter: "G",
   },
+  {
+    name: "DuckDuckGo",
+    color: "bg-white ring-1 ring-black/5",
+    letter: "D",
+    icon: <img src="/mcp-logos/DuckDuckGo.svg" alt="" className="h-7 w-7" />,
+    to: "/mcp/recommended",
+  },
   { name: "Calendar", color: "bg-sky-500", letter: "31", to: "/calendar" },
   {
     name: "CMS",

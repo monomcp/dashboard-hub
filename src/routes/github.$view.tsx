@@ -25,6 +25,7 @@ import { AccountMenu } from "@/components/account-menu";
 import { ActivityLog, type RequestLogSummary } from "@/components/activity-log";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
+import { GithubAccessMatrix } from "@/components/github-access-matrix";
 import { GithubIcon } from "@/components/github-icon";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
 import { Badge } from "@/components/ui/badge";
@@ -833,17 +834,20 @@ function PermissionsView({
   }
 
   return (
-    <PermissionsMatrix
-      toolkitIds={toolkitIds}
-      moduleSlugs={["github"]}
-      enabled={Boolean(server?.enabled)}
-      theme={lightPermissionsTheme}
-      toolsNoun="GitHub"
-      stripToolPrefix={/^github_/}
-      disabledHint="Who can use the GitHub tools, and how. Enable the GitHub MCP server first to start granting access."
-      connectHint="No GitHub toolkit is connected yet — enable GitHub from the MCP catalog."
-      onApiError={onApiError}
-    />
+    <div className="grid gap-8">
+      <PermissionsMatrix
+        toolkitIds={toolkitIds}
+        moduleSlugs={["github"]}
+        enabled={Boolean(server?.enabled)}
+        theme={lightPermissionsTheme}
+        toolsNoun="GitHub"
+        stripToolPrefix={/^github_/}
+        disabledHint="Who can use the GitHub tools, and how. Enable the GitHub MCP server first to start granting access."
+        connectHint="No GitHub toolkit is connected yet — enable GitHub from the MCP catalog."
+        onApiError={onApiError}
+      />
+      <GithubAccessMatrix onApiError={onApiError} />
+    </div>
   );
 }
 

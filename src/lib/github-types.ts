@@ -1,6 +1,8 @@
 // Types for the GitHub integration module. Mirrors
 // api/app/modules/github/schemas.py.
 
+import type { PrincipalStatus, PrincipalType } from "@/lib/mcp-types";
+
 export type GithubAccountType = "Organization" | "User";
 export type GithubInstallationStatus = "active" | "suspended" | "deleted";
 export type GithubRepositorySelection = "all" | "selected";
@@ -54,6 +56,53 @@ export type GithubStatusResponse = {
 
 export type GithubInstallUrlResponse = {
   url: string;
+};
+
+export type GithubAccessMode = "all_repos" | "selected";
+export type GithubAccessCellMode = "none" | GithubAccessMode;
+
+export type GithubAccessRepository = {
+  id: string;
+  name: string;
+  full_name: string;
+  private: boolean;
+  html_url: string;
+  default_branch: string | null;
+  language: string | null;
+};
+
+export type GithubAccessInstallation = {
+  id: string;
+  account_login: string;
+  account_type: GithubAccountType;
+  account_avatar_url: string | null;
+  repository_count: number;
+  repositories: GithubAccessRepository[];
+};
+
+export type GithubAccessCell = {
+  mode: GithubAccessCellMode;
+  repository_ids: string[];
+};
+
+export type GithubAccessMatrixPrincipal = {
+  id: string;
+  name: string;
+  type: PrincipalType;
+  status: PrincipalStatus;
+  auth_user_id: string | null;
+  installations: Record<string, GithubAccessCell>;
+};
+
+export type GithubAccessMatrix = {
+  installations: GithubAccessInstallation[];
+  principals: GithubAccessMatrixPrincipal[];
+};
+
+export type GithubAccessUpsert = {
+  installation_id: string;
+  mode: GithubAccessMode;
+  repository_ids: string[];
 };
 
 export type Page<T> = {
