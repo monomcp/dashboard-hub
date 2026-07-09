@@ -22,6 +22,12 @@ import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -286,6 +292,36 @@ function PostmanPage() {
       <div className="flex">
         {sidebarOpen && (
           <aside className="hidden w-[260px] shrink-0 px-3 md:block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg">
+                  <Plus className="mr-1 h-5 w-5" /> Add
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 rounded-2xl p-1.5">
+                <DropdownMenuItem asChild className="gap-3 rounded-lg py-2.5">
+                  <Link to="/postman/$view" params={{ view: "collections" }}>
+                    <FolderOpen className="h-4 w-4" /> New collection
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="gap-3 rounded-lg py-2.5">
+                  <Link to="/postman/$view" params={{ view: "environments" }}>
+                    <Globe2 className="h-4 w-4" /> New environment
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="gap-3 rounded-lg py-2.5">
+                  <Link to="/postman/$view" params={{ view: "flows" }}>
+                    <Workflow className="h-4 w-4" /> New flow
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="gap-3 rounded-lg py-2.5">
+                  <Link to="/postman/$view" params={{ view: "variables" }}>
+                    <KeyRound className="h-4 w-4" /> New variable
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <nav className="space-y-1">
               {POSTMAN_NAV.map((item) => {
                 const isActive = view === item.id;
