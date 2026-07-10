@@ -29,6 +29,16 @@ export type CatalogServer = {
   toolkit_ids: string[];
 };
 
+// Derived server-side from the toolkit's owner: `shared` toolkits are hand-curated
+// and grantable to many principals, while each `personal_*` toolkit belongs to the
+// single identity of that type.
+export type ToolkitKind =
+  | "shared"
+  | "personal_user"
+  | "personal_agent"
+  | "personal_service_account"
+  | "personal_api_client";
+
 export type Toolkit = {
   id: string;
   organization_id: string;
@@ -37,6 +47,7 @@ export type Toolkit = {
   slug: string;
   visibility: ToolkitVisibility;
   tool_ids: string[];
+  kind: ToolkitKind;
   created_at: string;
   updated_at: string;
 };

@@ -5,6 +5,7 @@ import {
   ConnectionEndpoints,
   HowToConnect,
   Section,
+  ToolkitKindBadge,
   ToolkitSelectionIndicator,
   useActiveOrgSlug,
 } from "@/components/mcp-connect";
@@ -243,6 +244,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                             /{t.slug}
                           </span>
                         </span>
+                        <ToolkitKindBadge kind={t.kind} className="mt-2" />
                         <ToolkitSelectionIndicator
                           checked={checked}
                           className="absolute right-3 top-3"

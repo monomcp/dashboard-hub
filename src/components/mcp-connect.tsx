@@ -3,9 +3,21 @@
 
 import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, MessageCircle, PawPrint, Terminal } from "lucide-react";
+import {
+  Bot,
+  Check,
+  Cog,
+  Copy,
+  KeyRound,
+  type LucideIcon,
+  MessageCircle,
+  PawPrint,
+  Terminal,
+  User,
+  Users,
+} from "lucide-react";
 import { apiRequest } from "@/lib/api-client";
-import { gatewayEndpoint } from "@/lib/mcp-types";
+import { gatewayEndpoint, type ToolkitKind } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
 type Membership = {
@@ -159,6 +171,44 @@ export function ToolkitSelectionIndicator({
       aria-hidden="true"
     >
       {checked && <Check className="h-3 w-3" />}
+    </span>
+  );
+}
+
+const TOOLKIT_KIND_BADGES: Record<
+  ToolkitKind,
+  { icon: LucideIcon; label: string; title: string }
+> = {
+  shared: { icon: Users, label: "Shared", title: "Curated toolkit, grantable to any identity" },
+  personal_user: { icon: User, label: "Personal", title: "Private toolkit of a person" },
+  personal_agent: { icon: Bot, label: "Agent", title: "Private toolkit of an agent" },
+  personal_service_account: {
+    icon: Cog,
+    label: "Service",
+    title: "Private toolkit of a service account",
+  },
+  personal_api_client: { icon: KeyRound, label: "API", title: "Private toolkit of an API client" },
+};
+
+/** Icon + label for a toolkit's owner: shared, or the identity type that owns it. */
+export function ToolkitKindBadge({
+  kind,
+  className,
+}: {
+  kind: ToolkitKind;
+  className?: string;
+}) {
+  const { icon: Icon, label, title } = TOOLKIT_KIND_BADGES[kind];
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1 text-xs text-muted-foreground",
+        className,
+      )}
+    >
+      <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+      {label}
     </span>
   );
 }
