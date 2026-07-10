@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
 import { cn } from "@/lib/utils";
-import type { CatalogBadge, CatalogServer } from "@/lib/mcp-types";
+import type { CatalogBadge, CatalogServer, Page, Toolkit } from "@/lib/mcp-types";
 
 type McpCatalogView = "registry" | "recommended";
 
@@ -48,6 +48,12 @@ function McpCatalogPage() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["mcp-catalog", view],
     queryFn: () => apiRequest<CatalogServer[]>(catalogPath),
+    staleTime: 60 * 1000,
+  });
+  const { data: toolkitPage } = useQuery({
+    queryKey: ["toolkits"],
+    queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?limit=200"),
+    enabled: view === "registry",
     staleTime: 60 * 1000,
   });
 
@@ -94,58 +100,180 @@ function McpCatalogPage() {
           </p>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={cn("grid gap-4", view === "recommended" && "sm:grid-cols-2 lg:grid-cols-3")}
+        >
           {isLoading &&
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
-                <Skeleton className="h-10 w-10 rounded-xl" />
-                <Skeleton className="mt-4 h-5 w-32" />
-                <Skeleton className="mt-2 h-4 w-full" />
-                <Skeleton className="mt-1 h-4 w-2/3" />
-                <Skeleton className="mt-4 h-9 w-28 rounded-full" />
-              </div>
-            ))}
+            Array.from({ length: 6 }).map((_, i) =>
+              view === "registry" ? (
+                <RegistryCardSkeleton key={i} />
+              ) : (
+                <div key={i} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <Skeleton className="mt-4 h-5 w-32" />
+                  <Skeleton className="mt-2 h-4 w-full" />
+                  <Skeleton className="mt-1 h-4 w-2/3" />
+                  <Skeleton className="mt-4 h-9 w-28 rounded-full" />
+                </div>
+              ),
+            )}
 
           {!isLoading &&
-            servers.map((server) => (
-              <div
-                key={server.slug}
-                className="flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5"
-              >
-                <div className="flex items-start justify-between">
-                  <ServerLogo server={server} />
-                  <span className="text-xs text-muted-foreground">
-                    {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
-                  </span>
+            servers.map((server) =>
+              view === "registry" ? (
+                <RegistryServerCard
+                  key={server.slug}
+                  server={server}
+                  toolkits={toolkitPage?.items ?? []}
+                />
+              ) : (
+                <div
+                  key={server.slug}
+                  className="flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5"
+                >
+                  <div className="flex items-start justify-between">
+                    <ServerLogo server={server} />
+                    <span className="text-xs text-muted-foreground">
+                      {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-medium">{server.name}</h3>
+                    <ServerBadges badges={catalogBadges(server)} />
+                  </div>
+                  <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
+                    {server.description}
+                  </p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <EnableMcpServerButton
+                      serverSlug={server.slug}
+                      enabled={server.enabled}
+                      toolkitIds={server.toolkit_ids}
+                    />
+                    {server.configure_path && (
+                      <a
+                        href={server.configure_path}
+                        className="text-sm font-medium text-sky-700 hover:underline"
+                      >
+                        Configure →
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-medium">{server.name}</h3>
-                  <ServerBadges badges={catalogBadges(server)} />
-                </div>
-                <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
-                  {server.description}
-                </p>
-                <div className="mt-4 flex items-center gap-3">
-                  <EnableMcpServerButton
-                    serverSlug={server.slug}
-                    enabled={server.enabled}
-                    toolkitIds={server.toolkit_ids}
-                  />
-                  {server.configure_path && (
-                    <a
-                      href={server.configure_path}
-                      className="text-sm font-medium text-sky-700 hover:underline"
-                    >
-                      Configure →
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+              ),
+            )}
         </div>
 
         {!isLoading && !isError && servers.length === 0 && <EmptyCatalogState view={view} />}
       </main>
+    </div>
+  );
+}
+
+function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolkits: Toolkit[] }) {
+  const connectedToolkits = server.toolkit_ids
+    .map((id) => toolkits.find((toolkit) => toolkit.id === id))
+    .filter((toolkit): toolkit is Toolkit => Boolean(toolkit));
+  const primaryToolkit = connectedToolkits[0];
+  const badges = catalogBadges(server);
+  const modulePath = server.configure_path ?? SERVER_MODULE_PATHS[server.slug];
+  const openModule = () => {
+    if (modulePath) window.location.assign(modulePath);
+  };
+
+  return (
+    <article
+      className={cn(
+        "overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(20,30,50,0.02)] transition",
+        modulePath &&
+          "cursor-pointer hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
+      )}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest("button, a, input, [role='button']")) return;
+        openModule();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openModule();
+        }
+      }}
+      role={modulePath ? "link" : undefined}
+      tabIndex={modulePath ? 0 : undefined}
+      aria-label={modulePath ? `Open ${server.name}` : undefined}
+    >
+      <div className="p-5 sm:p-6">
+        <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[4rem_minmax(0,1fr)_auto] sm:gap-5">
+          <ServerLogo server={server} compact />
+          <div className="min-w-0">
+            <h3 className="truncate text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
+              {server.name}
+            </h3>
+            <p className="mt-1 truncate text-sm text-slate-500 sm:text-base">
+              {server.description}
+            </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 sm:text-sm">
+              <span>
+                {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
+              </span>
+              {badges.map((badge) => (
+                <span key={badge}>{BADGE_DETAILS[badge].label}</span>
+              ))}
+            </div>
+          </div>
+          <EnableMcpServerButton
+            serverSlug={server.slug}
+            enabled={server.enabled}
+            toolkitIds={server.toolkit_ids}
+            variant="registry"
+          />
+        </div>
+
+        <div className="mt-5 flex min-h-11 items-center justify-between gap-4 border-t border-slate-200/80 pt-4 text-sm text-slate-500">
+          <span className="truncate">
+            {server.enabled ? (
+              primaryToolkit ? (
+                <>
+                  Connected as{" "}
+                  <strong className="font-semibold text-slate-600">{primaryToolkit.name}</strong>
+                </>
+              ) : (
+                "Connected"
+              )
+            ) : (
+              "Not connected"
+            )}
+          </span>
+          {server.enabled && server.toolkit_ids[0] && (
+            <code className="shrink-0 rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-xs text-slate-800">
+              {server.toolkit_ids[0].slice(0, 6)}
+            </code>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function RegistryCardSkeleton() {
+  return (
+    <div className="rounded-[1.75rem] border border-slate-200/90 bg-white p-5 sm:p-6">
+      <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_3rem] items-center gap-4 sm:grid-cols-[4rem_minmax(0,1fr)_3rem] sm:gap-5">
+        <Skeleton className="h-14 w-14 rounded-[1.125rem] sm:h-16 sm:w-16" />
+        <div className="min-w-0">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="mt-2 h-4 w-4/5" />
+          <Skeleton className="mt-3 h-3.5 w-48" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-7 w-12 rounded-full" />
+          <Skeleton className="h-4 w-12" />
+        </div>
+      </div>
+      <div className="mt-5 flex items-center justify-between border-t border-slate-200/80 pt-4">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-7 w-16 rounded-lg" />
+      </div>
     </div>
   );
 }
@@ -189,6 +317,25 @@ const MONOMCP_SERVER_SLUGS = new Set([
   "email",
 ]);
 
+const SERVER_MODULE_PATHS: Record<string, string> = {
+  brand: "/brand",
+  calendar: "/calendar",
+  cms: "/cms",
+  contacts: "/contacts",
+  content: "/content",
+  database: "/database",
+  drive: "/drive",
+  duckduckgo: "/duckduckgo",
+  email: "/email",
+  firecrawl: "/firecrawl",
+  github: "/github",
+  instagram: "/instagram",
+  pinterest: "/pinterest",
+  postman: "/postman",
+  smm: "/content",
+  tasks: "/tasks/activity",
+};
+
 function catalogBadges(server: CatalogServer): CatalogBadge[] {
   if (server.badges?.length) {
     return server.badges;
@@ -226,14 +373,17 @@ function ServerBadges({ badges }: { badges: CatalogBadge[] }) {
   );
 }
 
-function ServerLogo({ server }: { server: CatalogServer }) {
+function ServerLogo({ server, compact = false }: { server: CatalogServer; compact?: boolean }) {
+  const frameClass = compact
+    ? "grid h-14 w-14 place-items-center rounded-[1.125rem] border border-slate-200 bg-white sm:h-16 sm:w-16"
+    : "grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5";
   if (server.logo_url) {
     return (
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
+      <div className={frameClass}>
         <img
           src={server.logo_url}
           alt={`${server.name} logo`}
-          className="h-7 w-7 object-contain"
+          className={cn("object-contain", compact ? "h-9 w-9" : "h-7 w-7")}
           loading="lazy"
         />
       </div>
@@ -242,15 +392,17 @@ function ServerLogo({ server }: { server: CatalogServer }) {
 
   const icon = brandIcon(server.icon_key);
   if (icon) {
-    return (
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white ring-1 ring-black/5">
-        {icon}
-      </div>
-    );
+    return <div className={frameClass}>{icon}</div>;
   }
 
   return (
-    <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-sm font-semibold uppercase text-white">
+    <div
+      className={cn(
+        frameClass,
+        "border-0 bg-gradient-to-br from-sky-500 to-indigo-600 font-semibold uppercase text-white",
+        compact ? "text-lg" : "text-sm",
+      )}
+    >
       {server.name.charAt(0)}
     </div>
   );

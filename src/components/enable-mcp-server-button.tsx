@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Check, Loader2, Plus, Power, Share2, User, X } from "lucide-react";
+import { ArrowRight, Bot, Check, Loader2, Plus, Power, Share2, User, X } from "lucide-react";
 import {
   ConnectionEndpoints,
   HowToConnect,
@@ -56,6 +56,8 @@ type Props = {
   toolkitIds: string[];
   /** Called after a successful change so the parent can refetch catalog state. */
   onEnabled?: () => void;
+  /** Compact card treatment used by the MCP registry. */
+  variant?: "default" | "registry";
 };
 
 function sameSet(a: string[], b: string[]): boolean {
@@ -64,7 +66,13 @@ function sameSet(a: string[], b: string[]): boolean {
   return a.every((id) => setB.has(id));
 }
 
-export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
+export function EnableMcpServerButton({
+  serverSlug,
+  enabled,
+  toolkitIds,
+  onEnabled,
+  variant = "default",
+}: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const orgSlug = useActiveOrgSlug(open);
@@ -183,7 +191,32 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
     <>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          {enabled ? (
+          {variant === "registry" ? (
+            <button
+              type="button"
+              className="group flex flex-col items-end gap-2.5 rounded-lg text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-4"
+              aria-label={`${enabled ? "Manage" : "Enable"} ${serverSlug} MCP server`}
+            >
+              <span
+                className={cn(
+                  "relative block h-7 w-12 rounded-full transition-colors",
+                  enabled ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-slate-300",
+                )}
+                aria-hidden="true"
+              >
+                <span
+                  className={cn(
+                    "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
+                    enabled ? "translate-x-6" : "translate-x-1",
+                  )}
+                />
+              </span>
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700 group-hover:underline">
+                {enabled ? "Manage" : "Enable"}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </span>
+            </button>
+          ) : enabled ? (
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-200"

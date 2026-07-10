@@ -231,7 +231,7 @@ export function AppsMenu() {
     >
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full" aria-label="Apps">
-          <Grip className="h-5 w-5 text-muted-foreground" strokeWidth={2.5} />
+          <Grip className="h-6 w-6 text-muted-foreground" strokeWidth={2.5} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
