@@ -150,6 +150,70 @@ function SaveFieldButton({
 
 // ── General ──────────────────────────────────────────────────────────────────
 
+export function DeleteIdentityDialog({
+  principal,
+  open,
+  onOpenChange,
+  onDeleted,
+}: {
+  principal: Principal | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const remove = useMutation({
+    mutationFn: () => {
+      if (!principal) throw new Error("No identity selected");
+      return apiRequest<void>(`/api/v1/principals/${principal.id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["principals"] });
+      queryClient.invalidateQueries({ queryKey: ["toolkits"] });
+      queryClient.invalidateQueries({ queryKey: ["toolkits-list"] });
+      queryClient.invalidateQueries({ queryKey: ["toolkit-access-matrix"] });
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      onOpenChange(false);
+      onDeleted?.();
+    },
+  });
+  const deleteError = errorText(remove.error, "Couldn't delete this identity.");
+
+  const setOpen = (nextOpen: boolean) => {
+    if (remove.isPending) return;
+    if (!nextOpen) remove.reset();
+    onOpenChange(nextOpen);
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {principal?.name ?? "identity"}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently removes the identity, its personal toolkit, permissions, and API keys.
+            Anything calling the gateway as this identity will stop working.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={remove.isPending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(event) => {
+              event.preventDefault();
+              remove.mutate();
+            }}
+            disabled={!principal || remove.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {remove.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function GeneralTab({ principal, onDeleted }: { principal: Principal; onDeleted: () => void }) {
   const queryClient = useQueryClient();
   const storedDescription =
@@ -172,19 +236,8 @@ function GeneralTab({ principal, onDeleted }: { principal: Principal; onDeleted:
     onSuccess: invalidate,
   });
 
-  const remove = useMutation({
-    mutationFn: () => apiRequest<void>(`/api/v1/principals/${principal.id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      invalidate();
-      setConfirmDelete(false);
-      onDeleted();
-    },
-  });
-
-  // `user` principals are tied to an org membership; the API rejects deleting them directly.
-  const deletable = principal.type !== "user";
+  const deletable = principal.can_delete;
   const updateError = errorText(update.error, "Couldn't save changes.");
-  const deleteError = errorText(remove.error, "Couldn't delete this identity.");
 
   const savingName = update.isPending && update.variables?.name !== undefined;
   const savingDescription = update.isPending && update.variables?.metadata !== undefined;
@@ -263,47 +316,27 @@ function GeneralTab({ principal, onDeleted }: { principal: Principal; onDeleted:
         title="Danger zone"
         hint={
           deletable
-            ? "Deleting an identity revokes its toolkit access and API keys."
-            : "User identities are removed by removing the org membership."
+            ? "Deleting an identity removes its personal toolkit, permissions, and API keys."
+            : "This identity is protected and cannot be deleted."
         }
       >
         <Button
           variant="outline"
           className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
-          disabled={!deletable || remove.isPending}
+          disabled={!deletable}
           onClick={() => setConfirmDelete(true)}
         >
           <Trash2 className="h-4 w-4" />
           Delete identity
         </Button>
-        {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
       </Section>
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {principal.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes the identity, its toolkit grants, and its API keys. Anything
-              calling the gateway as this identity will stop working.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {deleteError && <p className="text-xs text-destructive">{deleteError}</p>}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={remove.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                remove.mutate();
-              }}
-              disabled={remove.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {remove.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteIdentityDialog
+        principal={principal}
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        onDeleted={onDeleted}
+      />
     </>
   );
 }

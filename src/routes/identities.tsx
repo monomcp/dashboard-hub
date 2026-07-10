@@ -12,12 +12,17 @@ import {
   MoreVertical,
   Plus,
   Settings,
+  Trash2,
   UserRound,
   Wrench,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
-import { IdentityDetailSheet, type IdentityTab } from "@/components/identity-detail-sheet";
+import {
+  DeleteIdentityDialog,
+  IdentityDetailSheet,
+  type IdentityTab,
+} from "@/components/identity-detail-sheet";
 import { ToolkitCluster } from "@/components/toolkit-cluster";
 import { Button } from "@/components/ui/button";
 import {
@@ -119,9 +124,11 @@ function StatusBadge({ status }: { status: Principal["status"] }) {
 function PrincipalRowActions({
   principal,
   onOpen,
+  onDelete,
 }: {
   principal: Principal;
   onOpen: (tab: IdentityTab) => void;
+  onDelete: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -154,6 +161,15 @@ function PrincipalRowActions({
             Agent Setup
           </DropdownMenuItem>
         )}
+        {principal.can_delete && (
+          <DropdownMenuItem
+            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+            onSelect={onDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -162,6 +178,7 @@ function PrincipalRowActions({
 function PrincipalsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deletePrincipal, setDeletePrincipal] = useState<Principal | null>(null);
   // The identity whose detail sheet is open, plus which tab it landed on.
   const [detail, setDetail] = useState<{ id: string; tab: IdentityTab } | null>(null);
 
@@ -366,6 +383,7 @@ function PrincipalsPage() {
                         <PrincipalRowActions
                           principal={p}
                           onOpen={(tab) => setDetail({ id: p.id, tab })}
+                          onDelete={() => setDeletePrincipal(p)}
                         />
                       </td>
                     </tr>
@@ -378,6 +396,12 @@ function PrincipalsPage() {
       </div>
 
       <CreatePrincipalDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      <DeleteIdentityDialog
+        principal={deletePrincipal}
+        open={deletePrincipal !== null}
+        onOpenChange={(open) => !open && setDeletePrincipal(null)}
+      />
 
       <IdentityDetailSheet
         principal={selected}
