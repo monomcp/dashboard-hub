@@ -94,6 +94,9 @@ export type AccessMatrixPrincipal = {
   status: PrincipalStatus;
   auth_user_id: string | null;
   has_toolkit_access: boolean;
+  // True when the identity reaches ≥1 of these tools through its own personal
+  // toolkit (its cells reflect that even though the selected toolkit is unset).
+  has_external_access: boolean;
   access_mode: ToolkitAccessMode | null;
   enabled: boolean;
   tools: Record<string, AccessCell>;

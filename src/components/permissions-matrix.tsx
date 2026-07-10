@@ -68,10 +68,9 @@ function AccessCellBadge({ value }: { value: AccessCell }) {
 }
 
 function hasAnyAccess(principal: AccessMatrixPrincipal): boolean {
-  return (
-    principal.has_toolkit_access &&
-    Object.values(principal.tools).some((cell) => cell !== "no_access")
-  );
+  // A cell is non-"no_access" only when some grant path — the selected toolkit or
+  // the identity's personal toolkit — actually admits the tool, so this covers both.
+  return Object.values(principal.tools).some((cell) => cell !== "no_access");
 }
 
 type ToolRuleChoice = "inherit" | "allow" | "needs_approval" | "deny";
@@ -146,7 +145,9 @@ function GrantControl({
           disabled={busy}
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs capitalize transition disabled:opacity-50",
-            principal.has_toolkit_access ? theme.grantHas : theme.grantNone,
+            principal.has_toolkit_access || principal.has_external_access
+              ? theme.grantHas
+              : theme.grantNone,
           )}
         >
           {busy ? (
@@ -155,7 +156,9 @@ function GrantControl({
             <>
               {principal.has_toolkit_access
                 ? `${principal.access_mode}${principal.enabled ? "" : " · off"}`
-                : "Grant access"}
+                : principal.has_external_access
+                  ? "Via personal"
+                  : "Grant access"}
               <ChevronDown className="h-3 w-3" />
             </>
           )}
