@@ -1,29 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Check,
-  Copy,
-  Fingerprint,
-  KeyRound,
-  Loader2,
-  Menu,
-  MoreVertical,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bot, Braces, BriefcaseBusiness, Fingerprint, Loader2, Menu, Plus, UserRound } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,12 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -48,28 +22,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
 import type {
-  ApiKey,
-  ApiKeyCreate,
-  ApiKeyCreated,
   CatalogServer,
   Page,
   Principal,
   PrincipalCreate,
   PrincipalType,
   Toolkit,
-  ToolkitAccessMatrix,
 } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +42,7 @@ export const Route = createFileRoute("/identities")({
       { title: "Identities" },
       {
         name: "description",
-        content: "Manage the identities that call your MCP gateway and their API keys.",
+        content: "Manage the identities that call your MCP gateway.",
       },
     ],
     links: [{ rel: "canonical", href: "/identities" }],
@@ -93,6 +56,30 @@ const TYPE_LABEL: Record<PrincipalType, string> = {
   service_account: "Service account",
   api_client: "API client",
 };
+
+const TYPE_ICON: Record<PrincipalType, typeof UserRound> = {
+  user: UserRound,
+  agent: Bot,
+  service_account: BriefcaseBusiness,
+  api_client: Braces,
+};
+
+function PrincipalTypeIcon({ type }: { type: PrincipalType }) {
+  const Icon = TYPE_ICON[type];
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          aria-label={TYPE_LABEL[type]}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top">{TYPE_LABEL[type]}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 function StatusBadge({ status }: { status: Principal["status"] }) {
   const styles: Record<Principal["status"], string> = {
@@ -184,34 +171,19 @@ function ToolkitCluster({
 }
 
 function PrincipalsPage() {
-  const [keysFor, setKeysFor] = useState<Principal | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["principals"],
-    queryFn: () => apiRequest<Page<Principal>>("/api/v1/principals?limit=200"),
+    queryKey: ["principals", "with-toolkits"],
+    queryFn: () => apiRequest<Page<Principal>>("/api/v1/principals?limit=200&include=toolkit_ids"),
     staleTime: 30 * 1000,
   });
   const principals = useMemo(() => data?.items ?? [], [data]);
 
-  const { data: keyPage } = useQuery({
-    queryKey: ["api-keys"],
-    queryFn: () => apiRequest<Page<ApiKey>>("/api/v1/api-keys?limit=200"),
-    staleTime: 30 * 1000,
-  });
-  // principal_id → count of live (non-revoked) keys.
-  const keyCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const k of keyPage?.items ?? []) {
-      if (k.revoked_at || !k.principal_id) continue;
-      counts.set(k.principal_id, (counts.get(k.principal_id) ?? 0) + 1);
-    }
-    return counts;
-  }, [keyPage]);
-
   // The org's MCP toolkits (name + id), shared cache with the permissions page.
-  const { data: toolkitPage } = useQuery({
+  // Resolves each principal's toolkit_ids into names + brand icons.
+  const { data: toolkitPage, isLoading: toolkitsLoading } = useQuery({
     queryKey: ["toolkits-list"],
     queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?sort=name&direction=asc&limit=200"),
     staleTime: 30 * 1000,
@@ -234,33 +206,19 @@ function PrincipalsPage() {
     return map;
   }, [catalog]);
 
-  // One access matrix per toolkit tells us which identities can use it.
-  const matrices = useQueries({
-    queries: toolkits.map((toolkit) => ({
-      queryKey: ["toolkit-access-matrix", toolkit.id],
-      queryFn: () =>
-        apiRequest<ToolkitAccessMatrix>(`/api/v1/toolkits/${toolkit.id}/access-matrix`),
-      staleTime: 30 * 1000,
-    })),
-  });
-  const toolkitsLoading = toolkits.length > 0 && matrices.some((m) => m.isLoading);
-
-  // principal_id → the toolkits it has an enabled grant on (in toolkit sort order).
+  // principal_id → its enabled toolkits, resolved from the embedded toolkit_ids.
+  // Filtering the already name-sorted toolkits list keeps the icons in a stable order.
   const toolkitsByPrincipal = useMemo(() => {
     const map = new Map<string, Toolkit[]>();
-    matrices.forEach((result, index) => {
-      const toolkit = toolkits[index];
-      if (!toolkit || !result.data) return;
-      for (const row of result.data.principals) {
-        if (!row.enabled) continue;
-        const list = map.get(row.id) ?? [];
-        list.push(toolkit);
-        map.set(row.id, list);
-      }
-    });
+    for (const p of principals) {
+      const ids = new Set(p.toolkit_ids ?? []);
+      map.set(
+        p.id,
+        toolkits.filter((t) => ids.has(t.id)),
+      );
+    }
     return map;
-    // matrices is a fresh array each render; recompute is cheap for a handful of toolkits.
-  }, [matrices, toolkits]);
+  }, [principals, toolkits]);
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -316,8 +274,7 @@ function PrincipalsPage() {
             <div>
               <h1 className="text-2xl font-medium tracking-tight">Identities</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                The identities that call your MCP gateway. Issue an API key for any identity to
-                connect an agent (Codex, Claude, …) without OAuth.
+                The identities that call your MCP gateway.
               </p>
             </div>
             <Button className="shrink-0 rounded-full" onClick={() => setCreateOpen(true)}>
@@ -340,8 +297,6 @@ function PrincipalsPage() {
                     <th className="px-5 py-3 font-medium">Name</th>
                     <th className="px-5 py-3 font-medium">Type</th>
                     <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">API keys</th>
-                    <th className="px-5 py-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -367,18 +322,12 @@ function PrincipalsPage() {
                         <td className="px-5 py-4">
                           <Skeleton className="h-6 w-16 rounded-full" />
                         </td>
-                        <td className="px-5 py-4">
-                          <Skeleton className="h-5 w-8" />
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <Skeleton className="ml-auto h-9 w-32 rounded-full" />
-                        </td>
                       </tr>
                     ))}
 
                   {!isLoading && principals.length === 0 && (
                     <tr>
-                      <td className="px-5 py-8 text-center text-muted-foreground" colSpan={5}>
+                      <td className="px-5 py-8 text-center text-muted-foreground" colSpan={3}>
                         No identities yet.
                       </td>
                     </tr>
@@ -401,23 +350,11 @@ function PrincipalsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-muted-foreground">{TYPE_LABEL[p.type]}</td>
+                      <td className="px-5 py-4">
+                        <PrincipalTypeIcon type={p.type} />
+                      </td>
                       <td className="px-5 py-4">
                         <StatusBadge status={p.status} />
-                      </td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        {keyCounts.get(p.id) ?? 0}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-full"
-                          onClick={() => setKeysFor(p)}
-                        >
-                          <KeyRound className="h-3.5 w-3.5" />
-                          Manage keys
-                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -429,7 +366,6 @@ function PrincipalsPage() {
       </div>
 
       <CreatePrincipalDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <ApiKeysSheet principal={keysFor} onClose={() => setKeysFor(null)} />
     </div>
   );
 }
@@ -570,240 +506,5 @@ function CreatePrincipalDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** Right-hand panel listing a principal's API keys, with create + revoke. */
-function ApiKeysSheet({
-  principal,
-  onClose,
-}: {
-  principal: Principal | null;
-  onClose: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [created, setCreated] = useState<ApiKeyCreated | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["api-keys"],
-    queryFn: () => apiRequest<Page<ApiKey>>("/api/v1/api-keys?limit=200"),
-    enabled: principal !== null,
-    staleTime: 30 * 1000,
-  });
-  const keys = useMemo(
-    () => (data?.items ?? []).filter((k) => k.principal_id === principal?.id),
-    [data, principal],
-  );
-
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["api-keys"] });
-    queryClient.invalidateQueries({ queryKey: ["principals"] });
-  };
-
-  const create = useMutation({
-    mutationFn: (body: ApiKeyCreate) =>
-      apiRequest<ApiKeyCreated>("/api/v1/api-keys", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    onSuccess: (key) => {
-      setCreated(key);
-      setName("");
-      invalidate();
-    },
-  });
-
-  const revoke = useMutation({
-    mutationFn: (id: string) =>
-      apiRequest<ApiKey>(`/api/v1/api-keys/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ revoked: true }),
-      }),
-    onSuccess: () => {
-      setRevokeTarget(null);
-      invalidate();
-    },
-  });
-
-  const submit = () => {
-    if (!name.trim() || !principal) return;
-    create.mutate({ name: name.trim(), principal_id: principal.id });
-  };
-
-  const copySecret = () => {
-    if (!created) return;
-    void navigator.clipboard.writeText(created.secret);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const close = () => {
-    setName("");
-    setCreated(null);
-    create.reset();
-    onClose();
-  };
-
-  const createError =
-    create.error instanceof ApiError ? create.error.message : create.error ? "Failed." : null;
-
-  return (
-    <>
-      <Sheet open={principal !== null} onOpenChange={(o) => !o && close()}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-          <SheetHeader className="border-b px-6 py-5 text-left">
-            <SheetTitle className="text-xl">API keys</SheetTitle>
-            <SheetDescription>
-              {principal ? `For ${principal.name}. ` : ""}A key authenticates the gateway as this
-              identity — it works on every toolkit this identity can access.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-            {/* One-time secret reveal after creation. */}
-            {created && (
-              <div className="space-y-2 rounded-xl border border-emerald-600/30 bg-emerald-50 p-4">
-                <p className="text-sm font-medium text-emerald-800">
-                  Copy this key now — you won't see it again.
-                </p>
-                <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs">
-                    {created.secret}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={copySecret}
-                    title="Copy"
-                    className="shrink-0 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  >
-                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Create form. */}
-            <div className="space-y-2">
-              <label htmlFor="key-name" className="text-sm font-medium">
-                New key
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="key-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      submit();
-                    }
-                  }}
-                  placeholder="e.g. Codex – production"
-                  className="h-9"
-                />
-                <Button
-                  size="sm"
-                  className="h-9 rounded-lg"
-                  onClick={submit}
-                  disabled={!name.trim() || create.isPending}
-                >
-                  {create.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Create
-                </Button>
-              </div>
-              {createError && <p className="text-xs text-destructive">{createError}</p>}
-            </div>
-
-            {/* Existing keys. */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Existing keys
-              </p>
-              {isLoading ? (
-                <Skeleton className="h-12 w-full rounded-lg" />
-              ) : keys.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No keys yet.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {keys.map((k) => (
-                    <li
-                      key={k.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{k.name}</div>
-                        <div className="font-mono text-xs text-muted-foreground">
-                          {k.key_prefix}…
-                          {k.revoked_at && <span className="ml-2 text-destructive">revoked</span>}
-                          {!k.revoked_at && k.last_used_at && (
-                            <span className="ml-2">
-                              last used {new Date(k.last_used_at).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {!k.revoked_at && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              title="Actions"
-                              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => setRevokeTarget(k)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Revoke
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <AlertDialog open={revokeTarget !== null} onOpenChange={(o) => !o && setRevokeTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Revoke this API key?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Any client using <span className="font-mono">{revokeTarget?.key_prefix}…</span> will
-              immediately lose access to the gateway. This can't be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={revoke.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                if (revokeTarget) revoke.mutate(revokeTarget.id);
-              }}
-              disabled={revoke.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {revoke.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Revoke"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
   );
 }

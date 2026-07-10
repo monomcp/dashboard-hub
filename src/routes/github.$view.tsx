@@ -12,11 +12,11 @@ import {
   KeyRound,
   Link2,
   Menu,
+  MoreHorizontal,
   Plus,
   Search,
   Shield,
   Tag,
-  Trash2,
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { GithubAccessMatrix } from "@/components/github-access-matrix";
 import { GithubIcon } from "@/components/github-icon";
 import { PermissionsMatrix, PermissionsMatrixLoading } from "@/components/permissions-matrix";
+import { PillTabs } from "@/components/pill-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -654,16 +655,27 @@ function AccountsView({
                   Manage on GitHub
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
-                  aria-label={`Disconnect ${installation.account_login}`}
-                  disabled={disconnectingId === installation.id}
-                  onClick={() => setPendingDisconnect(installation)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 rounded-full text-muted-foreground"
+                      aria-label={`Actions for ${installation.account_login}`}
+                      disabled={disconnectingId === installation.id}
+                    >
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={() => setPendingDisconnect(installation)}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               {isSuspended && (
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
@@ -818,6 +830,13 @@ function RepositoriesView({
   );
 }
 
+type PermissionsTab = "permissions" | "access";
+
+const PERMISSIONS_TABS: { id: PermissionsTab; label: string }[] = [
+  { id: "permissions", label: "Permissions" },
+  { id: "access", label: "Account & repository access" },
+];
+
 function PermissionsView({
   server,
   catalogLoading,
@@ -828,25 +847,32 @@ function PermissionsView({
   onApiError: (err: unknown, fallback?: string) => void;
 }) {
   const toolkitIds = useMemo(() => server?.toolkit_ids ?? [], [server]);
-
-  if (catalogLoading && !server) {
-    return <PermissionsMatrixLoading theme={lightPermissionsTheme} />;
-  }
+  const [tab, setTab] = useState<PermissionsTab>("permissions");
 
   return (
-    <div className="grid gap-8">
-      <PermissionsMatrix
-        toolkitIds={toolkitIds}
-        moduleSlugs={["github"]}
-        enabled={Boolean(server?.enabled)}
-        theme={lightPermissionsTheme}
-        toolsNoun="GitHub"
-        stripToolPrefix={/^github_/}
-        disabledHint="Who can use the GitHub tools, and how. Enable the GitHub MCP server first to start granting access."
-        connectHint="No GitHub toolkit is connected yet — enable GitHub from the MCP catalog."
-        onApiError={onApiError}
+    <div className="grid gap-6">
+      <PillTabs
+        tabs={PERMISSIONS_TABS}
+        activeId={tab}
+        onSelect={(id) => setTab(id as PermissionsTab)}
       />
-      <GithubAccessMatrix onApiError={onApiError} />
+      {catalogLoading && !server ? (
+        <PermissionsMatrixLoading theme={lightPermissionsTheme} />
+      ) : tab === "permissions" ? (
+        <PermissionsMatrix
+          toolkitIds={toolkitIds}
+          moduleSlugs={["github"]}
+          enabled={Boolean(server?.enabled)}
+          theme={lightPermissionsTheme}
+          toolsNoun="GitHub"
+          stripToolPrefix={/^github_/}
+          disabledHint="Who can use the GitHub tools, and how. Enable the GitHub MCP server first to start granting access."
+          connectHint="No GitHub toolkit is connected yet — enable GitHub from the MCP catalog."
+          onApiError={onApiError}
+        />
+      ) : (
+        <GithubAccessMatrix onApiError={onApiError} />
+      )}
     </div>
   );
 }

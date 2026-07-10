@@ -127,6 +127,8 @@ export type Principal = {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  // Enabled toolkit grants, present only when fetched with `?include=toolkit_ids`.
+  toolkit_ids?: string[] | null;
 };
 
 export type PrincipalCreate = {
