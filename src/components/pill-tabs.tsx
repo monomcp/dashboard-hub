@@ -89,7 +89,7 @@ export function PillTabs<T extends PillTabItem>({
         className={cn(
           "absolute rounded-full bg-white transition-[left,transform,width] duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none",
           isRaised
-            ? "-inset-y-0.5 border border-[#e5e5e5] shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_14px_rgb(0_0_0/0.06)]"
+            ? "-inset-y-0.5 border border-[#e5e5e5]"
             : "inset-y-1 left-1 shadow-sm",
         )}
         style={{

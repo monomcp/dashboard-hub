@@ -177,7 +177,6 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
   const connectedToolkits = server.toolkit_ids
     .map((id) => toolkits.find((toolkit) => toolkit.id === id))
     .filter((toolkit): toolkit is Toolkit => Boolean(toolkit));
-  const primaryToolkit = connectedToolkits[0];
   const badges = catalogBadges(server);
   const modulePath = server.configure_path ?? SERVER_MODULE_PATHS[server.slug];
   const openModule = () => {
@@ -227,25 +226,25 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
         />
       </div>
 
-      <div className="mt-4 flex min-h-8 items-center justify-between gap-3 border-t pt-4 text-xs text-muted-foreground">
-        <span className="truncate">
-          {server.enabled ? (
-            primaryToolkit ? (
-              <>
-                Connected as{" "}
-                <strong className="font-medium text-foreground/70">{primaryToolkit.name}</strong>
-              </>
-            ) : (
-              "Connected"
-            )
+      <div className="mt-4 flex min-h-8 flex-wrap items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
+        {server.enabled ? (
+          connectedToolkits.length > 0 ? (
+            <>
+              <span>Connected as</span>
+              {connectedToolkits.map((toolkit) => (
+                <span
+                  key={toolkit.id}
+                  className="rounded-md bg-muted/60 px-2 py-1 font-medium text-foreground"
+                >
+                  {toolkit.name}
+                </span>
+              ))}
+            </>
           ) : (
-            "Not connected"
-          )}
-        </span>
-        {server.enabled && server.toolkit_ids[0] && (
-          <code className="shrink-0 rounded-md bg-muted/60 px-2 py-1 font-mono text-xs text-foreground">
-            {server.toolkit_ids[0].slice(0, 6)}
-          </code>
+            "Connected"
+          )
+        ) : (
+          "Not connected"
         )}
       </div>
     </article>

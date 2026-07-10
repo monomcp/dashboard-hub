@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -193,10 +192,26 @@ export function EnableMcpServerButton({
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           {variant === "registry" ? (
-            <Switch
-              checked={enabled}
+            <button
+              type="button"
+              className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               aria-label={`${enabled ? "Manage" : "Enable"} ${serverSlug} MCP server`}
-            />
+            >
+              <span
+                className={cn(
+                  "relative block h-6 w-10 rounded-full transition-colors",
+                  enabled ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-slate-300",
+                )}
+                aria-hidden="true"
+              >
+                <span
+                  className={cn(
+                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-[left,right]",
+                    enabled ? "right-1" : "left-1",
+                  )}
+                />
+              </span>
+            </button>
           ) : enabled ? (
             <button
               type="button"

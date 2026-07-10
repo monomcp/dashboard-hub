@@ -132,6 +132,19 @@ const PLATFORM_ICONS: Record<string, typeof Instagram> = {
   blog: Globe,
 };
 
+function getSocialPlatforms(response: unknown): SocialPlatform[] {
+  if (Array.isArray(response)) return response;
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "items" in response &&
+    Array.isArray(response.items)
+  ) {
+    return response.items;
+  }
+  throw new Error("Social platforms response is invalid");
+}
+
 function ContentPage() {
   const navigate = useNavigate();
   const section = Route.useParams().view as SocialSection;
@@ -194,7 +207,7 @@ function ContentPage() {
     (section === "ideas" || section === "calendar");
   const platformsQuery = useQuery({
     queryKey: ["social", "platforms"],
-    queryFn: () => apiRequest<SocialPlatform[]>("/api/v1/social/platforms"),
+    queryFn: async () => getSocialPlatforms(await apiRequest<unknown>("/api/v1/social/platforms")),
     enabled: needsSocialPlatforms,
     staleTime: 60 * 1000,
   });
