@@ -187,9 +187,9 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
   return (
     <article
       className={cn(
-        "flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5 transition",
+        "flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5",
         modulePath &&
-          "cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
+          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
       )}
       onClick={(event) => {
         if ((event.target as HTMLElement).closest("button, a, input, [role='button']")) return;
