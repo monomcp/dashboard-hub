@@ -8,6 +8,7 @@ import { PillTabs } from "@/components/pill-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
+import { mcpServerPath } from "@/lib/mcp-server-paths";
 import { cn } from "@/lib/utils";
 import type { CatalogBadge, CatalogServer, Page, Toolkit } from "@/lib/mcp-types";
 
@@ -123,7 +124,7 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
     .map((id) => toolkits.find((toolkit) => toolkit.id === id))
     .filter((toolkit): toolkit is Toolkit => Boolean(toolkit));
   const badges = catalogBadges(server);
-  const modulePath = server.configure_path ?? SERVER_MODULE_PATHS[server.slug];
+  const modulePath = mcpServerPath(server);
   const openModule = () => {
     if (modulePath) window.location.assign(modulePath);
   };
@@ -260,25 +261,6 @@ const MONOMCP_SERVER_SLUGS = new Set([
   "crm",
   "email",
 ]);
-
-const SERVER_MODULE_PATHS: Record<string, string> = {
-  brand: "/brand",
-  calendar: "/calendar",
-  cms: "/cms",
-  contacts: "/contacts",
-  content: "/content",
-  database: "/database",
-  drive: "/drive",
-  duckduckgo: "/duckduckgo",
-  email: "/email",
-  firecrawl: "/firecrawl",
-  github: "/github",
-  instagram: "/instagram",
-  pinterest: "/pinterest",
-  postman: "/postman",
-  smm: "/content",
-  tasks: "/tasks/activity",
-};
 
 function catalogBadges(server: CatalogServer): CatalogBadge[] {
   if (server.badges?.length) {

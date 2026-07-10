@@ -440,7 +440,7 @@ export function PermissionsMatrix({
 
   const setToolkitGrant = (principalId: string, mode: "full" | "restricted") =>
     runAction(`tk:${principalId}`, () =>
-      apiRequest<unknown>(`/api/v1/principals/${principalId}/toolkit-access`, {
+      apiRequest<unknown>(`/api/v1/identities/${principalId}/toolkit-access`, {
         method: "PUT",
         body: JSON.stringify({ toolkit_id: toolkitId, access_mode: mode, enabled: true }),
       }),
@@ -448,7 +448,7 @@ export function PermissionsMatrix({
 
   const revokeToolkitGrant = (principalId: string) =>
     runAction(`tk:${principalId}`, () =>
-      apiRequest<unknown>(`/api/v1/principals/${principalId}/toolkit-access/${toolkitId}`, {
+      apiRequest<unknown>(`/api/v1/identities/${principalId}/toolkit-access/${toolkitId}`, {
         method: "DELETE",
       }),
     );
@@ -456,7 +456,7 @@ export function PermissionsMatrix({
   const setToolRule = (principalId: string, toolId: string, choice: ToolRuleChoice) =>
     runAction(`tr:${principalId}:${toolId}`, () => {
       if (choice === "inherit") {
-        return apiRequest<unknown>(`/api/v1/principals/${principalId}/tool-rules/${toolId}`, {
+        return apiRequest<unknown>(`/api/v1/identities/${principalId}/tool-rules/${toolId}`, {
           method: "DELETE",
         });
       }
@@ -468,7 +468,7 @@ export function PermissionsMatrix({
               effect: "allow",
               permission: choice === "needs_approval" ? "needs_approval" : "always_allow",
             };
-      return apiRequest<unknown>(`/api/v1/principals/${principalId}/tool-rules`, {
+      return apiRequest<unknown>(`/api/v1/identities/${principalId}/tool-rules`, {
         method: "PUT",
         body: JSON.stringify(body),
       });

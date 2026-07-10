@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Check, KeyRound, Loader2, Plus, Trash2, TriangleAlert } from "lucide-react";
+import {
+  Bot,
+  Check,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  Plus,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import {
   ConnectionEndpoints,
   CopyRow,
@@ -10,7 +19,7 @@ import {
   useCopy,
 } from "@/components/mcp-connect";
 import { PillTabs, type PillTabItem } from "@/components/pill-tabs";
-import { ToolkitCluster } from "@/components/toolkit-cluster";
+import { McpServerCluster } from "@/components/toolkit-cluster";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +53,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
+import { mcpServerPath } from "@/lib/mcp-server-paths";
 import {
   gatewayEndpoint,
   type ApiKey,
@@ -168,7 +178,7 @@ export function DeleteIdentityDialog({
   const remove = useMutation({
     mutationFn: () => {
       if (!principal) throw new Error("No identity selected");
-      return apiRequest<void>(`/api/v1/principals/${principal.id}`, { method: "DELETE" });
+      return apiRequest<void>(`/api/v1/identities/${principal.id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["principals"] });
@@ -232,7 +242,7 @@ function GeneralTab({ principal, onDeleted }: { principal: Principal; onDeleted:
 
   const update = useMutation({
     mutationFn: (body: PrincipalUpdate) =>
-      apiRequest<Principal>(`/api/v1/principals/${principal.id}`, {
+      apiRequest<Principal>(`/api/v1/identities/${principal.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
       }),
@@ -465,7 +475,7 @@ function McpServerTools({
 
   const updateRule = useMutation({
     mutationFn: ({ toolId, enabled }: { toolId: string; enabled: boolean }) =>
-      apiRequest<unknown>(`/api/v1/principals/${principal.id}/tool-rules`, {
+      apiRequest<unknown>(`/api/v1/identities/${principal.id}/tool-rules`, {
         method: "PUT",
         body: JSON.stringify(
           enabled
@@ -491,16 +501,31 @@ function McpServerTools({
   return (
     <section aria-labelledby={`mcp-server-${server.slug}`}>
       <div className="mb-3 flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border bg-white">
+        <a
+          href={mcpServerPath(server)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border bg-white transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Open ${server.name} in a new tab`}
+        >
           {icon ?? (
             <span className="text-sm font-semibold uppercase text-muted-foreground">
               {server.name.charAt(0)}
             </span>
           )}
-        </span>
+        </a>
         <div className="min-w-0">
           <h3 id={`mcp-server-${server.slug}`} className="truncate text-base font-semibold">
-            {server.name}
+            <a
+              href={mcpServerPath(server)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {server.name}
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
           </h3>
           <p className="text-xs text-muted-foreground">
             {toolkits.map((toolkit) => toolkit.name).join(", ")}
@@ -544,9 +569,6 @@ function McpServerTools({
                     aria-label={`${enabled ? "Disable" : "Enable"} ${tool.name}`}
                   />
                 </div>
-                <span className="mt-auto pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {busy ? "Updating…" : enabled ? "Enabled" : "Disabled"}
-                </span>
               </div>
             );
           })}
@@ -881,7 +903,7 @@ export function IdentityDetailSheet({
 
   const { data: grantData, isLoading: grantsLoading } = useQuery({
     queryKey: ["principal-toolkit-access", shown?.id],
-    queryFn: () => apiRequest<ToolkitAccess[]>(`/api/v1/principals/${shown!.id}/toolkit-access`),
+    queryFn: () => apiRequest<ToolkitAccess[]>(`/api/v1/identities/${shown!.id}/toolkit-access`),
     enabled: open && shown !== null,
     staleTime: 30 * 1000,
   });
@@ -893,17 +915,7 @@ export function IdentityDetailSheet({
     enabled: open,
     staleTime: 5 * 60 * 1000,
   });
-  const serverByToolkit = useMemo(() => {
-    const map = new Map<string, CatalogServer>();
-    for (const server of catalog ?? []) {
-      for (const id of server.toolkit_ids) {
-        if (!map.has(id)) map.set(id, server);
-      }
-    }
-    return map;
-  }, [catalog]);
-
-  // Keep the name-sorted order from the toolkits query so the header icons stay stable.
+  // Agent setup still needs the granted toolkit endpoints and names.
   const grantedToolkits = useMemo(() => {
     const ids = new Set(grants.filter((g) => g.enabled).map((g) => g.toolkit_id));
     return toolkits.filter((t) => ids.has(t.id));
@@ -922,12 +934,7 @@ export function IdentityDetailSheet({
         <TooltipProvider delayDuration={200}>
           <SheetHeader className="border-b px-6 py-5 text-left">
             <div className="flex items-center gap-3 pr-10">
-              <ToolkitCluster
-                toolkits={grantedToolkits}
-                serverFor={(id) => serverByToolkit.get(id)}
-                loading={toolkitsLoading || grantsLoading}
-                max={4}
-              />
+              <McpServerCluster servers={shown.mcp_servers ?? []} max={7} />
               <div className="min-w-0">
                 <SheetTitle className="truncate text-xl">{shown.name}</SheetTitle>
                 <SheetDescription className="flex items-center gap-2">

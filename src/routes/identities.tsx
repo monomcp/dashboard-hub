@@ -176,7 +176,7 @@ function PrincipalsPage() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["principals", "with-toolkits"],
-    queryFn: () => apiRequest<Page<Principal>>("/api/v1/principals?limit=200&include=mcp_servers"),
+    queryFn: () => apiRequest<Page<Principal>>("/api/v1/identities?limit=200&include=mcp_servers"),
     staleTime: 30 * 1000,
   });
   const principals = useMemo(() => data?.items ?? [], [data]);
@@ -375,7 +375,7 @@ function CreatePrincipalDialog({
 
   const create = useMutation({
     mutationFn: (body: PrincipalCreate) =>
-      apiRequest<Principal>("/api/v1/principals", {
+      apiRequest<Principal>("/api/v1/identities", {
         method: "POST",
         body: JSON.stringify(body),
       }),

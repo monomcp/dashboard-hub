@@ -135,7 +135,7 @@ export type SetServerToolkitsRequest = {
   new_toolkits?: NewToolkit[];
 };
 
-// ── Principals (GET/POST /api/v1/principals) ─────────────────────────────────
+// ── Identities (GET/POST /api/v1/identities) ─────────────────────────────────
 // Mirrors api/app/modules/mcp/schemas.py PrincipalResponse.
 export type Principal = {
   id: string;
@@ -169,7 +169,7 @@ export type PrincipalCreate = {
   metadata?: Record<string, unknown>;
 };
 
-// PATCH /api/v1/principals/{id}. Every field is optional; only what's sent changes.
+// PATCH /api/v1/identities/{id}. Every field is optional; only what's sent changes.
 export type PrincipalUpdate = {
   name?: string;
   slug?: string;
@@ -177,7 +177,7 @@ export type PrincipalUpdate = {
   metadata?: Record<string, unknown>;
 };
 
-// ── Toolkit access grants (GET/PUT/DELETE /api/v1/principals/{id}/toolkit-access) ──
+// ── Toolkit access grants (GET/PUT/DELETE /api/v1/identities/{id}/toolkit-access) ──
 // Mirrors api/app/modules/mcp/schemas.py ToolkitAccessResponse.
 export type ToolkitAccess = {
   id: string;

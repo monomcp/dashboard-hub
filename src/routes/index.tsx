@@ -236,7 +236,7 @@ function TasksPage() {
         "/api/v1/tasks/lists?limit=200&sort=sort_order&direction=asc",
       );
       const principalPage = await apiRequest<Page<PrincipalResponse>>(
-        "/api/v1/principals?limit=200",
+        "/api/v1/identities?limit=200",
       );
       const taskPages = await Promise.all(
         listPage.items.map((list) =>
@@ -573,7 +573,8 @@ function TasksPage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <PlaygroundHeaderButton /><AppsMenu />
+          <PlaygroundHeaderButton />
+          <AppsMenu />
           <AccountMenu />
         </div>
       </header>
