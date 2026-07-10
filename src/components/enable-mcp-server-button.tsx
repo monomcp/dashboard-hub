@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Plus, Power, X } from "lucide-react";
+import { Bot, Check, Loader2, Plus, Power, Share2, User, X } from "lucide-react";
 import {
   ConnectionEndpoints,
   HowToConnect,
@@ -23,6 +23,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -56,47 +62,6 @@ function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const setB = new Set(b);
   return a.every((id) => setB.has(id));
-}
-
-const NEW_TOOLKIT_KINDS: { value: NewToolkitKind; label: string; hint: string }[] = [
-  { value: "shared", label: "Shared", hint: "A curated toolkit you can grant to any identity" },
-  { value: "agent", label: "Agent", hint: "Also creates an agent identity that owns the toolkit" },
-];
-
-/**
- * Ownership of the toolkit about to be created. There is no "user" option: a
- * personal_user toolkit belongs to a human, and those identities are derived from org
- * memberships — the API rejects creating one by name.
- */
-function NewToolkitKindPicker({
-  value,
-  onChange,
-}: {
-  value: NewToolkitKind;
-  onChange: (kind: NewToolkitKind) => void;
-}) {
-  return (
-    <div className="mt-2 flex gap-1" role="radiogroup" aria-label="Toolkit type">
-      {NEW_TOOLKIT_KINDS.map((k) => (
-        <button
-          key={k.value}
-          type="button"
-          role="radio"
-          aria-checked={value === k.value}
-          title={k.hint}
-          onClick={() => onChange(k.value)}
-          className={cn(
-            "flex-1 rounded-md border px-2 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            value === k.value
-              ? "border-foreground/30 bg-muted font-medium text-foreground"
-              : "border-border bg-background text-muted-foreground hover:bg-muted/60",
-          )}
-        >
-          {k.label}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
@@ -341,16 +306,51 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                         placeholder="New toolkit name"
                         className="h-9"
                       />
-                      <NewToolkitKindPicker value={newKind} onChange={setNewKind} />
                       <div className="mt-2 flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          className="h-9 rounded-lg"
-                          onClick={saveNew}
-                          disabled={!newName.trim()}
-                        >
-                          Save
-                        </Button>
+                        <div className="flex h-9 overflow-hidden rounded-lg">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-9 rounded-r-none border-r border-primary-foreground/30 px-2.5"
+                                aria-label="Choose toolkit type"
+                              >
+                                {newKind === "agent" ? (
+                                  <Bot className="h-4 w-4" />
+                                ) : (
+                                  <Share2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuItem onSelect={() => setNewKind("shared")}>
+                                <Share2 />
+                                Share
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setNewKind("agent")}>
+                                <Bot />
+                                Agent
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled
+                                title="User toolkits are created from organization memberships"
+                              >
+                                <User />
+                                User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-9 rounded-l-none"
+                            onClick={saveNew}
+                            disabled={!newName.trim()}
+                          >
+                            Save
+                          </Button>
+                        </div>
                         <button
                           type="button"
                           onClick={cancelNew}
