@@ -87,6 +87,12 @@ export type AccessRuleInfo = {
   permission: ToolPermission | null;
 };
 
+export type MatrixPersonalAccess = {
+  toolkit_id: string;
+  access_mode: ToolkitAccessMode;
+  enabled: boolean;
+};
+
 export type AccessMatrixPrincipal = {
   id: string;
   name: string;
@@ -94,9 +100,10 @@ export type AccessMatrixPrincipal = {
   status: PrincipalStatus;
   auth_user_id: string | null;
   has_toolkit_access: boolean;
-  // True when the identity reaches ≥1 of these tools through its own personal
-  // toolkit (its cells reflect that even though the selected toolkit is unset).
-  has_external_access: boolean;
+  // Present when the identity reaches ≥1 of these tools through its own personal
+  // toolkit. Editing this grant (full/restricted/revoke) targets its toolkit_id,
+  // not the toolkit the matrix is scoped to.
+  personal_access: MatrixPersonalAccess | null;
   access_mode: ToolkitAccessMode | null;
   enabled: boolean;
   tools: Record<string, AccessCell>;

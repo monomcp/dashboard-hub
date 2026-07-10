@@ -26,6 +26,7 @@ import type {
   PrincipalType,
   Toolkit,
   ToolkitAccessMatrix,
+  ToolkitAccessMode,
 } from "@/lib/mcp-types";
 import { lightPermissionsTheme, type PermissionsTheme } from "@/lib/permissions-theme";
 
@@ -120,6 +121,37 @@ function MenuButton({
   );
 }
 
+// The grant the pill shows and edits: the identity's grant on the selected toolkit
+// when it has one, otherwise its personal-toolkit grant (which reaches these tools
+// through the identity's own toolkit). Mutations target `toolkitId`.
+function effectiveGrant(principal: AccessMatrixPrincipal): {
+  hasGrant: boolean;
+  mode: ToolkitAccessMode | null;
+  enabled: boolean;
+  viaPersonal: boolean;
+  toolkitId: string | null;
+} {
+  if (principal.has_toolkit_access) {
+    return {
+      hasGrant: true,
+      mode: principal.access_mode,
+      enabled: principal.enabled,
+      viaPersonal: false,
+      toolkitId: null, // the selected toolkit — resolved by the caller
+    };
+  }
+  if (principal.personal_access) {
+    return {
+      hasGrant: true,
+      mode: principal.personal_access.access_mode,
+      enabled: principal.personal_access.enabled,
+      viaPersonal: true,
+      toolkitId: principal.personal_access.toolkit_id,
+    };
+  }
+  return { hasGrant: false, mode: null, enabled: false, viaPersonal: false, toolkitId: null };
+}
+
 function GrantControl({
   principal,
   busy,
@@ -133,6 +165,7 @@ function GrantControl({
 }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
+  const grant = effectiveGrant(principal);
   const pick = (fn: () => void) => {
     setOpen(false);
     fn();
@@ -143,22 +176,19 @@ function GrantControl({
         <button
           type="button"
           disabled={busy}
+          title={grant.viaPersonal ? "Access through this identity's personal toolkit" : undefined}
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs capitalize transition disabled:opacity-50",
-            principal.has_toolkit_access || principal.has_external_access
-              ? theme.grantHas
-              : theme.grantNone,
+            grant.hasGrant ? theme.grantHas : theme.grantNone,
           )}
         >
           {busy ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
             <>
-              {principal.has_toolkit_access
-                ? `${principal.access_mode}${principal.enabled ? "" : " · off"}`
-                : principal.has_external_access
-                  ? "Via personal"
-                  : "Grant access"}
+              {grant.hasGrant
+                ? `${grant.mode}${grant.enabled ? "" : " · off"}`
+                : "Grant access"}
               <ChevronDown className="h-3 w-3" />
             </>
           )}
@@ -168,14 +198,14 @@ function GrantControl({
         <div
           className={cn("px-2.5 pb-1 pt-1.5 text-xs uppercase tracking-wide", theme.principalSub)}
         >
-          Toolkit access
+          {grant.viaPersonal ? "Personal toolkit access" : "Toolkit access"}
         </div>
         <MenuButton
           icon={Check}
           iconClass={theme.menuIcon.allow}
           label="Full access"
           hint="all tools"
-          active={principal.has_toolkit_access && principal.access_mode === "full"}
+          active={grant.hasGrant && grant.mode === "full"}
           onClick={() => pick(() => onSet("full"))}
         />
         <MenuButton
@@ -183,10 +213,10 @@ function GrantControl({
           iconClass={theme.menuIcon.needs}
           label="Restricted"
           hint="allowed only"
-          active={principal.has_toolkit_access && principal.access_mode === "restricted"}
+          active={grant.hasGrant && grant.mode === "restricted"}
           onClick={() => pick(() => onSet("restricted"))}
         />
-        {principal.has_toolkit_access && (
+        {grant.hasGrant && (
           <>
             <div className={cn("my-1 h-px", theme.menuDivider)} />
             <MenuButton icon={X} label="Revoke access" danger onClick={() => pick(onRevoke)} />
@@ -441,20 +471,35 @@ export function PermissionsMatrix({
     [queryClient, toolkitMatrixQueryKey, onApiError],
   );
 
-  const setToolkitGrant = (principalId: string, mode: "full" | "restricted") =>
+  // `targetToolkitId` lets the pill edit a grant on a toolkit other than the selected
+  // one — specifically an identity's personal toolkit — falling back to the selected
+  // toolkit for ordinary grants.
+  const setToolkitGrant = (
+    principalId: string,
+    mode: "full" | "restricted",
+    targetToolkitId: string | null = toolkitId,
+  ) =>
     runAction(`tk:${principalId}`, () =>
       apiRequest<unknown>(`/api/v1/identities/${principalId}/toolkit-access`, {
         method: "PUT",
-        body: JSON.stringify({ toolkit_id: toolkitId, access_mode: mode, enabled: true }),
+        body: JSON.stringify({ toolkit_id: targetToolkitId, access_mode: mode, enabled: true }),
       }),
     );
 
-  const revokeToolkitGrant = (principalId: string) =>
+  const revokeToolkitGrant = (principalId: string, targetToolkitId: string | null = toolkitId) =>
     runAction(`tk:${principalId}`, () =>
-      apiRequest<unknown>(`/api/v1/identities/${principalId}/toolkit-access/${toolkitId}`, {
-        method: "DELETE",
-      }),
+      apiRequest<unknown>(
+        `/api/v1/identities/${principalId}/toolkit-access/${targetToolkitId}`,
+        { method: "DELETE" },
+      ),
     );
+
+  // Which toolkit the pill's grant edits: the selected one for an ordinary grant, or
+  // the identity's personal toolkit when its access comes only through that.
+  const grantToolkitId = (principal: AccessMatrixPrincipal) =>
+    principal.has_toolkit_access
+      ? toolkitId
+      : (principal.personal_access?.toolkit_id ?? toolkitId);
 
   const setToolRule = (principalId: string, toolId: string, choice: ToolRuleChoice) =>
     runAction(`tr:${principalId}:${toolId}`, () => {
@@ -487,7 +532,7 @@ export function PermissionsMatrix({
         rule={principal.rules[tool.id]}
         value={principal.tools[tool.id] ?? "no_access"}
         busy={busyKey === `tr:${principal.id}:${tool.id}`}
-        editable={principal.has_toolkit_access}
+        editable={principal.has_toolkit_access || Boolean(principal.personal_access)}
         onChoose={(choice) => setToolRule(principal.id, tool.id, choice)}
       />
     </div>
@@ -659,8 +704,12 @@ export function PermissionsMatrix({
                           <PrincipalLabel
                             principal={principal}
                             busy={busyKey === `tk:${principal.id}`}
-                            onSet={(mode) => setToolkitGrant(principal.id, mode)}
-                            onRevoke={() => revokeToolkitGrant(principal.id)}
+                            onSet={(mode) =>
+                              setToolkitGrant(principal.id, mode, grantToolkitId(principal))
+                            }
+                            onRevoke={() =>
+                              revokeToolkitGrant(principal.id, grantToolkitId(principal))
+                            }
                           />
                         </td>
                         {tools.map((tool) => (
@@ -704,8 +753,12 @@ export function PermissionsMatrix({
                           <PrincipalLabel
                             principal={principal}
                             busy={busyKey === `tk:${principal.id}`}
-                            onSet={(mode) => setToolkitGrant(principal.id, mode)}
-                            onRevoke={() => revokeToolkitGrant(principal.id)}
+                            onSet={(mode) =>
+                              setToolkitGrant(principal.id, mode, grantToolkitId(principal))
+                            }
+                            onRevoke={() =>
+                              revokeToolkitGrant(principal.id, grantToolkitId(principal))
+                            }
                           />
                         </th>
                       ))}
