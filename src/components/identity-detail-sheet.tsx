@@ -492,6 +492,23 @@ function McpServerTools({
   });
 
   const loading = matrices.some((query) => query.isLoading);
+  const allToolsEnabled =
+    tools.length > 0 &&
+    tools.every((tool) => tool.value === "allowed" || tool.value === "needs_approval");
+  const updateAllRules = useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiRequest<unknown>(
+        `/api/v1/identities/${principal.id}/mcp-servers/${encodeURIComponent(server.slug)}/tool-rules`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ enabled }),
+        },
+      ),
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["identity-tool-access", principal.id] });
+      await queryClient.invalidateQueries({ queryKey: ["toolkit-access-matrix"] });
+    },
+  });
   const icon = server.logo_url ? (
     <img src={server.logo_url} alt="" className="h-7 w-7 object-contain" loading="lazy" />
   ) : (
@@ -514,7 +531,7 @@ function McpServerTools({
             </span>
           )}
         </a>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
           <h3 id={`mcp-server-${server.slug}`} className="truncate text-base font-semibold">
             <a
               href={mcpServerPath(server)}
@@ -527,9 +544,15 @@ function McpServerTools({
               <span className="sr-only">(opens in a new tab)</span>
             </a>
           </h3>
-          <p className="text-xs text-muted-foreground">
-            {toolkits.map((toolkit) => toolkit.name).join(", ")}
-          </p>
+          <label className="flex shrink-0 items-center gap-2 text-xs font-medium">
+            Enable all tools
+            <Switch
+              checked={allToolsEnabled}
+              disabled={loading || updateAllRules.isPending || tools.length === 0}
+              onCheckedChange={(checked) => updateAllRules.mutate(checked)}
+              aria-label={`Enable all ${server.name} tools`}
+            />
+          </label>
         </div>
       </div>
 
