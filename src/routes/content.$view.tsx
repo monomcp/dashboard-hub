@@ -255,7 +255,9 @@ function ContentPage() {
       tabs={CONTENT_MODE_TABS}
       activeId={mode}
       onSelect={(id) => selectMode(id as ContentMode)}
-      className="bg-[hsl(220,33%,95%)]"
+      variant="raised"
+      ariaLabel="Select content mode"
+      className="w-[300px]"
     />
   );
 

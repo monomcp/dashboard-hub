@@ -101,7 +101,10 @@ function McpCatalogPage() {
         )}
 
         <div
-          className={cn("grid gap-4", view === "recommended" && "sm:grid-cols-2 lg:grid-cols-3")}
+          className={cn(
+            "grid gap-4",
+            view === "registry" ? "md:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3",
+          )}
         >
           {isLoading &&
             Array.from({ length: 6 }).map((_, i) =>
@@ -184,9 +187,9 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
   return (
     <article
       className={cn(
-        "overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white shadow-[0_1px_2px_rgba(20,30,50,0.02)] transition",
+        "flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5 transition",
         modulePath &&
-          "cursor-pointer hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
+          "cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
       )}
       onClick={(event) => {
         if ((event.target as HTMLElement).closest("button, a, input, [role='button']")) return;
@@ -202,54 +205,48 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
       tabIndex={modulePath ? 0 : undefined}
       aria-label={modulePath ? `Open ${server.name}` : undefined}
     >
-      <div className="p-5 sm:p-6">
-        <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[4rem_minmax(0,1fr)_auto] sm:gap-5">
-          <ServerLogo server={server} compact />
-          <div className="min-w-0">
-            <h3 className="truncate text-xl font-semibold tracking-tight text-slate-950 sm:text-2xl">
-              {server.name}
-            </h3>
-            <p className="mt-1 truncate text-sm text-slate-500 sm:text-base">
-              {server.description}
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 sm:text-sm">
-              <span>
-                {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
-              </span>
-              {badges.map((badge) => (
-                <span key={badge}>{BADGE_DETAILS[badge].label}</span>
-              ))}
-            </div>
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3">
+        <ServerLogo server={server} />
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-medium">{server.name}</h3>
+          <p className="mt-1 truncate text-sm text-muted-foreground">{server.description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span>
+              {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
+            </span>
+            {badges.map((badge) => (
+              <span key={badge}>{BADGE_DETAILS[badge].label}</span>
+            ))}
           </div>
-          <EnableMcpServerButton
-            serverSlug={server.slug}
-            enabled={server.enabled}
-            toolkitIds={server.toolkit_ids}
-            variant="registry"
-          />
         </div>
+        <EnableMcpServerButton
+          serverSlug={server.slug}
+          enabled={server.enabled}
+          toolkitIds={server.toolkit_ids}
+          variant="registry"
+        />
+      </div>
 
-        <div className="mt-5 flex min-h-11 items-center justify-between gap-4 border-t border-slate-200/80 pt-4 text-sm text-slate-500">
-          <span className="truncate">
-            {server.enabled ? (
-              primaryToolkit ? (
-                <>
-                  Connected as{" "}
-                  <strong className="font-semibold text-slate-600">{primaryToolkit.name}</strong>
-                </>
-              ) : (
-                "Connected"
-              )
+      <div className="mt-4 flex min-h-8 items-center justify-between gap-3 border-t pt-4 text-xs text-muted-foreground">
+        <span className="truncate">
+          {server.enabled ? (
+            primaryToolkit ? (
+              <>
+                Connected as{" "}
+                <strong className="font-medium text-foreground/70">{primaryToolkit.name}</strong>
+              </>
             ) : (
-              "Not connected"
-            )}
-          </span>
-          {server.enabled && server.toolkit_ids[0] && (
-            <code className="shrink-0 rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-xs text-slate-800">
-              {server.toolkit_ids[0].slice(0, 6)}
-            </code>
+              "Connected"
+            )
+          ) : (
+            "Not connected"
           )}
-        </div>
+        </span>
+        {server.enabled && server.toolkit_ids[0] && (
+          <code className="shrink-0 rounded-md bg-muted/60 px-2 py-1 font-mono text-xs text-foreground">
+            {server.toolkit_ids[0].slice(0, 6)}
+          </code>
+        )}
       </div>
     </article>
   );
@@ -257,22 +254,22 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
 
 function RegistryCardSkeleton() {
   return (
-    <div className="rounded-[1.75rem] border border-slate-200/90 bg-white p-5 sm:p-6">
-      <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_3rem] items-center gap-4 sm:grid-cols-[4rem_minmax(0,1fr)_3rem] sm:gap-5">
-        <Skeleton className="h-14 w-14 rounded-[1.125rem] sm:h-16 sm:w-16" />
+    <div className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl" />
         <div className="min-w-0">
-          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-5 w-32" />
           <Skeleton className="mt-2 h-4 w-4/5" />
-          <Skeleton className="mt-3 h-3.5 w-48" />
+          <Skeleton className="mt-2 h-3 w-36" />
         </div>
-        <div className="space-y-3">
-          <Skeleton className="h-7 w-12 rounded-full" />
-          <Skeleton className="h-4 w-12" />
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-10 rounded-full" />
+          <Skeleton className="h-3 w-10" />
         </div>
       </div>
-      <div className="mt-5 flex items-center justify-between border-t border-slate-200/80 pt-4">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-7 w-16 rounded-lg" />
+      <div className="mt-4 flex items-center justify-between border-t pt-4">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-6 w-14 rounded-md" />
       </div>
     </div>
   );

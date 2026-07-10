@@ -194,26 +194,26 @@ export function EnableMcpServerButton({
           {variant === "registry" ? (
             <button
               type="button"
-              className="group flex flex-col items-end gap-2.5 rounded-lg text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-4"
+              className="group flex flex-col items-end gap-1.5 rounded-md text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               aria-label={`${enabled ? "Manage" : "Enable"} ${serverSlug} MCP server`}
             >
               <span
                 className={cn(
-                  "relative block h-7 w-12 rounded-full transition-colors",
+                  "relative block h-6 w-10 rounded-full transition-colors",
                   enabled ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-slate-300",
                 )}
                 aria-hidden="true"
               >
                 <span
                   className={cn(
-                    "absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
-                    enabled ? "translate-x-6" : "translate-x-1",
+                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                    enabled ? "translate-x-5" : "translate-x-1",
                   )}
                 />
               </span>
-              <span className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700 group-hover:underline">
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 group-hover:underline">
                 {enabled ? "Manage" : "Enable"}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
             </button>
           ) : enabled ? (
