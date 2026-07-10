@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2, Plus, Power, X } from "lucide-react";
 import {
-  Check,
-  Copy,
-  Loader2,
-  MessageCircle,
-  PawPrint,
-  Plus,
-  Power,
-  Terminal,
-  X,
-} from "lucide-react";
+  ConnectionEndpoints,
+  HowToConnect,
+  Section,
+  ToolkitSelectionIndicator,
+  useActiveOrgSlug,
+} from "@/components/mcp-connect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,14 +39,6 @@ import {
 } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
-type Membership = {
-  organization_id: string;
-  organization_name: string;
-  organization_slug: string;
-  role: string;
-};
-type MeResponse = { memberships: Membership[] };
-
 type Props = {
   /** Catalog server slug, e.g. "brand". */
   serverSlug: string;
@@ -61,118 +50,10 @@ type Props = {
   onEnabled?: () => void;
 };
 
-function useActiveOrgSlug(enabled: boolean): string | null {
-  const { data } = useQuery({
-    queryKey: ["auth", "me"],
-    queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
-    enabled,
-    staleTime: 5 * 60 * 1000,
-  });
-  const memberships = data?.memberships ?? [];
-  const storedOrgId =
-    typeof window !== "undefined" ? localStorage.getItem("organization_id") : null;
-  const active = memberships.find((m) => m.organization_id === storedOrgId) ?? memberships[0];
-  return active?.organization_slug ?? null;
-}
-
 function sameSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const setB = new Set(b);
   return a.every((id) => setB.has(id));
-}
-
-/** Anthropic / Claude mark. */
-function ClaudeIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z" />
-    </svg>
-  );
-}
-
-type McpClientId = "claude" | "codex" | "openclaw" | "chatgpt";
-
-const MCP_CLIENTS: {
-  id: McpClientId;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-}[] = [
-  { id: "claude", label: "Claude", icon: ClaudeIcon },
-  { id: "codex", label: "Codex", icon: Terminal },
-  { id: "openclaw", label: "Openclaw", icon: PawPrint },
-  { id: "chatgpt", label: "ChatGPT", icon: MessageCircle },
-];
-
-/** A monospace value row with a copy-to-clipboard button (Supabase-style). */
-function CopyRow({
-  value,
-  copied,
-  onCopy,
-}: {
-  value: string;
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
-      <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{value}</span>
-      <button
-        type="button"
-        onClick={onCopy}
-        title="Copy"
-        className="shrink-0 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-      >
-        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-      </button>
-    </div>
-  );
-}
-
-/** Left-label / right-content row used for each panel section. */
-function Section({
-  title,
-  hint,
-  stacked,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  /** Render the label full width above the content instead of side-by-side. */
-  stacked?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn("grid gap-3 border-b px-6 py-5", !stacked && "sm:grid-cols-[180px_1fr]")}>
-      <div>
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-      </div>
-      <div className="min-w-0 space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function ToolkitSelectionIndicator({
-  checked,
-  className,
-}: {
-  checked: boolean;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border transition-all duration-200",
-        checked
-          ? "border-emerald-600 bg-emerald-600 text-white opacity-100"
-          : "border-muted-foreground/40 bg-background opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
-        className,
-      )}
-      aria-hidden="true"
-    >
-      {checked && <Check className="h-3 w-3" />}
-    </span>
-  );
 }
 
 export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
@@ -182,9 +63,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
   const [selected, setSelected] = useState<Set<string>>(() => new Set(toolkitIds));
   const [newName, setNewName] = useState("");
   const [addingNew, setAddingNew] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [confirmDisable, setConfirmDisable] = useState(false);
-  const [client, setClient] = useState<McpClientId>("claude");
 
   // Reset the working selection to the server's truth whenever the panel opens
   // or the enabled set changes underneath us.
@@ -284,32 +163,6 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
       : reconcile.error
         ? "Something went wrong. Please try again."
         : null;
-
-  const copyText = (key: string, text: string) => {
-    void navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1500);
-  };
-
-  // Per-client connection snippet for the "How to connect" tabs.
-  const clientSnippet = (clientId: McpClientId, slug: string): string => {
-    const url = gatewayEndpoint(orgSlug ?? "", slug);
-    if (clientId === "codex") {
-      return `# ~/.codex/config.toml\n[mcp_servers.${serverSlug}]\nurl = "${url}"`;
-    }
-    if (clientId === "chatgpt") {
-      return url;
-    }
-    // Claude / Openclaw and other JSON-config MCP clients.
-    return JSON.stringify({ mcpServers: { [serverSlug]: { url } } }, null, 2);
-  };
-
-  const clientNote: Record<McpClientId, string | null> = {
-    claude: null,
-    codex: null,
-    openclaw: null,
-    chatgpt: "Add this URL as a custom connector in ChatGPT → Settings → Connectors.",
-  };
 
   // The toolkit whose endpoint anchors the "How to connect" snippet.
   const primaryToolkit = enabledToolkits[0];
@@ -494,18 +347,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                 hint="The gateway endpoint for each enabled toolkit. Use this URL in your MCP client."
                 stacked
               >
-                {enabledToolkits.map((t) => (
-                  <div key={t.id} className="space-y-1">
-                    {enabledToolkits.length > 1 && (
-                      <p className="text-xs text-muted-foreground">{t.name}</p>
-                    )}
-                    <CopyRow
-                      value={gatewayEndpoint(orgSlug, t.slug)}
-                      copied={copiedKey === `url:${t.slug}`}
-                      onCopy={() => copyText(`url:${t.slug}`, gatewayEndpoint(orgSlug, t.slug))}
-                    />
-                  </div>
-                ))}
+                <ConnectionEndpoints orgSlug={orgSlug} toolkits={enabledToolkits} />
               </Section>
             )}
 
@@ -516,50 +358,11 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                 hint="Pick your MCP client, then add this server with the config below."
                 stacked
               >
-                <div className="grid grid-cols-4 gap-1 rounded-lg border p-1">
-                  {MCP_CLIENTS.map((c) => {
-                    const Icon = c.icon;
-                    const active = client === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setClient(c.id)}
-                        className={cn(
-                          "flex flex-col items-center gap-1.5 rounded-md px-2 py-2.5 text-xs font-medium transition",
-                          active
-                            ? "bg-muted text-foreground ring-1 ring-border"
-                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <HowToConnect
+                  configKey={serverSlug}
+                  url={gatewayEndpoint(orgSlug, primaryToolkit.slug)}
+                />
 
-                <div className="relative rounded-lg border bg-muted/40">
-                  <button
-                    type="button"
-                    onClick={() => copyText("config", clientSnippet(client, primaryToolkit.slug))}
-                    title="Copy config"
-                    className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  >
-                    {copiedKey === "config" ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  <pre className="overflow-x-auto p-3 pr-10 font-mono text-xs leading-relaxed text-foreground">
-                    {clientSnippet(client, primaryToolkit.slug)}
-                  </pre>
-                </div>
-
-                {clientNote[client] && (
-                  <p className="text-xs text-muted-foreground">{clientNote[client]}</p>
-                )}
                 {enabledToolkits.length > 1 && (
                   <p className="text-xs text-muted-foreground">
                     Shown for {primaryToolkit.name}; swap the URL for any endpoint above.

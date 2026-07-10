@@ -138,6 +138,35 @@ export type PrincipalCreate = {
   metadata?: Record<string, unknown>;
 };
 
+// PATCH /api/v1/principals/{id}. Every field is optional; only what's sent changes.
+export type PrincipalUpdate = {
+  name?: string;
+  slug?: string;
+  status?: PrincipalStatus;
+  metadata?: Record<string, unknown>;
+};
+
+// ── Toolkit access grants (GET/PUT/DELETE /api/v1/principals/{id}/toolkit-access) ──
+// Mirrors api/app/modules/mcp/schemas.py ToolkitAccessResponse.
+export type ToolkitAccess = {
+  id: string;
+  organization_id: string;
+  principal_id: string;
+  toolkit_id: string;
+  access_mode: ToolkitAccessMode;
+  enabled: boolean;
+  constraints: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ToolkitAccessUpsert = {
+  toolkit_id: string;
+  access_mode?: ToolkitAccessMode;
+  enabled?: boolean;
+  constraints?: Record<string, unknown>;
+};
+
 // ── API keys (GET/POST /api/v1/api-keys) ─────────────────────────────────────
 // Mirrors api/app/modules/mcp/schemas.py ApiKeyResponse / ApiKeyCreated.
 export type ApiKey = {

@@ -12,7 +12,7 @@ import {
   KeyRound,
   Link2,
   Menu,
-  MoreHorizontal,
+  MoreVertical,
   Plus,
   Search,
   Shield,
@@ -625,7 +625,7 @@ function AccountsView({
             <div
               key={installation.id}
               className={cn(
-                "rounded-2xl bg-white p-4 ring-1",
+                "group rounded-2xl bg-white p-4 ring-1",
                 isSuspended ? "ring-amber-500/30" : "ring-black/5",
               )}
             >
@@ -670,11 +670,11 @@ function AccountsView({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="shrink-0 rounded-full text-muted-foreground"
+                      className="shrink-0 rounded-full text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
                       aria-label={`Actions for ${installation.account_login}`}
                       disabled={disconnectingId === installation.id}
                     >
-                      <MoreHorizontal className="h-5 w-5" />
+                      <MoreVertical className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

@@ -9,11 +9,16 @@ import {
   KeyRound,
   Loader2,
   Menu,
+  MoreVertical,
   Plus,
+  Settings,
   UserRound,
+  Wrench,
 } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
+import { IdentityDetailSheet, type IdentityTab } from "@/components/identity-detail-sheet";
+import { ToolkitCluster } from "@/components/toolkit-cluster";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +28,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -104,85 +115,55 @@ function StatusBadge({ status }: { status: Principal["status"] }) {
   );
 }
 
-/** A single toolkit tile — the owning server's brand icon, or its initial. Hover for its name. */
-function ToolkitChip({ toolkit, server }: { toolkit: Toolkit; server?: CatalogServer }) {
-  const icon = server?.logo_url ? (
-    <img src={server.logo_url} alt="" className="h-5 w-5 object-contain" loading="lazy" />
-  ) : (
-    brandIcon(server?.icon_key)
-  );
-
-  const tile = icon ? (
-    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white ring-1 ring-black/5">
-      {icon}
-    </div>
-  ) : (
-    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-[11px] font-semibold uppercase text-white">
-      {toolkit.name.charAt(0)}
-    </div>
-  );
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>{tile}</TooltipTrigger>
-      <TooltipContent side="top">{toolkit.name}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-/**
- * The MCP toolkits an identity carries — up to 5 brand icons, then a +N overflow.
- * Renders nothing when there are none, so it drops out of the inline name row cleanly.
- * Relies on an ancestor TooltipProvider (see PrincipalsPage).
- */
-function ToolkitCluster({
-  toolkits,
-  serverFor,
-  loading,
+/** Row-hover "…" menu with per-identity actions; Agent Setup only appears for agent identities. */
+function PrincipalRowActions({
+  principal,
+  onOpen,
 }: {
-  toolkits: Toolkit[];
-  serverFor: (toolkitId: string) => CatalogServer | undefined;
-  loading: boolean;
+  principal: Principal;
+  onOpen: (tab: IdentityTab) => void;
 }) {
-  if (loading) {
-    return (
-      <div className="flex items-center gap-1.5">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-8 w-8 rounded-lg" />
-        ))}
-      </div>
-    );
-  }
-
-  if (toolkits.length === 0) return null;
-
-  const shown = toolkits.slice(0, 5);
-  const overflow = toolkits.slice(5);
-
   return (
-    <div className="flex items-center gap-1.5">
-      {shown.map((toolkit) => (
-        <ToolkitChip key={toolkit.id} toolkit={toolkit} server={serverFor(toolkit.id)} />
-      ))}
-      {overflow.length > 0 && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-muted px-1.5 text-xs font-medium text-muted-foreground">
-              +{overflow.length}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs">
-            {overflow.map((t) => t.name).join(", ")}
-          </TooltipContent>
-        </Tooltip>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg opacity-0 transition group-hover:opacity-100 data-[state=open]:opacity-100"
+          aria-label={`Actions for ${principal.name}`}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => onOpen("general")}>
+          <Settings className="h-4 w-4" />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOpen("toolkits")}>
+          <Wrench className="h-4 w-4" />
+          Toolkits
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOpen("credentials")}>
+          <KeyRound className="h-4 w-4" />
+          Credentials
+        </DropdownMenuItem>
+        {principal.type === "agent" && (
+          <DropdownMenuItem onSelect={() => onOpen("agent-setup")}>
+            <Bot className="h-4 w-4" />
+            Agent Setup
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 function PrincipalsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  // The identity whose detail sheet is open, plus which tab it landed on.
+  const [detail, setDetail] = useState<{ id: string; tab: IdentityTab } | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["principals", "with-toolkits"],
@@ -229,6 +210,12 @@ function PrincipalsPage() {
     }
     return map;
   }, [principals, toolkits]);
+
+  // Resolve from the live list so the sheet reflects renames and status changes.
+  const selected = useMemo(
+    () => principals.find((p) => p.id === detail?.id) ?? null,
+    [principals, detail],
+  );
 
   return (
     <div className="min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
@@ -307,6 +294,9 @@ function PrincipalsPage() {
                     <th className="px-5 py-3 font-medium">Name</th>
                     <th className="px-5 py-3 font-medium">Type</th>
                     <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -332,19 +322,24 @@ function PrincipalsPage() {
                         <td className="px-5 py-4">
                           <Skeleton className="h-6 w-16 rounded-full" />
                         </td>
+                        <td className="px-5 py-4" />
                       </tr>
                     ))}
 
                   {!isLoading && principals.length === 0 && (
                     <tr>
-                      <td className="px-5 py-8 text-center text-muted-foreground" colSpan={3}>
+                      <td className="px-5 py-8 text-center text-muted-foreground" colSpan={4}>
                         No identities yet.
                       </td>
                     </tr>
                   )}
 
                   {principals.map((p) => (
-                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/40">
+                    <tr
+                      key={p.id}
+                      className="group cursor-pointer border-b last:border-0 hover:bg-muted/40"
+                      onClick={() => setDetail({ id: p.id, tab: "general" })}
+                    >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <ToolkitCluster
@@ -366,6 +361,13 @@ function PrincipalsPage() {
                       <td className="px-5 py-4">
                         <StatusBadge status={p.status} />
                       </td>
+                      {/* The menu opens the same sheet on a chosen tab, so don't also fire the row. */}
+                      <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <PrincipalRowActions
+                          principal={p}
+                          onOpen={(tab) => setDetail({ id: p.id, tab })}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -376,6 +378,12 @@ function PrincipalsPage() {
       </div>
 
       <CreatePrincipalDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      <IdentityDetailSheet
+        principal={selected}
+        initialTab={detail?.tab ?? "general"}
+        onOpenChange={(open) => !open && setDetail(null)}
+      />
     </div>
   );
 }

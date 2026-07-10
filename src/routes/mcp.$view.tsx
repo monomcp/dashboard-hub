@@ -193,8 +193,8 @@ function CatalogTabs({ view }: { view: McpCatalogView }) {
           to="/mcp/$view"
           params={{ view: tab.id }}
           className={cn(
-            "flex items-center justify-center rounded-full px-5 py-2 text-[15px] font-medium leading-5 outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none",
-            active ? "text-[#0d0d0d]" : "text-[#5d5d5d] hover:text-[#0d0d0d]",
+            "flex items-center justify-center rounded-full px-5 py-1.5 text-sm font-medium transition-colors duration-200",
+            active ? "text-foreground" : "text-foreground/60 hover:text-foreground",
           )}
         >
           {tab.label}
