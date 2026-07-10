@@ -51,15 +51,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
-import { brandIcon } from "@/lib/brand-icons";
-import type {
-  CatalogServer,
-  Page,
-  Principal,
-  PrincipalCreate,
-  PrincipalType,
-  Toolkit,
-} from "@/lib/mcp-types";
+import type { Page, Principal, PrincipalCreate, PrincipalType } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/identities")({
@@ -188,45 +180,6 @@ function PrincipalsPage() {
     staleTime: 30 * 1000,
   });
   const principals = useMemo(() => data?.items ?? [], [data]);
-
-  // The org's MCP toolkits (name + id), shared cache with the permissions page.
-  // Resolves each principal's toolkit_ids into names + brand icons.
-  const { data: toolkitPage, isLoading: toolkitsLoading } = useQuery({
-    queryKey: ["toolkits-list"],
-    queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?sort=name&direction=asc&limit=200"),
-    staleTime: 30 * 1000,
-  });
-  const toolkits = useMemo(() => toolkitPage?.items ?? [], [toolkitPage]);
-
-  // Catalog gives each toolkit its brand icon via the server that owns its tools.
-  const { data: catalog } = useQuery({
-    queryKey: ["mcp-catalog", "all"],
-    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
-    staleTime: 5 * 60 * 1000,
-  });
-  const serverByToolkit = useMemo(() => {
-    const map = new Map<string, CatalogServer>();
-    for (const server of catalog ?? []) {
-      for (const id of server.toolkit_ids) {
-        if (!map.has(id)) map.set(id, server);
-      }
-    }
-    return map;
-  }, [catalog]);
-
-  // principal_id → its enabled toolkits, resolved from the embedded toolkit_ids.
-  // Filtering the already name-sorted toolkits list keeps the icons in a stable order.
-  const toolkitsByPrincipal = useMemo(() => {
-    const map = new Map<string, Toolkit[]>();
-    for (const p of principals) {
-      const ids = new Set(p.toolkit_ids ?? []);
-      map.set(
-        p.id,
-        toolkits.filter((t) => ids.has(t.id)),
-      );
-    }
-    return map;
-  }, [principals, toolkits]);
 
   // Resolve from the live list so the sheet reflects renames and status changes.
   const selected = useMemo(
@@ -359,11 +312,7 @@ function PrincipalsPage() {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <ToolkitCluster
-                            toolkits={toolkitsByPrincipal.get(p.id) ?? []}
-                            serverFor={(id) => serverByToolkit.get(id)}
-                            loading={toolkitsLoading}
-                          />
+                          <ToolkitCluster toolkits={p.toolkits ?? []} />
                           <div className="min-w-0">
                             <div className="font-medium">{p.name}</div>
                             {p.slug && (

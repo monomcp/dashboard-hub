@@ -1,14 +1,24 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { brandIcon } from "@/lib/brand-icons";
-import type { CatalogServer, Toolkit } from "@/lib/mcp-types";
+import type { CatalogServer, PrincipalToolkit, Toolkit } from "@/lib/mcp-types";
+
+type ToolkitDisplay = Toolkit | PrincipalToolkit;
 
 /** A single toolkit tile — the owning server's brand icon, or its initial. Hover for its name. */
-export function ToolkitChip({ toolkit, server }: { toolkit: Toolkit; server?: CatalogServer }) {
-  const icon = server?.logo_url ? (
-    <img src={server.logo_url} alt="" className="h-5 w-5 object-contain" loading="lazy" />
+export function ToolkitChip({
+  toolkit,
+  server,
+}: {
+  toolkit: ToolkitDisplay;
+  server?: CatalogServer;
+}) {
+  const logoUrl = "logo_url" in toolkit ? toolkit.logo_url : server?.logo_url;
+  const iconKey = "icon_key" in toolkit ? toolkit.icon_key : server?.icon_key;
+  const icon = logoUrl ? (
+    <img src={logoUrl} alt="" className="h-5 w-5 object-contain" loading="lazy" />
   ) : (
-    brandIcon(server?.icon_key)
+    brandIcon(iconKey)
   );
 
   const tile = icon ? (
@@ -40,8 +50,8 @@ export function ToolkitCluster({
   loading,
   max = 5,
 }: {
-  toolkits: Toolkit[];
-  serverFor: (toolkitId: string) => CatalogServer | undefined;
+  toolkits: ToolkitDisplay[];
+  serverFor?: (toolkitId: string) => CatalogServer | undefined;
   loading?: boolean;
   max?: number;
 }) {
@@ -63,7 +73,7 @@ export function ToolkitCluster({
   return (
     <div className="flex items-center gap-1.5">
       {shown.map((toolkit) => (
-        <ToolkitChip key={toolkit.id} toolkit={toolkit} server={serverFor(toolkit.id)} />
+        <ToolkitChip key={toolkit.id} toolkit={toolkit} server={serverFor?.(toolkit.id)} />
       ))}
       {overflow.length > 0 && (
         <Tooltip>

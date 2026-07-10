@@ -150,8 +150,16 @@ export type Principal = {
   updated_at: string;
   // Enabled toolkit grants, present only when fetched with `?include=toolkit_ids`.
   toolkit_ids?: string[] | null;
+  toolkits?: PrincipalToolkit[] | null;
   // False for the active user's identity and organization-owner identities.
   can_delete: boolean;
+};
+
+export type PrincipalToolkit = {
+  id: string;
+  name: string;
+  icon_key: string | null;
+  logo_url: string | null;
 };
 
 export type PrincipalCreate = {
