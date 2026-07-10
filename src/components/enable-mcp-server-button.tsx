@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bot, Check, Loader2, Plus, Power, Share2, User, X } from "lucide-react";
+import { Bot, Check, Loader2, Plus, Power, Share2, User, X } from "lucide-react";
 import {
   ConnectionEndpoints,
   HowToConnect,
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -192,30 +193,10 @@ export function EnableMcpServerButton({
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           {variant === "registry" ? (
-            <button
-              type="button"
-              className="group flex flex-col items-end gap-1.5 rounded-md text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            <Switch
+              checked={enabled}
               aria-label={`${enabled ? "Manage" : "Enable"} ${serverSlug} MCP server`}
-            >
-              <span
-                className={cn(
-                  "relative block h-6 w-10 rounded-full transition-colors",
-                  enabled ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-slate-300",
-                )}
-                aria-hidden="true"
-              >
-                <span
-                  className={cn(
-                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-[left,right]",
-                    enabled ? "right-1" : "left-1",
-                  )}
-                />
-              </span>
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 group-hover:underline">
-                {enabled ? "Manage" : "Enable"}
-                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </span>
-            </button>
+            />
           ) : enabled ? (
             <button
               type="button"

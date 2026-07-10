@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { BadgeCheck, Blocks, Globe2, Menu, Sparkles } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
@@ -205,7 +205,7 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
       tabIndex={modulePath ? 0 : undefined}
       aria-label={modulePath ? `Open ${server.name}` : undefined}
     >
-      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3">
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] gap-3">
         <ServerLogo server={server} />
         <div className="min-w-0">
           <h3 className="truncate text-base font-medium">{server.name}</h3>
@@ -411,23 +411,16 @@ const MCP_CATALOG_TABS: { id: McpCatalogView; label: string }[] = [
 ];
 
 function CatalogTabs({ view }: { view: McpCatalogView }) {
+  const navigate = useNavigate();
+
   return (
     <PillTabs
       tabs={MCP_CATALOG_TABS}
       activeId={view}
-      className="pointer-events-auto text-muted-foreground"
-      renderTab={(tab, active) => (
-        <Link
-          to="/mcp/$view"
-          params={{ view: tab.id }}
-          className={cn(
-            "flex items-center justify-center rounded-full px-5 py-1.5 text-sm font-medium transition-colors duration-200",
-            active ? "text-foreground" : "text-foreground/60 hover:text-foreground",
-          )}
-        >
-          {tab.label}
-        </Link>
-      )}
+      onSelect={(id) => void navigate({ to: "/mcp/$view", params: { view: id as McpCatalogView } })}
+      variant="raised"
+      ariaLabel="Select MCP catalog view"
+      className="pointer-events-auto w-[390px] text-muted-foreground"
     />
   );
 }
