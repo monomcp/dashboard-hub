@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Braces, BriefcaseBusiness, Fingerprint, Loader2, Menu, Plus, UserRound } from "lucide-react";
+import {
+  Bot,
+  Braces,
+  BriefcaseBusiness,
+  Fingerprint,
+  KeyRound,
+  Loader2,
+  Menu,
+  Plus,
+  UserRound,
+} from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { Button } from "@/components/ui/button";

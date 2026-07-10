@@ -161,6 +161,7 @@ function GithubPage() {
   const view = Route.useParams().view as GithubView;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [search, setSearch] = useState("");
+  const [permissionsTab, setPermissionsTab] = useState<PermissionsTab>("permissions");
 
   const handleApiError = useCallback(
     (err: unknown, fallback = "GitHub request failed") => {
@@ -293,6 +294,14 @@ function GithubPage() {
             <span className="text-xl font-medium tracking-tight">GitHub</span>
           </div>
         </div>
+        {view === "permissions" && (
+          <PillTabs
+            tabs={PERMISSIONS_TABS}
+            activeId={permissionsTab}
+            onSelect={(id) => setPermissionsTab(id as PermissionsTab)}
+            className="hidden min-w-0 flex-1 sm:grid sm:max-w-[770px]"
+          />
+        )}
         <div className="flex items-center gap-1">
           {githubServer && (
             <div className="mr-1">
@@ -405,6 +414,7 @@ function GithubPage() {
               server={githubServer}
               catalogLoading={catalogLoading}
               onApiError={handleApiError}
+              tab={permissionsTab}
             />
           )}
 
@@ -841,21 +851,17 @@ function PermissionsView({
   server,
   catalogLoading,
   onApiError,
+  tab,
 }: {
   server: CatalogServer | undefined;
   catalogLoading: boolean;
   onApiError: (err: unknown, fallback?: string) => void;
+  tab: PermissionsTab;
 }) {
   const toolkitIds = useMemo(() => server?.toolkit_ids ?? [], [server]);
-  const [tab, setTab] = useState<PermissionsTab>("permissions");
 
   return (
     <div className="grid gap-6">
-      <PillTabs
-        tabs={PERMISSIONS_TABS}
-        activeId={tab}
-        onSelect={(id) => setTab(id as PermissionsTab)}
-      />
       {catalogLoading && !server ? (
         <PermissionsMatrixLoading theme={lightPermissionsTheme} />
       ) : tab === "permissions" ? (
