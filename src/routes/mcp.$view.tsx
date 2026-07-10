@@ -53,7 +53,6 @@ function McpCatalogPage() {
   const { data: toolkitPage } = useQuery({
     queryKey: ["toolkits"],
     queryFn: () => apiRequest<Page<Toolkit>>("/api/v1/toolkits?limit=200"),
-    enabled: view === "registry",
     staleTime: 60 * 1000,
   });
 
@@ -100,71 +99,17 @@ function McpCatalogPage() {
           </p>
         )}
 
-        <div
-          className={cn(
-            "grid gap-4",
-            view === "registry" ? "md:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3",
-          )}
-        >
-          {isLoading &&
-            Array.from({ length: 6 }).map((_, i) =>
-              view === "registry" ? (
-                <RegistryCardSkeleton key={i} />
-              ) : (
-                <div key={i} className="rounded-2xl bg-white p-5 ring-1 ring-black/5">
-                  <Skeleton className="h-10 w-10 rounded-xl" />
-                  <Skeleton className="mt-4 h-5 w-32" />
-                  <Skeleton className="mt-2 h-4 w-full" />
-                  <Skeleton className="mt-1 h-4 w-2/3" />
-                  <Skeleton className="mt-4 h-9 w-28 rounded-full" />
-                </div>
-              ),
-            )}
+        <div className="grid gap-4 md:grid-cols-2">
+          {isLoading && Array.from({ length: 6 }).map((_, i) => <RegistryCardSkeleton key={i} />)}
 
           {!isLoading &&
-            servers.map((server) =>
-              view === "registry" ? (
-                <RegistryServerCard
-                  key={server.slug}
-                  server={server}
-                  toolkits={toolkitPage?.items ?? []}
-                />
-              ) : (
-                <div
-                  key={server.slug}
-                  className="flex flex-col rounded-2xl bg-white p-5 ring-1 ring-black/5"
-                >
-                  <div className="flex items-start justify-between">
-                    <ServerLogo server={server} />
-                    <span className="text-xs text-muted-foreground">
-                      {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-medium">{server.name}</h3>
-                    <ServerBadges badges={catalogBadges(server)} />
-                  </div>
-                  <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
-                    {server.description}
-                  </p>
-                  <div className="mt-4 flex items-center gap-3">
-                    <EnableMcpServerButton
-                      serverSlug={server.slug}
-                      enabled={server.enabled}
-                      toolkitIds={server.toolkit_ids}
-                    />
-                    {server.configure_path && (
-                      <a
-                        href={server.configure_path}
-                        className="text-sm font-medium text-sky-700 hover:underline"
-                      >
-                        Configure →
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ),
-            )}
+            servers.map((server) => (
+              <RegistryServerCard
+                key={server.slug}
+                server={server}
+                toolkits={toolkitPage?.items ?? []}
+              />
+            ))}
         </div>
 
         {!isLoading && !isError && servers.length === 0 && <EmptyCatalogState view={view} />}
@@ -191,6 +136,9 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
           "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
       )}
       onClick={(event) => {
+        // Dialog content is portalled but still bubbles through React's tree.
+        // Ignore it so closing the connection sheet cannot open this card.
+        if (!event.currentTarget.contains(event.target as Node)) return;
         if ((event.target as HTMLElement).closest("button, a, input, [role='button']")) return;
         openModule();
       }}
@@ -344,29 +292,6 @@ function catalogBadges(server: CatalogServer): CatalogBadge[] {
     return ["remote", "monomcp"];
   }
   return ["remote"];
-}
-
-function ServerBadges({ badges }: { badges: CatalogBadge[] }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5" aria-label="Server badges">
-      {badges.map((badge) => {
-        const detail = BADGE_DETAILS[badge];
-        const Icon = detail.icon;
-        return (
-          <span
-            key={badge}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
-              detail.className,
-            )}
-          >
-            <Icon className="h-3 w-3" aria-hidden="true" />
-            {detail.label}
-          </span>
-        );
-      })}
-    </div>
-  );
 }
 
 function ServerLogo({ server, compact = false }: { server: CatalogServer; compact?: boolean }) {
