@@ -299,6 +299,8 @@ function GithubPage() {
             tabs={PERMISSIONS_TABS}
             activeId={permissionsTab}
             onSelect={(id) => setPermissionsTab(id as PermissionsTab)}
+            variant="raised"
+            ariaLabel="Select GitHub permissions view"
             className="hidden min-w-0 flex-1 sm:grid sm:max-w-[770px]"
           />
         )}
