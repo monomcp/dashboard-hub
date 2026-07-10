@@ -49,6 +49,7 @@ import {
   type ApiKey,
   type ApiKeyCreated,
   type CatalogServer,
+  type CatalogTool,
   type Page,
   type Principal,
   type PrincipalStatus,
@@ -72,7 +73,7 @@ const TYPE_LABEL: Record<PrincipalType, string> = {
 function tabsFor(type: PrincipalType): PillTabItem[] {
   const tabs: PillTabItem[] = [
     { id: "general", label: "General" },
-    { id: "toolkits", label: "Toolkits" },
+    { id: "toolkits", label: "Tools and Toolkits" },
     { id: "credentials", label: "Credentials" },
   ];
   if (type === "agent") tabs.push({ id: "agent-setup", label: "Agent Setup" });
@@ -349,12 +350,16 @@ function ToolkitsTab({
   toolkitsLoading,
   grants,
   grantsLoading,
+  catalog,
+  catalogLoading,
 }: {
   principal: Principal;
   toolkits: Toolkit[];
   toolkitsLoading: boolean;
   grants: ToolkitAccess[];
   grantsLoading: boolean;
+  catalog: CatalogServer[];
+  catalogLoading: boolean;
 }) {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -388,78 +393,153 @@ function ToolkitsTab({
 
   const toggleError = errorText(toggle.error, "Couldn't update toolkit access.");
   const loading = toolkitsLoading || grantsLoading;
+  const accessibleToolkitIds = useMemo(
+    () => new Set(grants.filter((grant) => grant.enabled).map((grant) => grant.toolkit_id)),
+    [grants],
+  );
+  const accessibleTools = useMemo(
+    () =>
+      catalog.flatMap((server) => {
+        const toolkitNames = toolkits
+          .filter(
+            (toolkit) =>
+              accessibleToolkitIds.has(toolkit.id) && server.toolkit_ids.includes(toolkit.id),
+          )
+          .map((toolkit) => toolkit.name);
+
+        if (toolkitNames.length === 0) return [];
+
+        return server.tools.map((tool) => ({ tool, server, toolkitNames }));
+      }),
+    [accessibleToolkitIds, catalog, toolkits],
+  );
 
   return (
-    <Section
-      title="Toolkits"
-      hint="Select the toolkits this identity can call through the gateway. Click a selected toolkit to revoke it."
-      stacked
-    >
-      {loading ? (
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : toolkits.length === 0 ? (
-        <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          No toolkits yet. Enable an MCP server to create one.
+    <>
+      <Section
+        title="Tools"
+        hint="MCP tools this identity can call through its granted toolkits."
+        stacked
+      >
+        {catalogLoading || loading ? (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : accessibleTools.length === 0 ? (
+          <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            Grant a toolkit below to give this identity access to its MCP tools.
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {accessibleTools.map(({ tool, server, toolkitNames }) => (
+              <McpToolCard
+                key={`${server.slug}:${tool.name}`}
+                tool={tool}
+                server={server}
+                toolkitNames={toolkitNames}
+              />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        title="Toolkits"
+        hint="Select the toolkits this identity can call through the gateway. Click a selected toolkit to revoke it."
+        stacked
+      >
+        {loading ? (
+          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : toolkits.length === 0 ? (
+          <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+            No toolkits yet. Enable an MCP server to create one.
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {toolkits.map((t) => {
+              const grant = grantByToolkit.get(t.id);
+              const checked = Boolean(grant?.enabled);
+              const busy = busyId === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggle.mutate({ toolkitId: t.id, granted: checked })}
+                  aria-pressed={checked}
+                  disabled={busy}
+                  className={cn(
+                    "group relative flex min-h-20 w-full flex-col items-start justify-between rounded-lg border p-3 pr-9 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-70",
+                    checked
+                      ? "border-foreground/30 bg-muted hover:bg-muted"
+                      : "border-border bg-background hover:bg-muted/60",
+                  )}
+                >
+                  <span className="min-w-0 max-w-full">
+                    <span className="block truncate font-medium text-foreground">{t.name}</span>
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      /{t.slug}
+                    </span>
+                  </span>
+                  {checked && grant?.access_mode === "restricted" && (
+                    <span className="mt-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                      restricted
+                    </span>
+                  )}
+                  {busy ? (
+                    <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <ToolkitSelectionIndicator
+                      checked={checked}
+                      className="absolute right-3 top-3"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {toggleError && <p className="pt-1 text-xs text-destructive">{toggleError}</p>}
+
+        <p className="pt-2 text-xs text-muted-foreground">
+          Access here grants the whole toolkit. To allow or block individual tools, open{" "}
+          <Link
+            to="/permissions"
+            className="font-medium text-foreground underline underline-offset-2"
+          >
+            Permissions
+          </Link>
+          .
         </p>
-      ) : (
-        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {toolkits.map((t) => {
-            const grant = grantByToolkit.get(t.id);
-            const checked = Boolean(grant?.enabled);
-            const busy = busyId === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => toggle.mutate({ toolkitId: t.id, granted: checked })}
-                aria-pressed={checked}
-                disabled={busy}
-                className={cn(
-                  "group relative flex min-h-20 w-full flex-col items-start justify-between rounded-lg border p-3 pr-9 text-left text-sm transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-70",
-                  checked
-                    ? "border-foreground/30 bg-muted hover:bg-muted"
-                    : "border-border bg-background hover:bg-muted/60",
-                )}
-              >
-                <span className="min-w-0 max-w-full">
-                  <span className="block truncate font-medium text-foreground">{t.name}</span>
-                  <span className="mt-1 block truncate text-xs text-muted-foreground">
-                    /{t.slug}
-                  </span>
-                </span>
-                {checked && grant?.access_mode === "restricted" && (
-                  <span className="mt-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                    restricted
-                  </span>
-                )}
-                {busy ? (
-                  <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
-                ) : (
-                  <ToolkitSelectionIndicator checked={checked} className="absolute right-3 top-3" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      </Section>
+    </>
+  );
+}
 
-      {toggleError && <p className="pt-1 text-xs text-destructive">{toggleError}</p>}
-
-      <p className="pt-2 text-xs text-muted-foreground">
-        Access here grants the whole toolkit. To allow or block individual tools, open{" "}
-        <Link
-          to="/permissions"
-          className="font-medium text-foreground underline underline-offset-2"
-        >
-          Permissions
-        </Link>
-        .
+function McpToolCard({
+  tool,
+  server,
+  toolkitNames,
+}: {
+  tool: CatalogTool;
+  server: CatalogServer;
+  toolkitNames: string[];
+}) {
+  return (
+    <div className="flex min-h-28 flex-col rounded-lg border border-border bg-background p-3">
+      <p className="truncate text-xs font-medium text-muted-foreground">{server.name}</p>
+      <h4 className="mt-1 truncate text-sm font-medium text-foreground">{tool.name}</h4>
+      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{tool.description}</p>
+      <p className="mt-auto truncate pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {toolkitNames.join(", ")}
       </p>
-    </Section>
+    </div>
   );
 }
 
@@ -787,7 +867,7 @@ export function IdentityDetailSheet({
   });
   const grants = useMemo(() => grantData ?? [], [grantData]);
 
-  const { data: catalog } = useQuery({
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog", "all"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     enabled: open,
@@ -859,6 +939,8 @@ export function IdentityDetailSheet({
                 toolkitsLoading={toolkitsLoading}
                 grants={grants}
                 grantsLoading={grantsLoading}
+                catalog={catalog ?? []}
+                catalogLoading={catalogLoading}
               />
             )}
             {tab === "credentials" && <CredentialsTab principal={shown} />}
