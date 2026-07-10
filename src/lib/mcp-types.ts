@@ -21,7 +21,8 @@ export type CatalogServer = {
   configure_path?: string | null;
   icon_key?: string | null;
   logo_url?: string | null;
-  badges: CatalogBadge[];
+  // Optional while clients roll out alongside older API deployments.
+  badges?: CatalogBadge[];
   tools: CatalogTool[];
   recommended?: boolean;
   is_recommended?: boolean;

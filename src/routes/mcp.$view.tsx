@@ -120,7 +120,7 @@ function McpCatalogPage() {
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <h3 className="text-base font-medium">{server.name}</h3>
-                  <ServerBadges badges={server.badges} />
+                  <ServerBadges badges={catalogBadges(server)} />
                 </div>
                 <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
                   {server.description}
@@ -170,6 +170,38 @@ const BADGE_DETAILS: Record<
     icon: Sparkles,
   },
 };
+
+const OFFICIAL_SERVER_SLUGS = new Set(["firecrawl", "github"]);
+const MONOMCP_SERVER_SLUGS = new Set([
+  "content",
+  "smm",
+  "brand",
+  "postman",
+  "pinterest",
+  "instagram",
+  "database",
+  "cms",
+  "calendar",
+  "tasks",
+  "drive",
+  "contacts",
+  "crm",
+  "email",
+]);
+
+function catalogBadges(server: CatalogServer): CatalogBadge[] {
+  if (server.badges?.length) {
+    return server.badges;
+  }
+
+  if (OFFICIAL_SERVER_SLUGS.has(server.slug)) {
+    return ["remote", "official"];
+  }
+  if (MONOMCP_SERVER_SLUGS.has(server.slug)) {
+    return ["remote", "monomcp"];
+  }
+  return ["remote"];
+}
 
 function ServerBadges({ badges }: { badges: CatalogBadge[] }) {
   return (
