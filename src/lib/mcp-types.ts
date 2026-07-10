@@ -12,6 +12,8 @@ export type CatalogTool = {
   version?: number;
 };
 
+export type CatalogBadge = "official" | "remote" | "monomcp";
+
 export type CatalogServer = {
   slug: string;
   name: string;
@@ -19,6 +21,7 @@ export type CatalogServer = {
   configure_path?: string | null;
   icon_key?: string | null;
   logo_url?: string | null;
+  badges: CatalogBadge[];
   tools: CatalogTool[];
   recommended?: boolean;
   is_recommended?: boolean;
@@ -105,10 +108,16 @@ export type ToolkitAccessMatrix = {
   principals: AccessMatrixPrincipal[];
 };
 
+// `agent` also creates the agent identity that owns the new toolkit. There is no
+// `user`: a personal_user toolkit belongs to a human, and those identities come from
+// org memberships, not from naming a toolkit.
+export type NewToolkitKind = "shared" | "agent";
+
 export type NewToolkit = {
   name: string;
   slug?: string;
   visibility?: ToolkitVisibility;
+  kind?: NewToolkitKind;
 };
 
 export type EnableServerRequest = {

@@ -34,6 +34,7 @@ import {
 import { ApiError, apiRequest } from "@/lib/api-client";
 import {
   gatewayEndpoint,
+  type NewToolkitKind,
   type Page,
   type SetServerToolkitsRequest,
   type Toolkit,
@@ -57,12 +58,54 @@ function sameSet(a: string[], b: string[]): boolean {
   return a.every((id) => setB.has(id));
 }
 
+const NEW_TOOLKIT_KINDS: { value: NewToolkitKind; label: string; hint: string }[] = [
+  { value: "shared", label: "Shared", hint: "A curated toolkit you can grant to any identity" },
+  { value: "agent", label: "Agent", hint: "Also creates an agent identity that owns the toolkit" },
+];
+
+/**
+ * Ownership of the toolkit about to be created. There is no "user" option: a
+ * personal_user toolkit belongs to a human, and those identities are derived from org
+ * memberships — the API rejects creating one by name.
+ */
+function NewToolkitKindPicker({
+  value,
+  onChange,
+}: {
+  value: NewToolkitKind;
+  onChange: (kind: NewToolkitKind) => void;
+}) {
+  return (
+    <div className="mt-2 flex gap-1" role="radiogroup" aria-label="Toolkit type">
+      {NEW_TOOLKIT_KINDS.map((k) => (
+        <button
+          key={k.value}
+          type="button"
+          role="radio"
+          aria-checked={value === k.value}
+          title={k.hint}
+          onClick={() => onChange(k.value)}
+          className={cn(
+            "flex-1 rounded-md border px-2 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            value === k.value
+              ? "border-foreground/30 bg-muted font-medium text-foreground"
+              : "border-border bg-background text-muted-foreground hover:bg-muted/60",
+          )}
+        >
+          {k.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabled }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const orgSlug = useActiveOrgSlug(open);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(toolkitIds));
   const [newName, setNewName] = useState("");
+  const [newKind, setNewKind] = useState<NewToolkitKind>("shared");
   const [addingNew, setAddingNew] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState(false);
 
@@ -72,6 +115,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
     if (open) {
       setSelected(new Set(toolkitIds));
       setNewName("");
+      setNewKind("shared");
       setAddingNew(false);
     }
   }, [open, toolkitIds]);
@@ -102,6 +146,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
       setOpen(false);
       setConfirmDisable(false);
       setNewName("");
+      setNewKind("shared");
       setAddingNew(false);
       onEnabled?.();
     },
@@ -124,7 +169,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
   const apply = () =>
     reconcile.mutate({
       toolkit_ids: selectedIds,
-      new_toolkits: trimmedNew ? [{ name: trimmedNew }] : [],
+      new_toolkits: trimmedNew ? [{ name: trimmedNew, kind: newKind }] : [],
     });
 
   const disableServer = () => reconcile.mutate({ toolkit_ids: [], new_toolkits: [] });
@@ -137,6 +182,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
 
   const cancelNew = () => {
     setNewName("");
+    setNewKind("shared");
     setAddingNew(false);
   };
 
@@ -265,8 +311,14 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                         <span className="block truncate font-medium text-foreground">
                           {trimmedNew}
                         </span>
-                        <span className="mt-1 block text-xs text-emerald-700">new toolkit</span>
+                        <span className="mt-1 block text-xs text-emerald-700">
+                          new {newKind === "agent" ? "agent" : "shared"} toolkit
+                        </span>
                       </span>
+                      <ToolkitKindBadge
+                        kind={newKind === "agent" ? "personal_agent" : "shared"}
+                        className="mt-2"
+                      />
                       <ToolkitSelectionIndicator checked className="absolute right-3 top-3" />
                     </button>
                   )}
@@ -289,6 +341,7 @@ export function EnableMcpServerButton({ serverSlug, enabled, toolkitIds, onEnabl
                         placeholder="New toolkit name"
                         className="h-9"
                       />
+                      <NewToolkitKindPicker value={newKind} onChange={setNewKind} />
                       <div className="mt-2 flex items-center gap-2">
                         <Button
                           size="sm"

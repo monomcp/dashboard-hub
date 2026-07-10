@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Blocks, Menu } from "lucide-react";
+import { BadgeCheck, Blocks, Globe2, Menu, Sparkles } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { AppsMenu } from "@/components/apps-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
 import { cn } from "@/lib/utils";
-import type { CatalogServer } from "@/lib/mcp-types";
+import type { CatalogBadge, CatalogServer } from "@/lib/mcp-types";
 
 type McpCatalogView = "registry" | "recommended";
 
@@ -118,7 +118,10 @@ function McpCatalogPage() {
                     {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
                   </span>
                 </div>
-                <h3 className="mt-4 text-base font-medium">{server.name}</h3>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-medium">{server.name}</h3>
+                  <ServerBadges badges={server.badges} />
+                </div>
                 <p className="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
                   {server.description}
                 </p>
@@ -143,6 +146,50 @@ function McpCatalogPage() {
 
         {!isLoading && !isError && servers.length === 0 && <EmptyCatalogState view={view} />}
       </main>
+    </div>
+  );
+}
+
+const BADGE_DETAILS: Record<
+  CatalogBadge,
+  { label: string; className: string; icon: typeof Globe2 }
+> = {
+  official: {
+    label: "Official",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+    icon: BadgeCheck,
+  },
+  remote: {
+    label: "Remote",
+    className: "border-slate-200 bg-slate-50 text-slate-600",
+    icon: Globe2,
+  },
+  monomcp: {
+    label: "MonoMCP",
+    className: "border-violet-200 bg-violet-50 text-violet-700",
+    icon: Sparkles,
+  },
+};
+
+function ServerBadges({ badges }: { badges: CatalogBadge[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" aria-label="Server badges">
+      {badges.map((badge) => {
+        const detail = BADGE_DETAILS[badge];
+        const Icon = detail.icon;
+        return (
+          <span
+            key={badge}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium",
+              detail.className,
+            )}
+          >
+            <Icon className="h-3 w-3" aria-hidden="true" />
+            {detail.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
