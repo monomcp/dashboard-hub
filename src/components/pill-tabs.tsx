@@ -6,6 +6,7 @@ export interface PillTabItem {
   label: string;
   badge?: string;
   disabled?: boolean;
+  noWrap?: boolean;
 }
 
 type PillTabsProps<T extends PillTabItem> = {
@@ -130,7 +131,7 @@ export function PillTabs<T extends PillTabItem>({
               tab.disabled && "cursor-not-allowed hover:text-foreground/60",
             )}
           >
-            <span>{tab.label}</span>
+            <span className={tab.noWrap ? "whitespace-nowrap" : undefined}>{tab.label}</span>
             {tab.badge && (
               <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium leading-none text-foreground/50 shadow-sm">
                 {tab.badge}

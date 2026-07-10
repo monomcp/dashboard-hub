@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Bot, Check, KeyRound, Loader2, Plus, Trash2, TriangleAlert } from "lucide-react";
 import {
@@ -41,15 +41,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
+import { brandIcon } from "@/lib/brand-icons";
 import {
   gatewayEndpoint,
   type ApiKey,
   type ApiKeyCreated,
   type CatalogServer,
-  type CatalogTool,
+  type AccessCell,
+  type AccessMatrixPrincipal,
   type Page,
   type Principal,
   type PrincipalStatus,
@@ -57,6 +60,7 @@ import {
   type PrincipalUpdate,
   type Toolkit,
   type ToolkitAccess,
+  type ToolkitAccessMatrix,
 } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +77,7 @@ const TYPE_LABEL: Record<PrincipalType, string> = {
 function tabsFor(type: PrincipalType): PillTabItem[] {
   const tabs: PillTabItem[] = [
     { id: "general", label: "General" },
-    { id: "toolkits", label: "Tools and Toolkits" },
+    { id: "toolkits", label: "Tools and Toolkits", noWrap: true },
     { id: "credentials", label: "Credentials" },
   ];
   if (type === "agent") tabs.push({ id: "agent-setup", label: "Agent Setup" });
@@ -397,21 +401,12 @@ function ToolkitsTab({
     () => new Set(grants.filter((grant) => grant.enabled).map((grant) => grant.toolkit_id)),
     [grants],
   );
-  const accessibleTools = useMemo(
+  const accessibleServers = useMemo(
     () =>
-      catalog.flatMap((server) => {
-        const toolkitNames = toolkits
-          .filter(
-            (toolkit) =>
-              accessibleToolkitIds.has(toolkit.id) && server.toolkit_ids.includes(toolkit.id),
-          )
-          .map((toolkit) => toolkit.name);
-
-        if (toolkitNames.length === 0) return [];
-
-        return server.tools.map((tool) => ({ tool, server, toolkitNames }));
-      }),
-    [accessibleToolkitIds, catalog, toolkits],
+      catalog.filter((server) =>
+        server.toolkit_ids.some((toolkitId) => accessibleToolkitIds.has(toolkitId)),
+      ),
+    [accessibleToolkitIds, catalog],
   );
 
   return (
@@ -427,18 +422,21 @@ function ToolkitsTab({
               <Skeleton key={i} className="h-28 w-full rounded-lg" />
             ))}
           </div>
-        ) : accessibleTools.length === 0 ? (
+        ) : accessibleServers.length === 0 ? (
           <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
             Grant a toolkit below to give this identity access to its MCP tools.
           </p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {accessibleTools.map(({ tool, server, toolkitNames }) => (
-              <McpToolCard
-                key={`${server.slug}:${tool.name}`}
-                tool={tool}
+          <div className="space-y-7">
+            {accessibleServers.map((server) => (
+              <McpServerTools
+                key={server.slug}
+                principal={principal}
                 server={server}
-                toolkitNames={toolkitNames}
+                toolkits={toolkits.filter(
+                  (toolkit) =>
+                    accessibleToolkitIds.has(toolkit.id) && server.toolkit_ids.includes(toolkit.id),
+                )}
               />
             ))}
           </div>
@@ -522,24 +520,153 @@ function ToolkitsTab({
   );
 }
 
-function McpToolCard({
-  tool,
+type IdentityTool = {
+  id: string;
+  name: string;
+  description: string;
+  value: AccessCell;
+  principal: AccessMatrixPrincipal;
+};
+
+function McpServerTools({
+  principal,
   server,
-  toolkitNames,
+  toolkits,
 }: {
-  tool: CatalogTool;
+  principal: Principal;
   server: CatalogServer;
-  toolkitNames: string[];
+  toolkits: Toolkit[];
 }) {
+  const queryClient = useQueryClient();
+  const [busyToolId, setBusyToolId] = useState<string | null>(null);
+  const matrices = useQueries({
+    queries: toolkits.map((toolkit) => ({
+      queryKey: ["identity-tool-access", principal.id, toolkit.id, server.slug],
+      queryFn: () =>
+        apiRequest<ToolkitAccessMatrix>(
+          `/api/v1/toolkits/${toolkit.id}/access-matrix?module_slug=${encodeURIComponent(server.slug)}`,
+        ),
+      staleTime: 30 * 1000,
+    })),
+  });
+
+  const tools = useMemo(() => {
+    const catalogByName = new Map(server.tools.map((tool) => [tool.name, tool]));
+    const merged = new Map<string, IdentityTool>();
+    for (const query of matrices) {
+      if (!query.data) continue;
+      const matrixPrincipal = query.data.principals.find((item) => item.id === principal.id);
+      if (!matrixPrincipal) continue;
+      for (const tool of query.data.tools) {
+        if (merged.has(tool.id)) continue;
+        const catalogTool = catalogByName.get(tool.name);
+        merged.set(tool.id, {
+          id: tool.id,
+          name: tool.name,
+          description: tool.description ?? catalogTool?.description ?? "",
+          value: matrixPrincipal.tools[tool.id] ?? "no_access",
+          principal: matrixPrincipal,
+        });
+      }
+    }
+    return [...merged.values()];
+  }, [matrices, principal.id, server.tools]);
+
+  const updateRule = useMutation({
+    mutationFn: ({ toolId, enabled }: { toolId: string; enabled: boolean }) =>
+      apiRequest<unknown>(`/api/v1/principals/${principal.id}/tool-rules`, {
+        method: "PUT",
+        body: JSON.stringify(
+          enabled
+            ? { mcp_tool_id: toolId, effect: "allow", permission: "always_allow" }
+            : { mcp_tool_id: toolId, effect: "deny" },
+        ),
+      }),
+    onMutate: ({ toolId }) => setBusyToolId(toolId),
+    onSettled: async () => {
+      setBusyToolId(null);
+      await queryClient.invalidateQueries({ queryKey: ["identity-tool-access", principal.id] });
+      await queryClient.invalidateQueries({ queryKey: ["toolkit-access-matrix"] });
+    },
+  });
+
+  const loading = matrices.some((query) => query.isLoading);
+  const icon = server.logo_url ? (
+    <img src={server.logo_url} alt="" className="h-7 w-7 object-contain" loading="lazy" />
+  ) : (
+    brandIcon(server.icon_key)
+  );
+
   return (
-    <div className="flex min-h-28 flex-col rounded-lg border border-border bg-background p-3">
-      <p className="truncate text-xs font-medium text-muted-foreground">{server.name}</p>
-      <h4 className="mt-1 truncate text-sm font-medium text-foreground">{tool.name}</h4>
-      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{tool.description}</p>
-      <p className="mt-auto truncate pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        {toolkitNames.join(", ")}
-      </p>
-    </div>
+    <section aria-labelledby={`mcp-server-${server.slug}`}>
+      <div className="mb-3 flex items-center gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border bg-white">
+          {icon ?? (
+            <span className="text-sm font-semibold uppercase text-muted-foreground">
+              {server.name.charAt(0)}
+            </span>
+          )}
+        </span>
+        <div className="min-w-0">
+          <h3 id={`mcp-server-${server.slug}`} className="truncate text-base font-semibold">
+            {server.name}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {toolkits.map((toolkit) => toolkit.name).join(", ")}
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: Math.min(3, Math.max(server.tools.length, 1)) }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
+        </div>
+      ) : tools.length === 0 ? (
+        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          No actions are available from this MCP server.
+        </p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {tools.map((tool) => {
+            const enabled = tool.value === "allowed" || tool.value === "needs_approval";
+            const busy = busyToolId === tool.id;
+            return (
+              <div
+                key={tool.id}
+                className="flex min-h-28 flex-col rounded-lg border bg-background p-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="truncate text-sm font-medium">{tool.name}</h4>
+                    <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
+                      {tool.description || "No description provided."}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={enabled}
+                    disabled={busy || updateRule.isPending || !tool.principal.has_toolkit_access}
+                    onCheckedChange={(checked) =>
+                      updateRule.mutate({ toolId: tool.id, enabled: checked })
+                    }
+                    aria-label={`${enabled ? "Disable" : "Enable"} ${tool.name}`}
+                  />
+                </div>
+                <span className="mt-auto pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {busy ? "Updating…" : enabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {updateRule.error && (
+        <p className="mt-2 text-xs text-destructive">
+          {errorText(updateRule.error, "Couldn't update tool access.")}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -610,6 +737,7 @@ function CredentialsTab({ principal }: { principal: Principal }) {
             value={revealed.secret}
             copied={copiedKey === "secret"}
             onCopy={() => copy("secret", revealed.secret)}
+            className="w-fit max-w-full"
           />
           <Button variant="outline" size="sm" onClick={() => setRevealed(null)}>
             I've saved it
@@ -631,6 +759,7 @@ function CredentialsTab({ principal }: { principal: Principal }) {
             }}
             placeholder="e.g. production"
             disabled={create.isPending}
+            className="w-full sm:w-96"
           />
           <Button
             className="shrink-0"
