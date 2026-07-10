@@ -1,20 +1,12 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { brandIcon } from "@/lib/brand-icons";
-import type { CatalogServer, PrincipalToolkit, Toolkit } from "@/lib/mcp-types";
-
-type ToolkitDisplay = Toolkit | PrincipalToolkit;
+import type { CatalogServer, PrincipalMcpServer, Toolkit } from "@/lib/mcp-types";
 
 /** A single toolkit tile — the owning server's brand icon, or its initial. Hover for its name. */
-export function ToolkitChip({
-  toolkit,
-  server,
-}: {
-  toolkit: ToolkitDisplay;
-  server?: CatalogServer;
-}) {
-  const logoUrl = "logo_url" in toolkit ? toolkit.logo_url : server?.logo_url;
-  const iconKey = "icon_key" in toolkit ? toolkit.icon_key : server?.icon_key;
+export function ToolkitChip({ toolkit, server }: { toolkit: Toolkit; server?: CatalogServer }) {
+  const logoUrl = server?.logo_url;
+  const iconKey = server?.icon_key;
   const icon = logoUrl ? (
     <img src={logoUrl} alt="" className="h-5 w-5 object-contain" loading="lazy" />
   ) : (
@@ -50,7 +42,7 @@ export function ToolkitCluster({
   loading,
   max = 5,
 }: {
-  toolkits: ToolkitDisplay[];
+  toolkits: Toolkit[];
   serverFor?: (toolkitId: string) => CatalogServer | undefined;
   loading?: boolean;
   max?: number;
@@ -84,6 +76,60 @@ export function ToolkitCluster({
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs">
             {overflow.map((t) => t.name).join(", ")}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+/** MCP servers reachable by an identity — three icons followed by a +N overflow tile. */
+export function McpServerCluster({
+  servers,
+  max = 3,
+}: {
+  servers: PrincipalMcpServer[];
+  max?: number;
+}) {
+  if (servers.length === 0) return null;
+
+  const shown = servers.slice(0, max);
+  const overflow = servers.slice(max);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {shown.map((server) => {
+        const icon = server.logo_url ? (
+          <img src={server.logo_url} alt="" className="h-5 w-5 object-contain" loading="lazy" />
+        ) : (
+          brandIcon(server.icon_key)
+        );
+        return (
+          <Tooltip key={server.slug}>
+            <TooltipTrigger asChild>
+              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white ring-1 ring-black/5">
+                {icon ?? (
+                  <span className="text-[11px] font-semibold uppercase">
+                    {server.name.charAt(0)}
+                  </span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {server.name} · {server.tool_count} {server.tool_count === 1 ? "tool" : "tools"}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+      {overflow.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-muted px-1.5 text-xs font-medium text-muted-foreground">
+              +{overflow.length}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            {overflow.map((server) => server.name).join(", ")}
           </TooltipContent>
         </Tooltip>
       )}

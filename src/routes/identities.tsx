@@ -23,7 +23,7 @@ import {
   IdentityDetailSheet,
   type IdentityTab,
 } from "@/components/identity-detail-sheet";
-import { ToolkitCluster } from "@/components/toolkit-cluster";
+import { McpServerCluster } from "@/components/toolkit-cluster";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -176,7 +176,7 @@ function PrincipalsPage() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["principals", "with-toolkits"],
-    queryFn: () => apiRequest<Page<Principal>>("/api/v1/principals?limit=200&include=toolkit_ids"),
+    queryFn: () => apiRequest<Page<Principal>>("/api/v1/principals?limit=200&include=mcp_servers"),
     staleTime: 30 * 1000,
   });
   const principals = useMemo(() => data?.items ?? [], [data]);
@@ -312,7 +312,7 @@ function PrincipalsPage() {
                     >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <ToolkitCluster toolkits={p.toolkits ?? []} />
+                          <McpServerCluster servers={p.mcp_servers ?? []} />
                           <div className="min-w-0">
                             <div className="font-medium">{p.name}</div>
                             {p.slug && (

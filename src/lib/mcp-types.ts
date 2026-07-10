@@ -148,18 +148,18 @@ export type Principal = {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
-  // Enabled toolkit grants, present only when fetched with `?include=toolkit_ids`.
-  toolkit_ids?: string[] | null;
-  toolkits?: PrincipalToolkit[] | null;
+  // Reachable MCP servers, present only when fetched with `?include=mcp_servers`.
+  mcp_servers?: PrincipalMcpServer[] | null;
   // False for the active user's identity and organization-owner identities.
   can_delete: boolean;
 };
 
-export type PrincipalToolkit = {
-  id: string;
+export type PrincipalMcpServer = {
+  slug: string;
   name: string;
   icon_key: string | null;
   logo_url: string | null;
+  tool_count: number;
 };
 
 export type PrincipalCreate = {
