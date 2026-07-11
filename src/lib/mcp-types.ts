@@ -14,6 +14,28 @@ export type CatalogTool = {
 
 export type CatalogBadge = "official" | "remote" | "monomcp";
 
+// How the org's callers authorize against the upstream MCP server.
+export type ServerAuthMethod = "oauth" | "bearer" | "service_account" | "none";
+// per_user ⇒ each caller authenticates individually; shared ⇒ one org credential.
+export type ServerConnectionType = "per_user" | "shared";
+
+// Read side: GET /api/v1/mcp-catalog. Secrets never leave the API — only has_secret.
+export type ServerConnection = {
+  auth_method: ServerAuthMethod;
+  connection_type: ServerConnectionType;
+  config: Record<string, unknown>;
+  has_secret: boolean;
+};
+
+// Write side, sent with the enable/reconcile calls. `secret` undefined/null keeps
+// whatever the API already stores, so updates don't force re-typing tokens.
+export type ServerConnectionSpec = {
+  auth_method: ServerAuthMethod;
+  connection_type: ServerConnectionType;
+  config?: Record<string, unknown>;
+  secret?: Record<string, unknown> | null;
+};
+
 export type CatalogServer = {
   slug: string;
   name: string;
@@ -31,6 +53,7 @@ export type CatalogServer = {
   // Org-specific state from GET /api/v1/mcp-catalog.
   enabled: boolean;
   toolkit_ids: string[];
+  connection?: ServerConnection | null;
 };
 
 // Derived server-side from the toolkit's owner: `shared` toolkits are hand-curated
@@ -134,6 +157,7 @@ export type NewToolkit = {
 export type EnableServerRequest = {
   toolkit_id?: string;
   new_toolkit?: NewToolkit;
+  connection?: ServerConnectionSpec;
 };
 
 export type EnableServerResponse = Toolkit;
@@ -143,6 +167,7 @@ export type EnableServerResponse = Toolkit;
 export type SetServerToolkitsRequest = {
   toolkit_ids?: string[];
   new_toolkits?: NewToolkit[];
+  connection?: ServerConnectionSpec;
 };
 
 // ── Identities (GET/POST /api/v1/identities) ─────────────────────────────────

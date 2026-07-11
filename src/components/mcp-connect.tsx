@@ -200,7 +200,10 @@ export function ToolkitKindBadge({
   kind: ToolkitKind;
   className?: string;
 }) {
-  const { icon: Icon, label, title } = TOOLKIT_KIND_BADGES[kind];
+  // Fall back to the "shared" treatment for an unknown/missing kind so an older API
+  // deployment (or a toolkit without a derived kind) degrades instead of crashing
+  // the whole surface — same resilience the catalog badges already assume.
+  const { icon: Icon, label, title } = TOOLKIT_KIND_BADGES[kind] ?? TOOLKIT_KIND_BADGES.shared;
   return (
     <span
       title={title}
