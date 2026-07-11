@@ -11,6 +11,7 @@ import {
   Menu,
   MoreVertical,
   Plus,
+  Search,
   Settings,
   Trash2,
   UserRound,
@@ -23,16 +24,16 @@ import {
   IdentityDetailSheet,
   type IdentityTab,
 } from "@/components/identity-detail-sheet";
+import { ToolkitSelectionIndicator } from "@/components/mcp-connect";
 import { McpServerCluster } from "@/components/toolkit-cluster";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +52,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
-import type { Page, Principal, PrincipalCreate, PrincipalType } from "@/lib/mcp-types";
+import { brandIcon } from "@/lib/brand-icons";
+import type {
+  CatalogServer,
+  Page,
+  Principal,
+  PrincipalCreate,
+  PrincipalType,
+  ToolkitAccessUpsert,
+} from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/identities")({
@@ -361,6 +370,47 @@ function PrincipalsPage() {
   );
 }
 
+/** Small square brand/logo mark for a catalog server, matching the catalog rows. */
+function ServerMark({ server }: { server: CatalogServer }) {
+  const frame = "grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-md";
+  if (server.logo_url) {
+    return (
+      <span className={cn(frame, "border border-slate-200 bg-white")}>
+        <img
+          src={server.logo_url}
+          alt=""
+          className="h-5 w-5 object-contain"
+          loading="lazy"
+          aria-hidden="true"
+        />
+      </span>
+    );
+  }
+  const icon = brandIcon(server.icon_key);
+  if (icon) {
+    return <span className={cn(frame, "border border-slate-200 bg-white text-base")}>{icon}</span>;
+  }
+  return (
+    <span
+      className={cn(
+        frame,
+        "bg-gradient-to-br from-sky-500 to-indigo-600 text-xs font-semibold uppercase text-white",
+      )}
+      aria-hidden="true"
+    >
+      {server.name.charAt(0)}
+    </span>
+  );
+}
+
+/**
+ * Create identity flow, modeled on the "Connect to your MCP server" sheet: name
+ * the identity, then pick the MCPs it should reach. Selecting an MCP grants the
+ * new identity access to a toolkit that exposes that server's tools — so the
+ * runtime can call those tools as soon as the identity exists. Servers that the
+ * org hasn't finished configuring (`enabled: false`, no toolkit) can't be
+ * selected and are surfaced with a link to complete their setup.
+ */
 function CreatePrincipalDialog({
   open,
   onOpenChange,
@@ -372,18 +422,79 @@ function CreatePrincipalDialog({
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [type, setType] = useState<PrincipalType>("api_client");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const reset = () => {
+    setName("");
+    setSlug("");
+    setType("api_client");
+    setSearch("");
+    setSelected(new Set());
+  };
+
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
+    queryKey: ["mcp-catalog", "all"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    enabled: open,
+    staleTime: 60 * 1000,
+  });
+
+  // Configurable servers (those exposing at least one toolkit) sort first so the
+  // selectable options lead; each keeps its enabled/incomplete state for the row.
+  const servers = useMemo(() => {
+    const all = catalog ?? [];
+    const q = search.trim().toLowerCase();
+    const matched = q
+      ? all.filter((s) => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q))
+      : all;
+    const selectable = (s: CatalogServer) => s.enabled && s.toolkit_ids.length > 0;
+    return [...matched].sort((a, b) => Number(selectable(b)) - Number(selectable(a)));
+  }, [catalog, search]);
+
+  const toggle = (slug: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
 
   const create = useMutation({
-    mutationFn: (body: PrincipalCreate) =>
-      apiRequest<Principal>("/api/v1/identities", {
+    mutationFn: async () => {
+      const body: PrincipalCreate = { name: name.trim(), type };
+      if (slug.trim()) body.slug = slug.trim();
+      const principal = await apiRequest<Principal>("/api/v1/identities", {
         method: "POST",
         body: JSON.stringify(body),
-      }),
+      });
+
+      // Grant the identity access to one toolkit per selected server. One toolkit
+      // is enough to reach that server's tools through the gateway.
+      const byslug = new Map((catalog ?? []).map((s) => [s.slug, s]));
+      const toolkitIds = new Set<string>();
+      for (const serverSlug of selected) {
+        const server = byslug.get(serverSlug);
+        const toolkitId = server?.toolkit_ids[0];
+        if (toolkitId) toolkitIds.add(toolkitId);
+      }
+      for (const toolkitId of toolkitIds) {
+        const grant: ToolkitAccessUpsert = {
+          toolkit_id: toolkitId,
+          access_mode: "full",
+          enabled: true,
+        };
+        await apiRequest<unknown>(`/api/v1/identities/${principal.id}/toolkit-access`, {
+          method: "PUT",
+          body: JSON.stringify(grant),
+        });
+      }
+      return principal;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["principals"] });
-      setName("");
-      setSlug("");
-      setType("api_client");
+      queryClient.invalidateQueries({ queryKey: ["mcp-catalog"] });
+      reset();
       onOpenChange(false);
     },
   });
@@ -392,21 +503,14 @@ function CreatePrincipalDialog({
     if (create.isPending) return;
     if (!nextOpen) {
       create.reset();
-      setName("");
-      setSlug("");
-      setType("api_client");
+      reset();
     }
     onOpenChange(nextOpen);
   };
 
   const submit = () => {
-    if (!name.trim()) return;
-    const body: PrincipalCreate = {
-      name: name.trim(),
-      type,
-    };
-    if (slug.trim()) body.slug = slug.trim();
-    create.mutate(body);
+    if (!name.trim() || selected.size === 0) return;
+    create.mutate();
   };
 
   const createError =
@@ -416,86 +520,200 @@ function CreatePrincipalDialog({
         ? "Couldn't create identity."
         : null;
 
-  return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create identity</DialogTitle>
-          <DialogDescription>
-            Add a new identity for an agent, service, or API client that will call the MCP gateway.
-          </DialogDescription>
-        </DialogHeader>
+  const selectedCount = selected.size;
 
-        <div className="space-y-4">
+  return (
+    <Sheet open={open} onOpenChange={close}>
+      <SheetContent
+        side="right"
+        className="inset-y-2 right-2 flex h-auto w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl"
+      >
+        <SheetHeader className="border-b px-6 py-5 text-left">
+          <SheetTitle className="flex items-center gap-2 text-xl">
+            <Bot className="h-5 w-5 text-muted-foreground" />
+            New identity
+          </SheetTitle>
+          <SheetDescription>
+            Add a new identity for an agent, service, or API client, then choose the MCPs it should
+            access. Each connector authenticates using credentials tied to the identity, not to
+            individual users.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <div className="space-y-2">
             <Label htmlFor="principal-name">Name</Label>
             <Input
               id="principal-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
               placeholder="e.g. Codex production agent"
               disabled={create.isPending}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="principal-type">Type</Label>
-            <Select
-              value={type}
-              onValueChange={(value) => setType(value as PrincipalType)}
-              disabled={create.isPending}
-            >
-              <SelectTrigger id="principal-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="api_client">API client</SelectItem>
-                <SelectItem value="agent">Agent</SelectItem>
-                <SelectItem value="service_account">Service account</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="principal-type">Type</Label>
+              <Select
+                value={type}
+                onValueChange={(value) => setType(value as PrincipalType)}
+                disabled={create.isPending}
+              >
+                <SelectTrigger id="principal-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="api_client">API client</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="service_account">Service account</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="principal-slug">Slug</Label>
+              <Input
+                id="principal-slug"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="Optional"
+                disabled={create.isPending}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="principal-slug">Slug</Label>
-            <Input
-              id="principal-slug"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              placeholder="Optional"
-              disabled={create.isPending}
-            />
+            <div className="flex items-center justify-between gap-3">
+              <Label>Choose your identity's tools</Label>
+              <span
+                className={cn(
+                  "rounded-md px-2 py-1 text-xs font-medium",
+                  selectedCount === 0
+                    ? "bg-lime-100 text-lime-800"
+                    : "bg-emerald-100 text-emerald-700",
+                )}
+              >
+                {selectedCount === 0
+                  ? "Select at least 1 MCP"
+                  : `${selectedCount} MCP${selectedCount === 1 ? "" : "s"} selected`}
+              </span>
+            </div>
+
+            <div className="rounded-xl border">
+              <div className="border-b p-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search MCPs..."
+                    className="pl-9"
+                    disabled={create.isPending}
+                  />
+                </div>
+              </div>
+
+              <div className="max-h-[280px] overflow-y-auto p-1.5">
+                {catalogLoading ? (
+                  <div className="space-y-1.5 p-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-2 py-2">
+                        <Skeleton className="h-4 w-4 rounded" />
+                        <Skeleton className="h-7 w-7 rounded-md" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                    ))}
+                  </div>
+                ) : servers.length === 0 ? (
+                  <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    No MCPs match "{search}".
+                  </p>
+                ) : (
+                  <ul className="space-y-0.5">
+                    {servers.map((server) => {
+                      const configurable = server.enabled && server.toolkit_ids.length > 0;
+                      const checked = selected.has(server.slug);
+                      if (!configurable) {
+                        return (
+                          <li
+                            key={server.slug}
+                            className="flex items-center gap-3 rounded-lg px-2 py-2 opacity-70"
+                          >
+                            <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border border-muted-foreground/30 bg-muted" />
+                            <ServerMark server={server} />
+                            <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                              {server.name}
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              Incomplete setup
+                            </span>
+                            <Link
+                              to="/mcp/$view"
+                              params={{ view: "registry" }}
+                              className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium text-foreground transition hover:bg-muted"
+                            >
+                              Fix
+                            </Link>
+                          </li>
+                        );
+                      }
+                      return (
+                        <li key={server.slug}>
+                          <button
+                            type="button"
+                            onClick={() => toggle(server.slug)}
+                            aria-pressed={checked}
+                            disabled={create.isPending}
+                            className={cn(
+                              "group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                              checked ? "bg-emerald-50" : "hover:bg-muted/60",
+                            )}
+                          >
+                            <ToolkitSelectionIndicator
+                              checked={checked}
+                              className={checked ? undefined : "opacity-100"}
+                            />
+                            <ServerMark server={server} />
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                              {server.name}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
           </div>
 
           {createError && <p className="text-sm text-destructive">{createError}</p>}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => close(false)} disabled={create.isPending}>
+        <div className="flex gap-3 border-t px-6 py-4">
+          <Button
+            variant="outline"
+            className="flex-1 rounded-full"
+            onClick={() => close(false)}
+            disabled={create.isPending}
+          >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!name.trim() || create.isPending}>
+          <Button
+            className="flex-1 rounded-full"
+            onClick={submit}
+            disabled={!name.trim() || selectedCount === 0 || create.isPending}
+          >
             {create.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Plus className="h-4 w-4" />
             )}
-            Create
+            Create identity
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

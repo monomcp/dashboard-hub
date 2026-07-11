@@ -832,24 +832,28 @@ function AgentSetupTab({
   onGoToToolkits: () => void;
 }) {
   const orgSlug = useActiveOrgSlug(true);
-  const primaryToolkit = grantedToolkits[0];
+  // Show only this identity's own personal toolkit endpoint, not the shared
+  // toolkits it's also been granted. The personal toolkit is the non-shared one
+  // whose slug matches the principal's.
+  const ownToolkit =
+    grantedToolkits.find((t) => t.kind !== "shared" && t.slug === principal.slug) ??
+    grantedToolkits.find((t) => t.kind !== "shared");
 
   if (loading || !orgSlug) {
     return (
-      <Section title="Connection" hint="The gateway endpoints this agent can call." stacked>
-        <Skeleton className="h-10 w-full rounded-lg" />
+      <Section title="Connection" hint="The gateway endpoint this agent can call." stacked>
         <Skeleton className="h-10 w-full rounded-lg" />
       </Section>
     );
   }
 
-  if (!primaryToolkit) {
+  if (!ownToolkit) {
     return (
-      <Section title="Connection" hint="The gateway endpoints this agent can call." stacked>
+      <Section title="Connection" hint="The gateway endpoint this agent can call." stacked>
         <div className="rounded-lg border border-dashed px-4 py-8 text-center">
           <Bot className="mx-auto h-6 w-6 text-muted-foreground" />
           <p className="mt-2 text-sm text-muted-foreground">
-            This agent has no toolkits yet, so there's nothing to connect to.
+            This agent has no toolkit yet, so there's nothing to connect to.
           </p>
           <Button variant="outline" size="sm" className="mt-3" onClick={onGoToToolkits}>
             Grant a toolkit
@@ -863,10 +867,10 @@ function AgentSetupTab({
     <>
       <Section
         title="Connection"
-        hint="The gateway endpoint for each granted toolkit. Use this URL in your MCP client."
+        hint="The gateway endpoint for this identity. Use this URL in your MCP client."
         stacked
       >
-        <ConnectionEndpoints orgSlug={orgSlug} toolkits={grantedToolkits} />
+        <ConnectionEndpoints orgSlug={orgSlug} toolkits={[ownToolkit]} />
       </Section>
 
       <Section
@@ -876,13 +880,8 @@ function AgentSetupTab({
       >
         <HowToConnect
           configKey={configKeyFor(principal)}
-          url={gatewayEndpoint(orgSlug, primaryToolkit.slug)}
+          url={gatewayEndpoint(orgSlug, ownToolkit.slug)}
         />
-        {grantedToolkits.length > 1 && (
-          <p className="text-xs text-muted-foreground">
-            Shown for {primaryToolkit.name}; swap the URL for any endpoint above.
-          </p>
-        )}
       </Section>
     </>
   );
