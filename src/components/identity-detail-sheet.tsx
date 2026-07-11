@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   Check,
+  CircleAlert,
+  CircleCheck,
   ExternalLink,
   KeyRound,
   Loader2,
   Plus,
+  ShieldCheck,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -72,7 +75,7 @@ import {
 } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
-export type IdentityTab = "general" | "toolkits" | "credentials" | "agent-setup";
+export type IdentityTab = "general" | "gateway" | "toolkits" | "credentials" | "agent-setup";
 
 const TYPE_LABEL: Record<PrincipalType, string> = {
   user: "User",
@@ -85,6 +88,7 @@ const TYPE_LABEL: Record<PrincipalType, string> = {
 function tabsFor(type: PrincipalType): PillTabItem[] {
   const tabs: PillTabItem[] = [
     { id: "general", label: "General" },
+    { id: "gateway", label: "Gateway" },
     { id: "toolkits", label: "Tools" },
     { id: "credentials", label: "Credentials" },
   ];
@@ -887,6 +891,256 @@ function AgentSetupTab({
   );
 }
 
+// ── Gateway ──────────────────────────────────────────────────────────────────
+
+type ConnectorStatus = {
+  kind: "ok" | "error" | "warn";
+  label: string;
+  detail?: string;
+};
+
+/**
+ * Derive a connector's health from the org-level catalog state. There's no
+ * per-identity auth probe, so "authenticated" reflects whether the gateway has
+ * the credential it needs to reach the upstream server on this identity's behalf.
+ */
+function connectorStatus(server: CatalogServer): ConnectorStatus {
+  if (!server.enabled) {
+    return {
+      kind: "error",
+      label: "Not installed",
+      detail: "This connector isn't installed on the gateway yet.",
+    };
+  }
+  const conn = server.connection;
+  if (!conn) {
+    return {
+      kind: "warn",
+      label: "Not configured",
+      detail: "No connection is configured for this connector.",
+    };
+  }
+  if (conn.auth_method !== "none" && !conn.has_secret) {
+    return {
+      kind: "error",
+      label: "Needs authentication",
+      detail: `Authenticate this connector (${conn.auth_method}) so the gateway can reach it.`,
+    };
+  }
+  return {
+    kind: "ok",
+    label: conn.auth_method === "none" ? "Connected" : "Authenticated",
+  };
+}
+
+function serverIcon(server: CatalogServer, size = "h-7 w-7") {
+  if (server.logo_url) {
+    return (
+      <img src={server.logo_url} alt="" className={cn(size, "object-contain")} loading="lazy" />
+    );
+  }
+  return (
+    brandIcon(server.icon_key) ?? (
+      <span className="text-sm font-semibold uppercase text-muted-foreground">
+        {server.name.charAt(0)}
+      </span>
+    )
+  );
+}
+
+const STATUS_STYLES: Record<ConnectorStatus["kind"], { header: string; icon: ReactNode }> = {
+  ok: {
+    header: "bg-emerald-500 text-white",
+    icon: <CircleCheck className="h-4 w-4" aria-hidden="true" />,
+  },
+  warn: {
+    header: "bg-amber-400 text-amber-950",
+    icon: <TriangleAlert className="h-4 w-4" aria-hidden="true" />,
+  },
+  error: {
+    header: "bg-rose-500 text-white",
+    icon: <CircleAlert className="h-4 w-4" aria-hidden="true" />,
+  },
+};
+
+function ConnectorCard({ server }: { server: CatalogServer }) {
+  const status = connectorStatus(server);
+  const style = STATUS_STYLES[status.kind];
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl border bg-background shadow-sm",
+        // The dashed rail linking each connector back to the gateway node.
+        "lg:before:absolute lg:before:right-full lg:before:top-1/2 lg:before:h-px lg:before:w-6",
+        "lg:before:border-t-2 lg:before:border-dashed lg:before:border-muted-foreground/30",
+      )}
+    >
+      <div className={cn("flex items-center gap-2 px-4 py-2.5 text-sm font-medium", style.header)}>
+        {style.icon}
+        <span>{status.label}</span>
+      </div>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border bg-white">
+          {serverIcon(server, "h-6 w-6")}
+        </div>
+        <div className="min-w-0 flex-1">
+          <a
+            href={mcpServerPath(server)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {server.name}
+            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+          </a>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {status.detail ?? `${server.tools.length} tools available`}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GatewayNode({
+  principal,
+  servers,
+  problems,
+}: {
+  principal: Principal;
+  servers: CatalogServer[];
+  problems: number;
+}) {
+  const ok = problems === 0;
+  return (
+    <div className="w-full shrink-0 rounded-xl border bg-background shadow-sm lg:w-72">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-t-xl px-4 py-2.5 text-sm font-medium",
+          ok ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700",
+        )}
+      >
+        {ok ? (
+          <CircleCheck className="h-4 w-4" aria-hidden="true" />
+        ) : (
+          <CircleAlert className="h-4 w-4" aria-hidden="true" />
+        )}
+        <span>{ok ? "OK" : `${problems} ${problems === 1 ? "issue" : "issues"}`}</span>
+      </div>
+      <div className="space-y-4 px-4 py-4">
+        <div className="flex items-center gap-1.5">
+          {servers.slice(0, 5).map((server) => (
+            <div
+              key={server.slug}
+              className="grid h-8 w-8 place-items-center rounded-lg border bg-white"
+            >
+              {serverIcon(server, "h-5 w-5")}
+            </div>
+          ))}
+          {servers.length > 5 && (
+            <span className="text-xs font-medium text-muted-foreground">+{servers.length - 5}</span>
+          )}
+        </div>
+        <p className="truncate text-base font-semibold">{principal.name}</p>
+        <ul className="space-y-1.5 text-sm text-muted-foreground">
+          {["Access policy", "Request filtering", "Response filtering"].map((line) => (
+            <li key={line} className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+              {line}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function GatewayTab({
+  principal,
+  grantsLoading,
+  grants,
+  catalog,
+  catalogLoading,
+}: {
+  principal: Principal;
+  grantsLoading: boolean;
+  grants: ToolkitAccess[];
+  catalog: CatalogServer[];
+  catalogLoading: boolean;
+}) {
+  const loading = grantsLoading || catalogLoading;
+  const accessibleToolkitIds = useMemo(
+    () => new Set(grants.filter((grant) => grant.enabled).map((grant) => grant.toolkit_id)),
+    [grants],
+  );
+  const servers = useMemo(
+    () =>
+      catalog.filter((server) =>
+        server.toolkit_ids.some((toolkitId) => accessibleToolkitIds.has(toolkitId)),
+      ),
+    [accessibleToolkitIds, catalog],
+  );
+  const problems = useMemo(
+    () => servers.filter((server) => connectorStatus(server).kind !== "ok").length,
+    [servers],
+  );
+
+  return (
+    <Section
+      title="MCP Gateway"
+      hint="How this identity reaches its connected MCP servers, and whether each is healthy."
+      stacked
+    >
+      {loading ? (
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+          <Skeleton className="h-56 w-full rounded-xl lg:w-72" />
+          <div className="flex-1 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+      ) : servers.length === 0 ? (
+        <div className="rounded-lg border border-dashed px-4 py-10 text-center">
+          <Bot className="mx-auto h-6 w-6 text-muted-foreground" />
+          <p className="mt-2 text-sm text-muted-foreground">
+            This identity isn't connected to any MCP servers yet.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-[radial-gradient(circle,theme(colors.muted.foreground/15%)_1px,transparent_1px)] [background-size:16px_16px] p-4 sm:p-6">
+          {problems > 0 && (
+            <div className="mb-5 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                {problems} of {servers.length} connectors need attention.
+              </span>
+            </div>
+          )}
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+            <div className="lg:sticky lg:top-0">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Gateway
+              </p>
+              <GatewayNode principal={principal} servers={servers} problems={problems} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                MCP connectors
+              </p>
+              <div className="space-y-3">
+                {servers.map((server) => (
+                  <ConnectorCard key={server.slug} server={server} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 // ── Sheet ────────────────────────────────────────────────────────────────────
 
 export function IdentityDetailSheet({
@@ -980,6 +1234,15 @@ export function IdentityDetailSheet({
           <div className="flex-1 overflow-y-auto [&>div:last-child]:border-b-0">
             {tab === "general" && (
               <GeneralTab key={shown.id} principal={shown} onDeleted={() => onOpenChange(false)} />
+            )}
+            {tab === "gateway" && (
+              <GatewayTab
+                principal={shown}
+                grants={grants}
+                grantsLoading={grantsLoading}
+                catalog={catalog ?? []}
+                catalogLoading={catalogLoading}
+              />
             )}
             {tab === "toolkits" && (
               <ToolkitsTab
