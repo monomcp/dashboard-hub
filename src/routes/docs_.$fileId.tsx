@@ -89,20 +89,21 @@ function DocumentEditorPage() {
     };
   }, [fileId, handleApiError]);
 
-  // Debounced autosave for markdown content (localStorage) and name (API).
-  useEffect(() => {
+  // The body is persisted only when the editor loses focus, not on every
+  // keystroke. Reads the latest markdown straight from the editor so it stays
+  // correct even if the onChange state update hasn't flushed yet.
+  const commitContent = useCallback(() => {
     if (loading || !file) return;
+    const md = editorRef.current?.getMarkdown() ?? markdown;
+    if (md === localStorage.getItem(contentKey(fileId))) return;
     setSaveState("saving");
-    const t = window.setTimeout(() => {
-      try {
-        localStorage.setItem(contentKey(fileId), markdown);
-        setSaveState("saved");
-      } catch {
-        setSaveState("idle");
-      }
-    }, 500);
-    return () => window.clearTimeout(t);
-  }, [markdown, fileId, loading, file]);
+    try {
+      localStorage.setItem(contentKey(fileId), md);
+      setSaveState("saved");
+    } catch {
+      setSaveState("idle");
+    }
+  }, [loading, file, fileId, markdown]);
 
   // The name is persisted only when the title field loses focus, not on every
   // keystroke. Normalises the empty title back to "Untitled document".
@@ -190,6 +191,18 @@ function DocumentEditorPage() {
         @media (min-width: 768px) {
           .doc-editor-page .mdxeditor [role="toolbar"] { padding: 0.5rem 1.25rem; }
         }
+        /* MDXEditor's link editor is a popover anchored to the current text
+           selection. Creating a link from the toolbar should instead behave
+           like a dialog, consistently centered in the viewport. */
+        .doc-editor-page [data-radix-popper-content-wrapper]:has([class*="linkDialogEditForm"]) {
+          position: fixed !important;
+          top: 50vh !important;
+          left: 50vw !important;
+          transform: translate(-50%, -50%) !important;
+        }
+        .doc-editor-page [data-radix-popper-content-wrapper]:has([class*="linkDialogEditForm"]) [class*="popoverArrow"] {
+          display: none;
+        }
       `}</style>
 
       {error && (
@@ -223,6 +236,10 @@ function DocumentEditorPage() {
           </div>
         </>
       ) : (
+        // onBlur bubbles from the content-editable (React maps it to focusout),
+        // so leaving the body — whether to the toolbar, title field, or off the
+        // page entirely — commits the latest markdown.
+        <div onBlur={commitContent}>
         <MDXEditor
           ref={editorRef}
           markdown={markdown}
@@ -267,6 +284,7 @@ function DocumentEditorPage() {
             }),
           ]}
         />
+        </div>
       )}
     </div>
   );
