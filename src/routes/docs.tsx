@@ -46,15 +46,15 @@ import { AccountMenu } from "@/components/account-menu";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/drive")({
+export const Route = createFileRoute("/docs")({
   head: () => ({
     meta: [
-      { title: "Cloud Files — Files & folders" },
+      { title: "Docs — Files & folders" },
       { name: "description", content: "Browse, search and manage your files and folders." },
-      { property: "og:title", content: "Cloud Files — Files & folders" },
+      { property: "og:title", content: "Docs — Files & folders" },
       { property: "og:description", content: "Browse, search and manage your files and folders." },
     ],
-    links: [{ rel: "canonical", href: "/drive" }],
+    links: [{ rel: "canonical", href: "/docs" }],
   }),
   validateSearch: (search: Record<string, unknown>): { folder?: string } => ({
     folder: typeof search.folder === "string" && search.folder ? search.folder : undefined,
@@ -110,7 +110,7 @@ const TEMPLATES = [
 ];
 
 const DRIVE_NAV = [
-  { id: "my-drive", label: "My Cloud Files", icon: Folder },
+  { id: "my-drive", label: "My Docs", icon: Folder },
   { id: "starred", label: "Starred", icon: Sparkles },
   { id: "system", label: "System", icon: Settings },
   { id: "trash", label: "Trash", icon: Trash2 },
@@ -239,7 +239,7 @@ function DrivePage() {
         void navigate({ to: "/login", replace: true });
         return;
       }
-      setError(err instanceof Error ? err.message : "Cloud Files request failed");
+      setError(err instanceof Error ? err.message : "Docs request failed");
     },
     [navigate],
   );
@@ -308,14 +308,14 @@ function DrivePage() {
 
   const openFolder = (folder: DriveFolderResponse) => {
     setFilter("my-drive");
-    void navigate({ to: "/drive", search: { folder: folder.id } });
+    void navigate({ to: "/docs", search: { folder: folder.id } });
   };
 
   const currentTitle = useMemo(() => {
     if (filter === "starred") return "Starred";
     if (filter === "system") return "System";
     if (filter === "trash") return "Trash";
-    return "My Cloud Files";
+    return "My Docs";
   }, [filter]);
 
   // A list spans multiple pages when the server reports more rows than we hold.
@@ -506,7 +506,7 @@ function DrivePage() {
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search in Cloud Files"
+        placeholder="Search in Docs"
         className="h-9 rounded-full border-none bg-[hsl(220,33%,95%)] pl-12 pr-12 text-base shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
       />
     </div>
@@ -529,7 +529,7 @@ function DrivePage() {
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400 shadow-sm">
               <span className="text-sm font-bold text-white">△</span>
             </div>
-            <span className="text-xl font-medium tracking-tight">Cloud Files</span>
+            <span className="text-xl font-medium tracking-tight">Docs</span>
           </Link>
         </div>
         {searchOpen && (
@@ -604,7 +604,7 @@ function DrivePage() {
                   )}
                   onClick={() => {
                     setFilter(n.id);
-                    if (folderId) void navigate({ to: "/drive", search: {} });
+                    if (folderId) void navigate({ to: "/docs", search: {} });
                   }}
                 >
                   <n.icon className="h-5 w-5 text-foreground/70" />
@@ -655,9 +655,9 @@ function DrivePage() {
               <nav className="flex min-w-0 items-center gap-1 text-lg font-medium">
                 <button
                   className="shrink-0 rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
-                  onClick={() => void navigate({ to: "/drive", search: {} })}
+                  onClick={() => void navigate({ to: "/docs", search: {} })}
                 >
-                  My Cloud Files
+                  My Docs
                 </button>
                 {breadcrumbs.map((crumb, index) => (
                   <span key={crumb.id} className="flex min-w-0 items-center gap-1">
@@ -668,7 +668,7 @@ function DrivePage() {
                       <button
                         className="truncate rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
                         onClick={() =>
-                          void navigate({ to: "/drive", search: { folder: crumb.id } })
+                          void navigate({ to: "/docs", search: { folder: crumb.id } })
                         }
                       >
                         {crumb.name}
@@ -896,7 +896,7 @@ function DrivePage() {
                     ? "Trash is empty"
                     : filter === "system"
                       ? "No system files yet"
-                      : "Cloud Files is empty"}
+                      : "Docs is empty"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {query ? "Try a different keyword." : "Create a folder or document to get started."}

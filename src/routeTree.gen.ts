@@ -24,7 +24,7 @@ import { Route as GithubRouteImport } from './routes/github'
 import { Route as FirecrawlRouteImport } from './routes/firecrawl'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DuckduckgoRouteImport } from './routes/duckduckgo'
-import { Route as DriveRouteImport } from './routes/drive'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DatabaseRouteImport } from './routes/database'
 import { Route as ContentRouteImport } from './routes/content'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -125,9 +125,9 @@ const DuckduckgoRoute = DuckduckgoRouteImport.update({
   path: '/duckduckgo',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DriveRoute = DriveRouteImport.update({
-  id: '/drive',
-  path: '/drive',
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatabaseRoute = DatabaseRouteImport.update({
@@ -261,7 +261,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/drive': typeof DriveRoute
+  '/docs': typeof DocsRoute
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -303,7 +303,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/drive': typeof DriveRoute
+  '/docs': typeof DocsRoute
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -346,7 +346,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/drive': typeof DriveRoute
+  '/docs': typeof DocsRoute
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -390,7 +390,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/content'
     | '/database'
-    | '/drive'
+    | '/docs'
     | '/duckduckgo'
     | '/email'
     | '/firecrawl'
@@ -432,7 +432,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/content'
     | '/database'
-    | '/drive'
+    | '/docs'
     | '/duckduckgo'
     | '/email'
     | '/firecrawl'
@@ -474,7 +474,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/content'
     | '/database'
-    | '/drive'
+    | '/docs'
     | '/duckduckgo'
     | '/email'
     | '/firecrawl'
@@ -517,7 +517,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   ContentRoute: typeof ContentRouteWithChildren
   DatabaseRoute: typeof DatabaseRoute
-  DriveRoute: typeof DriveRoute
+  DocsRoute: typeof DocsRoute
   DuckduckgoRoute: typeof DuckduckgoRoute
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
@@ -650,11 +650,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DuckduckgoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/drive': {
-      id: '/drive'
-      path: '/drive'
-      fullPath: '/drive'
-      preLoaderRoute: typeof DriveRouteImport
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/database': {
@@ -917,7 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   ContentRoute: ContentRouteWithChildren,
   DatabaseRoute: DatabaseRoute,
-  DriveRoute: DriveRoute,
+  DocsRoute: DocsRoute,
   DuckduckgoRoute: DuckduckgoRoute,
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
