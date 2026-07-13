@@ -49,9 +49,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/drive")({
   head: () => ({
     meta: [
-      { title: "Drive — Files & folders" },
+      { title: "Cloud Files — Files & folders" },
       { name: "description", content: "Browse, search and manage your files and folders." },
-      { property: "og:title", content: "Drive — Files & folders" },
+      { property: "og:title", content: "Cloud Files — Files & folders" },
       { property: "og:description", content: "Browse, search and manage your files and folders." },
     ],
     links: [{ rel: "canonical", href: "/drive" }],
@@ -110,7 +110,7 @@ const TEMPLATES = [
 ];
 
 const DRIVE_NAV = [
-  { id: "my-drive", label: "My Drive", icon: Folder },
+  { id: "my-drive", label: "My Cloud Files", icon: Folder },
   { id: "starred", label: "Starred", icon: Sparkles },
   { id: "system", label: "System", icon: Settings },
   { id: "trash", label: "Trash", icon: Trash2 },
@@ -239,7 +239,7 @@ function DrivePage() {
         void navigate({ to: "/login", replace: true });
         return;
       }
-      setError(err instanceof Error ? err.message : "Drive request failed");
+      setError(err instanceof Error ? err.message : "Cloud Files request failed");
     },
     [navigate],
   );
@@ -315,7 +315,7 @@ function DrivePage() {
     if (filter === "starred") return "Starred";
     if (filter === "system") return "System";
     if (filter === "trash") return "Trash";
-    return "My Drive";
+    return "My Cloud Files";
   }, [filter]);
 
   // A list spans multiple pages when the server reports more rows than we hold.
@@ -506,7 +506,7 @@ function DrivePage() {
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search in Drive"
+        placeholder="Search in Cloud Files"
         className="h-9 rounded-full border-none bg-[hsl(220,33%,95%)] pl-12 pr-12 text-base shadow-none focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-sky-200"
       />
     </div>
@@ -529,7 +529,7 @@ function DrivePage() {
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400 shadow-sm">
               <span className="text-sm font-bold text-white">△</span>
             </div>
-            <span className="text-xl font-medium tracking-tight">Drive</span>
+            <span className="text-xl font-medium tracking-tight">Cloud Files</span>
           </Link>
         </div>
         {searchOpen && (
@@ -657,7 +657,7 @@ function DrivePage() {
                   className="shrink-0 rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
                   onClick={() => void navigate({ to: "/drive", search: {} })}
                 >
-                  My Drive
+                  My Cloud Files
                 </button>
                 {breadcrumbs.map((crumb, index) => (
                   <span key={crumb.id} className="flex min-w-0 items-center gap-1">
@@ -896,7 +896,7 @@ function DrivePage() {
                     ? "Trash is empty"
                     : filter === "system"
                       ? "No system files yet"
-                      : "Drive is empty"}
+                      : "Cloud Files is empty"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {query ? "Try a different keyword." : "Create a folder or document to get started."}

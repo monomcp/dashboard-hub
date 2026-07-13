@@ -956,7 +956,7 @@ function DnaBoard({
       <div className="rounded-3xl bg-[#2d3024] p-5 ring-1 ring-white/5">
         <div className="flex items-center justify-between gap-3">
           <h2 className={cardTitle}>Images</h2>
-          <span className="text-xs text-[#e8eadb]/55">Stored in Drive · System</span>
+          <span className="text-xs text-[#e8eadb]/55">Stored in Cloud Files · System</span>
         </div>
         <button
           type="button"
@@ -2235,7 +2235,7 @@ function VisualDialog({
               />
             </Field>
             <p className="text-xs text-[#e8eadb]/55">
-              Images are managed in Drive (System / Brand DNA) — upload them from the Images panel.
+              Images are managed in Cloud Files (System / Brand DNA) — upload them from the Images panel.
             </p>
           </div>
           <DialogFooter className="mt-6">

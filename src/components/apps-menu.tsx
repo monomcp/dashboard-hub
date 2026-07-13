@@ -36,7 +36,7 @@ type App = {
 const FAVOURITE_APPS: App[] = [
   { name: "Account", color: "bg-stone-500", letter: "C" },
   {
-    name: "Drive",
+    name: "Cloud Files",
     color: "bg-gradient-to-br from-emerald-400 via-sky-400 to-amber-400",
     letter: "△",
     to: "/drive",
