@@ -46,7 +46,7 @@ import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.a
 import { Route as McpViewRouteImport } from './routes/mcp.$view'
 import { Route as InstagramViewRouteImport } from './routes/instagram.$view'
 import { Route as GithubViewRouteImport } from './routes/github.$view'
-import { Route as DocsFileIdRouteImport } from './routes/docs.$fileId'
+import { Route as DocsFileIdRouteImport } from './routes/docs_.$fileId'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
@@ -237,9 +237,9 @@ const GithubViewRoute = GithubViewRouteImport.update({
   getParentRoute: () => GithubRoute,
 } as any)
 const DocsFileIdRoute = DocsFileIdRouteImport.update({
-  id: '/$fileId',
-  path: '/$fileId',
-  getParentRoute: () => DocsRoute,
+  id: '/docs_/$fileId',
+  path: '/docs/$fileId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ContentViewRoute = ContentViewRouteImport.update({
   id: '/$view',
@@ -267,7 +267,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/docs': typeof DocsRouteWithChildren
+  '/docs': typeof DocsRoute
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -310,7 +310,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/docs': typeof DocsRouteWithChildren
+  '/docs': typeof DocsRoute
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -354,7 +354,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/docs': typeof DocsRouteWithChildren
+  '/docs': typeof DocsRoute
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -372,7 +372,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
-  '/docs/$fileId': typeof DocsFileIdRoute
+  '/docs_/$fileId': typeof DocsFileIdRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -503,7 +503,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
-    | '/docs/$fileId'
+    | '/docs_/$fileId'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -529,7 +529,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   ContentRoute: typeof ContentRouteWithChildren
   DatabaseRoute: typeof DatabaseRoute
-  DocsRoute: typeof DocsRouteWithChildren
+  DocsRoute: typeof DocsRoute
   DuckduckgoRoute: typeof DuckduckgoRoute
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
@@ -546,6 +546,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
+  DocsFileIdRoute: typeof DocsFileIdRoute
   MonoAgentAutomationsRoute: typeof MonoAgentAutomationsRoute
   MonoAgentCreateRoute: typeof MonoAgentCreateRoute
   TasksActivityRoute: typeof TasksActivityRoute
@@ -816,12 +817,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GithubViewRouteImport
       parentRoute: typeof GithubRoute
     }
-    '/docs/$fileId': {
-      id: '/docs/$fileId'
-      path: '/$fileId'
+    '/docs_/$fileId': {
+      id: '/docs_/$fileId'
+      path: '/docs/$fileId'
       fullPath: '/docs/$fileId'
       preLoaderRoute: typeof DocsFileIdRouteImport
-      parentRoute: typeof DocsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/content/$view': {
       id: '/content/$view'
@@ -857,16 +858,6 @@ const ContentRouteChildren: ContentRouteChildren = {
 
 const ContentRouteWithChildren =
   ContentRoute._addFileChildren(ContentRouteChildren)
-
-interface DocsRouteChildren {
-  DocsFileIdRoute: typeof DocsFileIdRoute
-}
-
-const DocsRouteChildren: DocsRouteChildren = {
-  DocsFileIdRoute: DocsFileIdRoute,
-}
-
-const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
 
 interface GithubRouteChildren {
   GithubViewRoute: typeof GithubViewRoute
@@ -946,7 +937,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   ContentRoute: ContentRouteWithChildren,
   DatabaseRoute: DatabaseRoute,
-  DocsRoute: DocsRouteWithChildren,
+  DocsRoute: DocsRoute,
   DuckduckgoRoute: DuckduckgoRoute,
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
@@ -963,6 +954,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,
+  DocsFileIdRoute: DocsFileIdRoute,
   MonoAgentAutomationsRoute: MonoAgentAutomationsRoute,
   MonoAgentCreateRoute: MonoAgentCreateRoute,
   TasksActivityRoute: TasksActivityRoute,

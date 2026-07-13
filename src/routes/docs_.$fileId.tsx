@@ -32,7 +32,7 @@ type DriveFileResponse = {
   updated_at: string;
 };
 
-export const Route = createFileRoute("/docs/$fileId")({
+export const Route = createFileRoute("/docs_/$fileId")({
   head: () => ({
     meta: [
       { title: "Document — Docs" },
