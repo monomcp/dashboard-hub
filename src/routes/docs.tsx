@@ -311,6 +311,12 @@ function DrivePage() {
     void navigate({ to: "/docs", search: { folder: folder.id } });
   };
 
+  const openFile = (file: DriveFileResponse) => {
+    // Only documents have an editor page; other kinds aren't openable yet.
+    if (file.kind !== "document" || filter === "trash") return;
+    void navigate({ to: "/docs/$fileId", params: { fileId: file.id } });
+  };
+
   const currentTitle = useMemo(() => {
     if (filter === "starred") return "Starred";
     if (filter === "system") return "System";
@@ -652,7 +658,12 @@ function DrivePage() {
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
                 {TEMPLATES.map((t) => (
-                  <button key={t.name} className="group flex flex-col items-start gap-2 text-left">
+                  <button
+                    key={t.name}
+                    className="group flex flex-col items-start gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={mutating}
+                    onClick={() => void createDocumentAndOpen()}
+                  >
                     <div
                       className={cn(
                         "grid aspect-[3/4] w-full place-items-center rounded-xl border border-black/5 bg-gradient-to-br shadow-sm transition group-hover:shadow-md",
@@ -825,7 +836,19 @@ function DrivePage() {
                   {displayFiles.map((file) => (
                     <div
                       key={file.id}
-                      className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
+                      className={cn(
+                        "group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 transition hover:shadow-md",
+                        file.kind === "document" && filter !== "trash" && "cursor-pointer",
+                      )}
+                      role={file.kind === "document" && filter !== "trash" ? "button" : undefined}
+                      tabIndex={file.kind === "document" && filter !== "trash" ? 0 : undefined}
+                      onClick={() => openFile(file)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openFile(file);
+                        }
+                      }}
                     >
                       <div className="grid aspect-[4/3] place-items-center bg-gradient-to-br from-[hsl(220,33%,97%)] to-white">
                         <div
@@ -848,15 +871,17 @@ function DrivePage() {
                             {file.owner_name} · {formatDate(file.updated_at)}
                           </div>
                         </div>
-                        <DriveActions
-                          trashed={filter === "trash"}
-                          starred={file.starred}
-                          system={file.is_system}
-                          disabled={mutating}
-                          onToggleStar={() => updateFile(file, { starred: !file.starred })}
-                          onTrash={() => trashFile(file)}
-                          onRestore={() => restoreFile(file)}
-                        />
+                        <span onClick={(event) => event.stopPropagation()}>
+                          <DriveActions
+                            trashed={filter === "trash"}
+                            starred={file.starred}
+                            system={file.is_system}
+                            disabled={mutating}
+                            onToggleStar={() => updateFile(file, { starred: !file.starred })}
+                            onTrash={() => trashFile(file)}
+                            onRestore={() => restoreFile(file)}
+                          />
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -873,7 +898,19 @@ function DrivePage() {
                   {displayFiles.map((file) => (
                     <div
                       key={file.id}
-                      className="group grid grid-cols-[1fr_140px_140px_100px_40px] items-center gap-2 border-t border-black/5 px-4 py-2.5 text-sm hover:bg-[hsl(220,33%,98%)]"
+                      className={cn(
+                        "group grid grid-cols-[1fr_140px_140px_100px_40px] items-center gap-2 border-t border-black/5 px-4 py-2.5 text-sm hover:bg-[hsl(220,33%,98%)]",
+                        file.kind === "document" && filter !== "trash" && "cursor-pointer",
+                      )}
+                      role={file.kind === "document" && filter !== "trash" ? "button" : undefined}
+                      tabIndex={file.kind === "document" && filter !== "trash" ? 0 : undefined}
+                      onClick={() => openFile(file)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openFile(file);
+                        }
+                      }}
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div
@@ -891,15 +928,17 @@ function DrivePage() {
                       </div>
                       <div className="text-muted-foreground">{formatDate(file.updated_at)}</div>
                       <div className="text-muted-foreground">{formatSize(file.size_bytes)}</div>
-                      <DriveActions
-                        trashed={filter === "trash"}
-                        starred={file.starred}
-                        system={file.is_system}
-                        disabled={mutating}
-                        onToggleStar={() => updateFile(file, { starred: !file.starred })}
-                        onTrash={() => trashFile(file)}
-                        onRestore={() => restoreFile(file)}
-                      />
+                      <span onClick={(event) => event.stopPropagation()}>
+                        <DriveActions
+                          trashed={filter === "trash"}
+                          starred={file.starred}
+                          system={file.is_system}
+                          disabled={mutating}
+                          onToggleStar={() => updateFile(file, { starred: !file.starred })}
+                          onTrash={() => trashFile(file)}
+                          onRestore={() => restoreFile(file)}
+                        />
+                      </span>
                     </div>
                   ))}
                 </div>
