@@ -266,11 +266,10 @@ function FirecrawlPage() {
     return NAV.filter((n) => n.label.toLowerCase().includes(q));
   }, [query]);
 
-  const needsCatalog = section === "access" || section === "audit";
   const { data: catalog } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
-    enabled: needsCatalog,
+    // Always load so the header Enable/Enabled button is present on every section.
     staleTime: 60 * 1000,
   });
   const server = catalog?.find((s) => s.slug === "firecrawl");
@@ -313,7 +312,7 @@ function FirecrawlPage() {
           </div>
         )}
         <div className="flex items-center gap-1">
-          {needsCatalog && server && (
+          {server && (
             <div className="mr-1">
               <EnableMcpServerButton
                 serverSlug="firecrawl"
