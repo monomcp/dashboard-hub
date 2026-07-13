@@ -463,7 +463,7 @@ function DuckDuckGoPage() {
                     code={`{
   "mcpServers": {
     "duckduckgo": {
-      "url": "https://mcp-at97.onrender.com/{your-org}/{toolkit}/mcp"
+      "url": "https://mcp.monomcp.com/{your-org}/{toolkit}/mcp"
     }
   }
 }`}

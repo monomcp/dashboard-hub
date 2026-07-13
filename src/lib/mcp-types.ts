@@ -268,9 +268,9 @@ export type ApiKeyCreate = {
 };
 
 // Base URL of the MCP gateway (separate service from the API). Override per
-// environment with VITE_GATEWAY_URL; defaults to the hosted stage gateway.
+// environment with VITE_GATEWAY_URL; defaults to the production gateway.
 export const GATEWAY_BASE_URL: string =
-  import.meta.env.VITE_GATEWAY_URL || "https://mcp-at97.onrender.com";
+  import.meta.env.VITE_GATEWAY_URL || "https://mcp.monomcp.com";
 
 export function gatewayEndpoint(orgSlug: string, toolkitSlug: string): string {
   return `${GATEWAY_BASE_URL}/${orgSlug}/${toolkitSlug}/mcp`;
