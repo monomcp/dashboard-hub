@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, CloudAlert, CloudCheck, CloudSync } from "lucide-react";
+import { ArrowLeft, CloudAlert, CloudCheck, CloudSync, UserPlus } from "lucide-react";
+import { FileShareDialog } from "@/components/file-share-dialog";
 import {
   MDXEditor,
   headingsPlugin,
