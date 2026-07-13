@@ -325,6 +325,7 @@ function DocumentEditorPage() {
                   <ListsToggle />
                   <Separator />
                   <CreateLink />
+                  {shareButton}
                   {saveIndicator}
                 </div>
               ),
