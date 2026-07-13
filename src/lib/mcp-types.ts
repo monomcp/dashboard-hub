@@ -43,8 +43,7 @@ export type CatalogServer = {
   configure_path?: string | null;
   icon_key?: string | null;
   logo_url?: string | null;
-  // Optional while clients roll out alongside older API deployments.
-  badges?: CatalogBadge[];
+  badges: CatalogBadge[];
   tools: CatalogTool[];
   recommended?: boolean;
   is_recommended?: boolean;
@@ -55,6 +54,16 @@ export type CatalogServer = {
   toolkit_ids: string[];
   connection?: ServerConnection | null;
 };
+
+/**
+ * MonoMCP's own (first-party) servers, flagged by the `monomcp` badge. The
+ * gateway reaches these internally, so they need no per-org connection setup:
+ * enabling one makes it immediately available to any principal it's granted to.
+ * Skip the "Configure" step and treat them as healthy without a connection.
+ */
+export function isMonoOwnedServer(server: CatalogServer): boolean {
+  return server.badges.includes("monomcp");
+}
 
 // Derived server-side from the toolkit's owner: `shared` toolkits are hand-curated
 // and grantable to many principals, while each `personal_*` toolkit belongs to the

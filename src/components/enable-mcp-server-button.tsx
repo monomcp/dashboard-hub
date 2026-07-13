@@ -60,6 +60,7 @@ import { ApiError, apiRequest } from "@/lib/api-client";
 import { brandIcon } from "@/lib/brand-icons";
 import {
   gatewayEndpoint,
+  isMonoOwnedServer,
   type CatalogBadge,
   type CatalogServer,
   type NewToolkitKind,
@@ -273,7 +274,7 @@ export function EnableMcpServerButton({
   const hasStoredSecret = server?.connection?.has_secret ?? false;
   // MonoMCP's own servers manage authorization internally, so the "Configure"
   // step (and its authorization summary) is hidden for them.
-  const isMonoOwnServer = server?.badges?.includes("monomcp") ?? false;
+  const isMonoOwnServer = server ? isMonoOwnedServer(server) : false;
 
   // Prefill the auth draft once per open, as soon as the catalog entry arrives.
   useEffect(() => {
@@ -924,7 +925,7 @@ function OverviewStep({
     );
   }
 
-  const badges = server.badges?.length ? server.badges : (["remote"] as CatalogBadge[]);
+  const badges = server.badges;
 
   return (
     <div className="px-6 py-5">

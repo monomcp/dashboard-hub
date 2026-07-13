@@ -121,7 +121,7 @@ function StatusBadge({ status }: { status: Principal["status"] }) {
   );
 }
 
-/** Row-hover "…" menu with per-identity actions; Agent Setup only appears for agent identities. */
+/** Row-hover "…" menu with per-identity actions. */
 function PrincipalRowActions({
   principal,
   onOpen,
@@ -156,12 +156,10 @@ function PrincipalRowActions({
           <KeyRound className="h-4 w-4" />
           Credentials
         </DropdownMenuItem>
-        {principal.type === "agent" && (
-          <DropdownMenuItem onSelect={() => onOpen("agent-setup")}>
-            <Bot className="h-4 w-4" />
-            Agent Setup
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onSelect={() => onOpen("agent-setup")}>
+          <Bot className="h-4 w-4" />
+          {principal.type === "agent" ? "Agent Setup" : "Connect"}
+        </DropdownMenuItem>
         {principal.can_delete && (
           <DropdownMenuItem
             className="text-destructive focus:bg-destructive/10 focus:text-destructive"

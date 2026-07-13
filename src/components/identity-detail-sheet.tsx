@@ -59,6 +59,7 @@ import { brandIcon } from "@/lib/brand-icons";
 import { mcpServerPath } from "@/lib/mcp-server-paths";
 import {
   gatewayEndpoint,
+  isMonoOwnedServer,
   type ApiKey,
   type ApiKeyCreated,
   type CatalogServer,
@@ -84,15 +85,19 @@ const TYPE_LABEL: Record<PrincipalType, string> = {
   api_client: "API client",
 };
 
-/** Agent Setup is only meaningful for agent identities, so the tab list is type-dependent. */
+/** Every identity can use the connection instructions; agents use the agent-specific label. */
 function tabsFor(type: PrincipalType): PillTabItem[] {
   const tabs: PillTabItem[] = [
-    { id: "general", label: "General" },
-    { id: "gateway", label: "Gateway" },
-    { id: "toolkits", label: "Tools" },
-    { id: "credentials", label: "Credentials" },
+    { id: "general", label: "General", noWrap: true },
+    { id: "gateway", label: "Gateway", noWrap: true },
+    { id: "toolkits", label: "Tools", noWrap: true },
+    { id: "credentials", label: "Credentials", noWrap: true },
+    {
+      id: "agent-setup",
+      label: type === "agent" ? "Agent Setup" : "Connect",
+      noWrap: true,
+    },
   ];
-  if (type === "agent") tabs.push({ id: "agent-setup", label: "Agent Setup" });
   return tabs;
 }
 
@@ -911,6 +916,11 @@ function connectorStatus(server: CatalogServer): ConnectorStatus {
       label: "Not installed",
       detail: "This connector isn't installed on the gateway yet.",
     };
+  }
+  // MonoMCP's own servers reach their upstream internally — no per-org
+  // connection to configure or authenticate. Enabled ⇒ available.
+  if (isMonoOwnedServer(server)) {
+    return { kind: "ok", label: "Connected" };
   }
   const conn = server.connection;
   if (!conn) {

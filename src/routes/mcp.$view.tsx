@@ -123,7 +123,6 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
   const connectedToolkits = server.toolkit_ids
     .map((id) => toolkits.find((toolkit) => toolkit.id === id))
     .filter((toolkit): toolkit is Toolkit => Boolean(toolkit));
-  const badges = catalogBadges(server);
   const modulePath = mcpServerPath(server);
   const openModule = () => {
     if (modulePath) window.location.assign(modulePath);
@@ -162,7 +161,7 @@ function RegistryServerCard({ server, toolkits }: { server: CatalogServer; toolk
             <span>
               {server.tools.length} {server.tools.length === 1 ? "tool" : "tools"}
             </span>
-            {badges.map((badge) => (
+            {server.badges.map((badge) => (
               <span key={badge}>{BADGE_DETAILS[badge].label}</span>
             ))}
           </div>
@@ -243,38 +242,6 @@ const BADGE_DETAILS: Record<
     icon: Sparkles,
   },
 };
-
-const OFFICIAL_SERVER_SLUGS = new Set(["firecrawl", "github"]);
-const MONOMCP_SERVER_SLUGS = new Set([
-  "content",
-  "smm",
-  "brand",
-  "postman",
-  "pinterest",
-  "instagram",
-  "database",
-  "cms",
-  "calendar",
-  "tasks",
-  "drive",
-  "contacts",
-  "crm",
-  "email",
-]);
-
-function catalogBadges(server: CatalogServer): CatalogBadge[] {
-  if (server.badges?.length) {
-    return server.badges;
-  }
-
-  if (OFFICIAL_SERVER_SLUGS.has(server.slug)) {
-    return ["remote", "official"];
-  }
-  if (MONOMCP_SERVER_SLUGS.has(server.slug)) {
-    return ["remote", "monomcp"];
-  }
-  return ["remote"];
-}
 
 function ServerLogo({ server, compact = false }: { server: CatalogServer; compact?: boolean }) {
   const frameClass = compact
