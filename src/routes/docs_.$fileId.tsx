@@ -201,6 +201,12 @@ function DocumentEditorPage() {
 
   return (
     <div className="doc-editor-page min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
+      <FileShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        fileId={fileId}
+        fileName={file?.name ?? name ?? "Untitled document"}
+      />
       {/* The MDXEditor toolbar is restyled into a full-width sticky header that
           also carries the back button, logo, title field and save indicator, so
           the formatting controls live in the same bar as the document chrome. */}
