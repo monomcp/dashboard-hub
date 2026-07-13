@@ -43,6 +43,10 @@ function saveShares(fileId: string, map: ShareMap) {
   window.localStorage.setItem(storageKey(fileId), JSON.stringify(map));
 }
 
+function formatType(type: string): string {
+  return type.replace(/_/g, " ");
+}
+
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -76,9 +80,17 @@ export function FileShareDialog({
   const [shares, setShares] = useState<ShareMap>({});
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  // Principals discovered via search may fall outside the base list, so keep the
+  // full objects for anyone granted access so the rows below can still render.
+  const [knownPrincipals, setKnownPrincipals] = useState<
+    Record<string, Principal>
+  >({});
 
   useEffect(() => {
-    if (open) setShares(loadShares(fileId));
+    if (open) {
+      setShares(loadShares(fileId));
+      setKnownPrincipals({});
+    }
   }, [open, fileId]);
 
   const principals = data?.items ?? [];
@@ -90,7 +102,14 @@ export function FileShareDialog({
     return owner?.id;
   }, [users]);
 
-  const withAccess = principals.filter(
+  const principalById = useMemo(() => {
+    const map = new Map<string, Principal>();
+    for (const p of principals) map.set(p.id, p);
+    for (const p of Object.values(knownPrincipals)) map.set(p.id, p);
+    return map;
+  }, [principals, knownPrincipals]);
+
+  const withAccess = [...principalById.values()].filter(
     (p) => p.id === ownerId || shares[p.id],
   );
   const withAccessIds = new Set(withAccess.map((p) => p.id));
@@ -110,8 +129,6 @@ export function FileShareDialog({
   const results = (searchData?.items ?? []).filter(
     (p) => !withAccessIds.has(p.id),
   );
-  const suggestedUsers = results.filter((p) => p.type === "user");
-  const suggestedAgents = results.filter((p) => p.type === "agent");
   const showResults = searchEnabled && !searching;
 
   const setRole = (id: string, role: AccessRole | null) => {
@@ -152,19 +169,20 @@ export function FileShareDialog({
           <p className="mx-6 mt-2 text-xs text-muted-foreground">Searching…</p>
         )}
 
-        {showResults && suggestedUsers.length === 0 && suggestedAgents.length === 0 && (
+        {showResults && results.length === 0 && (
           <p className="mx-6 mt-2 text-xs text-muted-foreground">
             No people or agents match “{debouncedQuery}”.
           </p>
         )}
 
-        {showResults && (suggestedUsers.length > 0 || suggestedAgents.length > 0) && (
+        {showResults && results.length > 0 && (
           <div className="mx-6 mt-2 max-h-56 overflow-auto rounded-md border">
-            {[...suggestedUsers, ...suggestedAgents].slice(0, 8).map((p) => (
+            {results.slice(0, 8).map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => {
+                  setKnownPrincipals((prev) => ({ ...prev, [p.id]: p }));
                   setRole(p.id, "viewer");
                   setQuery("");
                 }}
@@ -174,7 +192,7 @@ export function FileShareDialog({
                 <div className="flex-1">
                   <div className="text-sm font-medium">{p.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    <span className="capitalize">{p.type}</span>
+                    <span className="capitalize">{formatType(p.type)}</span>
                     {p.slug ? ` · ${p.slug}` : ""}
                   </div>
                 </div>
@@ -205,7 +223,7 @@ export function FileShareDialog({
         <div className="mt-4 px-6">
           <h3 className="text-sm font-medium">Agents with access</h3>
           <div className="mt-2 space-y-1">
-            {withAccess.filter((p) => p.type === "agent").map((p) => (
+            {withAccess.filter((p) => p.type !== "user").map((p) => (
               <AccessRow
                 key={p.id}
                 principal={p}
@@ -213,7 +231,7 @@ export function FileShareDialog({
                 onChange={(r) => setRole(p.id, r)}
               />
             ))}
-            {withAccess.filter((p) => p.type === "agent").length === 0 && (
+            {withAccess.filter((p) => p.type !== "user").length === 0 && (
               <p className="text-xs text-muted-foreground">
                 No agents yet. Search above to add one.
               </p>
@@ -265,7 +283,7 @@ function AccessRow({
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{principal.name}</div>
         <div className="text-xs capitalize text-muted-foreground">
-          {principal.type}
+          {formatType(principal.type)}
         </div>
       </div>
       {locked ? (
