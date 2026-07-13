@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, CloudAlert, CloudCheck, CloudSync } from "lucide-react";
 import {
   MDXEditor,
   headingsPlugin,
@@ -29,6 +29,8 @@ type DriveFileResponse = {
   id: string;
   name: string;
   folder_id: string | null;
+  // Populated only by single-file reads (GET/PATCH), omitted from list results.
+  content?: string | null;
   updated_at: string;
 };
 
@@ -42,19 +44,20 @@ export const Route = createFileRoute("/docs_/$fileId")({
   component: DocumentEditorPage,
 });
 
-const contentKey = (id: string) => `docs:content:${id}`;
-
 function DocumentEditorPage() {
   const { fileId } = Route.useParams();
   const navigate = useNavigate();
   const editorRef = useRef<MDXEditorMethods>(null);
+  // Tracks the markdown last persisted to the backend so blur handlers can skip
+  // no-op PATCHes when the body hasn't changed.
+  const savedContentRef = useRef("");
 
   const [file, setFile] = useState<DriveFileResponse | null>(null);
   const [name, setName] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -76,8 +79,9 @@ function DocumentEditorPage() {
         if (cancelled) return;
         setFile(f);
         setName(f.name);
-        const saved = typeof window !== "undefined" ? localStorage.getItem(contentKey(fileId)) : null;
-        setMarkdown(saved ?? "");
+        const body = f.content ?? "";
+        savedContentRef.current = body;
+        setMarkdown(body);
       } catch (err) {
         if (!cancelled) handleApiError(err);
       } finally {
@@ -89,21 +93,26 @@ function DocumentEditorPage() {
     };
   }, [fileId, handleApiError]);
 
-  // The body is persisted only when the editor loses focus, not on every
-  // keystroke. Reads the latest markdown straight from the editor so it stays
-  // correct even if the onChange state update hasn't flushed yet.
-  const commitContent = useCallback(() => {
+  // The body is persisted to the backend only when the editor loses focus, not
+  // on every keystroke. Reads the latest markdown straight from the editor so it
+  // stays correct even if the onChange state update hasn't flushed yet.
+  const commitContent = useCallback(async () => {
     if (loading || !file) return;
     const md = editorRef.current?.getMarkdown() ?? markdown;
-    if (md === localStorage.getItem(contentKey(fileId))) return;
+    if (md === savedContentRef.current) return;
     setSaveState("saving");
     try {
-      localStorage.setItem(contentKey(fileId), md);
+      await apiRequest(`/api/v1/drive-files/${fileId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content: md }),
+      });
+      savedContentRef.current = md;
       setSaveState("saved");
-    } catch {
-      setSaveState("idle");
+    } catch (err) {
+      handleApiError(err);
+      setSaveState("failed");
     }
-  }, [loading, file, fileId, markdown]);
+  }, [loading, file, fileId, markdown, handleApiError]);
 
   // The name is persisted only when the title field loses focus, not on every
   // keystroke. Normalises the empty title back to "Untitled document".
@@ -122,7 +131,7 @@ function DocumentEditorPage() {
       setSaveState("saved");
     } catch (err) {
       handleApiError(err);
-      setSaveState("idle");
+      setSaveState("failed");
     }
   }, [name, file, fileId, loading, handleApiError]);
 
@@ -132,7 +141,7 @@ function DocumentEditorPage() {
     <Button
       variant="ghost"
       size="icon"
-      className="shrink-0 rounded-full"
+      className="shrink-0 rounded-full border border-transparent transition-colors hover:border-border hover:bg-muted/40"
       disabled={loading}
       onClick={() =>
         void navigate({
@@ -158,12 +167,17 @@ function DocumentEditorPage() {
     <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2 text-xs text-muted-foreground">
       {saveState === "saving" && (
         <>
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+          <CloudSync className="h-3.5 w-3.5 animate-spin" /> Saving…
         </>
       )}
       {saveState === "saved" && (
         <>
-          <Check className="h-3.5 w-3.5 text-emerald-500" /> Saved
+          <CloudCheck className="h-3.5 w-3.5 text-emerald-500" /> Saved
+        </>
+      )}
+      {saveState === "failed" && (
+        <>
+          <CloudAlert className="h-3.5 w-3.5 text-destructive" /> Save failed
         </>
       )}
     </div>
@@ -187,6 +201,11 @@ function DocumentEditorPage() {
           background: #ffffff;
           padding: 0.5rem 0.75rem;
           gap: 0.25rem;
+        }
+        /* MDXEditor portals menus and tooltips to a sibling of the page. Keep
+           that overlay above the sticky document header. */
+        .doc-editor-instance.mdxeditor-popup-container {
+          z-index: 30;
         }
         @media (min-width: 768px) {
           .doc-editor-page .mdxeditor [role="toolbar"] { padding: 0.5rem 1.25rem; }
@@ -239,9 +258,10 @@ function DocumentEditorPage() {
         // onBlur bubbles from the content-editable (React maps it to focusout),
         // so leaving the body — whether to the toolbar, title field, or off the
         // page entirely — commits the latest markdown.
-        <div onBlur={commitContent}>
+        <div onBlur={() => void commitContent()}>
         <MDXEditor
           ref={editorRef}
+          className="doc-editor-instance"
           markdown={markdown}
           onChange={setMarkdown}
           contentEditableClassName="prose mx-auto my-8 min-h-[70vh] max-w-3xl rounded-2xl bg-white px-6 py-10 shadow-sm ring-1 ring-black/5 focus:outline-none md:px-10"
