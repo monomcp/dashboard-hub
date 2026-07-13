@@ -165,8 +165,22 @@ function DocumentEditorPage() {
     </Link>
   );
 
+  const shareButton = (
+    <Button
+      variant="secondary"
+      size="sm"
+      className="ml-auto h-8 gap-1.5 rounded-full bg-sky-100 px-3 text-sky-700 hover:bg-sky-200"
+      disabled={loading}
+      onClick={() => setShareOpen(true)}
+    >
+      <UserPlus className="h-4 w-4" />
+      Share
+    </Button>
+  );
+
   const saveIndicator = (
-    <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2 text-xs text-muted-foreground">
+    <div className="flex shrink-0 items-center gap-1.5 pl-2 text-xs text-muted-foreground">
+
       {saveState === "saving" && (
         <>
           <CloudSync className="h-3.5 w-3.5 animate-spin" /> Saving…
