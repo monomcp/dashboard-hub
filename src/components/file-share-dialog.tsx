@@ -43,6 +43,15 @@ function saveShares(fileId: string, map: ShareMap) {
   window.localStorage.setItem(storageKey(fileId), JSON.stringify(map));
 }
 
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export function FileShareDialog({
   open,
   onOpenChange,
@@ -54,6 +63,8 @@ export function FileShareDialog({
   fileId: string;
   fileName: string;
 }) {
+  // Base list resolves the owner and any already-shared identities so the
+  // "with access" sections can render names for ids stored in localStorage.
   const { data } = useQuery({
     queryKey: ["identities-share"],
     queryFn: () =>
@@ -64,6 +75,7 @@ export function FileShareDialog({
 
   const [shares, setShares] = useState<ShareMap>({});
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query.trim(), 250);
 
   useEffect(() => {
     if (open) setShares(loadShares(fileId));
@@ -71,7 +83,6 @@ export function FileShareDialog({
 
   const principals = data?.items ?? [];
   const users = principals.filter((p) => p.type === "user");
-  const agents = principals.filter((p) => p.type === "agent");
 
   // The active user is always the owner and can't be changed.
   const ownerId = useMemo(() => {
@@ -84,13 +95,24 @@ export function FileShareDialog({
   );
   const withAccessIds = new Set(withAccess.map((p) => p.id));
 
-  const filterFn = (p: Principal) =>
-    !withAccessIds.has(p.id) &&
-    (query.trim() === "" ||
-      p.name.toLowerCase().includes(query.toLowerCase()));
+  // Backend search by name, slug, or email — only fires after 3+ characters.
+  const searchEnabled = open && debouncedQuery.length >= 3;
+  const { data: searchData, isFetching: searching } = useQuery({
+    queryKey: ["identities-search", debouncedQuery],
+    queryFn: () =>
+      apiRequest<Page<Principal>>(
+        `/api/v1/identities?search=${encodeURIComponent(debouncedQuery)}&limit=20`,
+      ),
+    enabled: searchEnabled,
+    staleTime: 30_000,
+  });
 
-  const suggestedUsers = users.filter(filterFn);
-  const suggestedAgents = agents.filter(filterFn);
+  const results = (searchData?.items ?? []).filter(
+    (p) => !withAccessIds.has(p.id),
+  );
+  const suggestedUsers = results.filter((p) => p.type === "user");
+  const suggestedAgents = results.filter((p) => p.type === "agent");
+  const showResults = searchEnabled && !searching;
 
   const setRole = (id: string, role: AccessRole | null) => {
     setShares((prev) => {
@@ -120,7 +142,23 @@ export function FileShareDialog({
           />
         </div>
 
-        {query.trim() !== "" && (suggestedUsers.length > 0 || suggestedAgents.length > 0) && (
+        {query.trim() !== "" && query.trim().length < 3 && (
+          <p className="mx-6 mt-2 text-xs text-muted-foreground">
+            Type at least 3 characters to search.
+          </p>
+        )}
+
+        {searchEnabled && searching && (
+          <p className="mx-6 mt-2 text-xs text-muted-foreground">Searching…</p>
+        )}
+
+        {showResults && suggestedUsers.length === 0 && suggestedAgents.length === 0 && (
+          <p className="mx-6 mt-2 text-xs text-muted-foreground">
+            No people or agents match “{debouncedQuery}”.
+          </p>
+        )}
+
+        {showResults && (suggestedUsers.length > 0 || suggestedAgents.length > 0) && (
           <div className="mx-6 mt-2 max-h-56 overflow-auto rounded-md border">
             {[...suggestedUsers, ...suggestedAgents].slice(0, 8).map((p) => (
               <button
@@ -135,8 +173,9 @@ export function FileShareDialog({
                 <PrincipalAvatar principal={p} />
                 <div className="flex-1">
                   <div className="text-sm font-medium">{p.name}</div>
-                  <div className="text-xs text-muted-foreground capitalize">
-                    {p.type}
+                  <div className="text-xs text-muted-foreground">
+                    <span className="capitalize">{p.type}</span>
+                    {p.slug ? ` · ${p.slug}` : ""}
                   </div>
                 </div>
                 <Check className="h-4 w-4 opacity-0" />

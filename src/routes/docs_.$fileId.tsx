@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, CloudAlert, CloudCheck, CloudSync, UserPlus } from "lucide-react";
+import { ArrowLeft, CloudAlert, CloudCheck, UserPlus } from "lucide-react";
 import { FileShareDialog } from "@/components/file-share-dialog";
 import {
   MDXEditor,
@@ -44,6 +44,29 @@ export const Route = createFileRoute("/docs_/$fileId")({
   }),
   component: DocumentEditorPage,
 });
+
+function SavingCloudIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.996 15.251A4.5 4.5 0 0 0 17.495 8h-1.79a7 7 0 1 0-12.709 5.607" />
+      <g className="animate-spin" style={{ transformBox: "view-box", transformOrigin: "12px 15px" }}>
+        <path d="m17 18-1.535 1.605a5 5 0 0 1-8-1.5" />
+        <path d="M17 22v-4h-4" />
+        <path d="M7 10v4h4" />
+        <path d="m7 14 1.535-1.605a5 5 0 0 1 8 1.5" />
+      </g>
+    </svg>
+  );
+}
 
 function DocumentEditorPage() {
   const { fileId } = Route.useParams();
@@ -183,17 +206,17 @@ function DocumentEditorPage() {
 
       {saveState === "saving" && (
         <>
-          <CloudSync className="h-3.5 w-3.5 animate-spin" /> Saving…
+          <SavingCloudIcon /> Saving…
         </>
       )}
       {saveState === "saved" && (
         <>
-          <CloudCheck className="h-3.5 w-3.5 text-emerald-500" /> Saved
+          <CloudCheck className="h-5 w-5 text-emerald-500" /> Saved
         </>
       )}
       {saveState === "failed" && (
         <>
-          <CloudAlert className="h-3.5 w-3.5 text-destructive" /> Save failed
+          <CloudAlert className="h-5 w-5 text-destructive" /> Save failed
         </>
       )}
     </div>
