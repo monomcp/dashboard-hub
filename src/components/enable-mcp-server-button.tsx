@@ -271,6 +271,9 @@ export function EnableMcpServerButton({
     [catalog, serverSlug],
   );
   const hasStoredSecret = server?.connection?.has_secret ?? false;
+  // MonoMCP's own servers manage authorization internally, so the "Configure"
+  // step (and its authorization summary) is hidden for them.
+  const isMonoOwnServer = server?.badges?.includes("monomcp") ?? false;
 
   // Prefill the auth draft once per open, as soon as the catalog entry arrives.
   useEffect(() => {
@@ -369,6 +372,13 @@ export function EnableMcpServerButton({
     setStep("configure");
   };
 
+  // Install from overview: MonoMCP's own servers skip the configure step (and
+  // never stamp a connection payload) and go straight to toolkit selection.
+  const goInstall = () => {
+    if (isMonoOwnServer) setStep("toolkits");
+    else goConfigure();
+  };
+
   /** Gate leaving the configure step on a coherent draft. */
   const validateConfigure = (): boolean => {
     if (draft.method === "service_account") {
@@ -432,14 +442,17 @@ export function EnableMcpServerButton({
   // Fresh installs walk overview → configure → toolkits; manage mode starts at
   // toolkits and only dips into configure on demand.
   const freshFlow = !enabled;
-  const stepIndex = step === "overview" ? 1 : step === "configure" ? 2 : 3;
+  const totalSteps = isMonoOwnServer ? 2 : 3;
+  const stepIndex = step === "overview" ? 1 : step === "configure" ? 2 : totalSteps;
   const backTarget: Step | null =
     step === "configure"
       ? freshFlow
         ? "overview"
         : "toolkits"
       : step === "toolkits" && freshFlow
-        ? "configure"
+        ? isMonoOwnServer
+          ? "overview"
+          : "configure"
         : null;
 
   const serverName = server?.name ?? serverSlug;
@@ -531,7 +544,11 @@ export function EnableMcpServerButton({
                   </SheetDescription>
                 </>
               )}
-              {freshFlow && <p className="text-xs text-muted-foreground">Step {stepIndex} of 3</p>}
+              {freshFlow && (
+                <p className="text-xs text-muted-foreground">
+                  Step {stepIndex} of {totalSteps}
+                </p>
+              )}
             </SheetHeader>
           )}
 
@@ -731,37 +748,39 @@ export function EnableMcpServerButton({
                 </Section>
 
                 {/* ── Authorization summary ─────────────────────────────────── */}
-                <Section
-                  title="Authorization"
-                  hint="How callers authorize against this server."
-                  stacked
-                >
-                  <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2 text-sm">
-                      <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate font-medium text-foreground">
-                        {AUTH_METHOD_LABEL[draft.method]}
-                      </span>
-                      {draft.method !== "none" && (
-                        <span className="truncate text-muted-foreground">
-                          ·{" "}
-                          {draft.connectionType === "shared"
-                            ? "Shared credentials"
-                            : "Per-user credentials"}
+                {!isMonoOwnServer && (
+                  <Section
+                    title="Authorization"
+                    hint="How callers authorize against this server."
+                    stacked
+                  >
+                    <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2 text-sm">
+                        <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-medium text-foreground">
+                          {AUTH_METHOD_LABEL[draft.method]}
                         </span>
-                      )}
+                        {draft.method !== "none" && (
+                          <span className="truncate text-muted-foreground">
+                            ·{" "}
+                            {draft.connectionType === "shared"
+                              ? "Shared credentials"
+                              : "Per-user credentials"}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={goConfigure}
+                      >
+                        Edit
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                      onClick={goConfigure}
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </Section>
+                  </Section>
+                )}
 
                 {/* ── Connection ────────────────────────────────────────────── */}
                 {enabledToolkits.length > 0 && orgSlug && (
@@ -800,7 +819,7 @@ export function EnableMcpServerButton({
           {/* ── Step footer (overview / configure) ─────────────────────────── */}
           {step === "overview" && (
             <div className="border-t px-6 py-4">
-              <Button className="w-full rounded-full" onClick={goConfigure} disabled={!server}>
+              <Button className="w-full rounded-full" onClick={goInstall} disabled={!server}>
                 Install
               </Button>
             </div>
