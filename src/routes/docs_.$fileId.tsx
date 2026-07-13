@@ -59,6 +59,7 @@ function DocumentEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleApiError = useCallback(
     (err: unknown) => {
