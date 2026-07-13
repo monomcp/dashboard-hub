@@ -46,6 +46,7 @@ import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.a
 import { Route as McpViewRouteImport } from './routes/mcp.$view'
 import { Route as InstagramViewRouteImport } from './routes/instagram.$view'
 import { Route as GithubViewRouteImport } from './routes/github.$view'
+import { Route as DocsFileIdRouteImport } from './routes/docs.$fileId'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
 import { Route as AuthMagicLinkConfirmRouteImport } from './routes/auth.magic-link.confirm'
@@ -235,6 +236,11 @@ const GithubViewRoute = GithubViewRouteImport.update({
   path: '/$view',
   getParentRoute: () => GithubRoute,
 } as any)
+const DocsFileIdRoute = DocsFileIdRouteImport.update({
+  id: '/$fileId',
+  path: '/$fileId',
+  getParentRoute: () => DocsRoute,
+} as any)
 const ContentViewRoute = ContentViewRouteImport.update({
   id: '/$view',
   path: '/$view',
@@ -261,7 +267,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/docs/$fileId': typeof DocsFileIdRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -303,7 +310,7 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/docs/$fileId': typeof DocsFileIdRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -346,7 +354,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/content': typeof ContentRouteWithChildren
   '/database': typeof DatabaseRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/duckduckgo': typeof DuckduckgoRoute
   '/email': typeof EmailRoute
   '/firecrawl': typeof FirecrawlRoute
@@ -364,6 +372,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
+  '/docs/$fileId': typeof DocsFileIdRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -408,6 +417,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/docs/$fileId'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/docs/$fileId'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/brand/$view'
     | '/content/$view'
+    | '/docs/$fileId'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -517,7 +529,7 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   ContentRoute: typeof ContentRouteWithChildren
   DatabaseRoute: typeof DatabaseRoute
-  DocsRoute: typeof DocsRoute
+  DocsRoute: typeof DocsRouteWithChildren
   DuckduckgoRoute: typeof DuckduckgoRoute
   EmailRoute: typeof EmailRoute
   FirecrawlRoute: typeof FirecrawlRoute
@@ -804,6 +816,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GithubViewRouteImport
       parentRoute: typeof GithubRoute
     }
+    '/docs/$fileId': {
+      id: '/docs/$fileId'
+      path: '/$fileId'
+      fullPath: '/docs/$fileId'
+      preLoaderRoute: typeof DocsFileIdRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/content/$view': {
       id: '/content/$view'
       path: '/$view'
@@ -838,6 +857,16 @@ const ContentRouteChildren: ContentRouteChildren = {
 
 const ContentRouteWithChildren =
   ContentRoute._addFileChildren(ContentRouteChildren)
+
+interface DocsRouteChildren {
+  DocsFileIdRoute: typeof DocsFileIdRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsFileIdRoute: DocsFileIdRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
 
 interface GithubRouteChildren {
   GithubViewRoute: typeof GithubViewRoute
@@ -917,7 +946,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   ContentRoute: ContentRouteWithChildren,
   DatabaseRoute: DatabaseRoute,
-  DocsRoute: DocsRoute,
+  DocsRoute: DocsRouteWithChildren,
   DuckduckgoRoute: DuckduckgoRoute,
   EmailRoute: EmailRoute,
   FirecrawlRoute: FirecrawlRoute,
@@ -945,13 +974,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

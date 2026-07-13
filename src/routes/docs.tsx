@@ -357,6 +357,27 @@ function DrivePage() {
 
   const sortLabel = SORT_OPTIONS.find((o) => o.field === sortField)?.label ?? "Sort";
 
+  const createDocumentAndOpen = async () => {
+    setMutating(true);
+    setError("");
+    try {
+      const created = await apiRequest<DriveFileResponse>("/api/v1/drive-files", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Untitled document",
+          folder_id: folderId ?? null,
+          kind: "document",
+          mime_type: "application/vnd.google-apps.document",
+        }),
+      });
+      void navigate({ to: "/docs/$fileId", params: { fileId: created.id } });
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setMutating(false);
+    }
+  };
+
   const submitCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const name = createName.trim();
@@ -579,7 +600,7 @@ function DrivePage() {
                 <DropdownMenuItem
                   className="gap-3 rounded-lg py-2.5"
                   disabled={mutating}
-                  onSelect={() => setCreateOpen("document")}
+                  onSelect={() => void createDocumentAndOpen()}
                 >
                   <FileText className="h-4 w-4 text-blue-500" /> Document
                 </DropdownMenuItem>
