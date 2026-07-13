@@ -22,7 +22,7 @@ import {
   Section,
   ToolkitKindBadge,
   ToolkitSelectionIndicator,
-  useActiveOrgSlug,
+  useActiveOrgId,
 } from "@/components/mcp-connect";
 import {
   AlertDialog,
@@ -230,7 +230,7 @@ export function EnableMcpServerButton({
 }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const orgSlug = useActiveOrgSlug(open);
+  const orgId = useActiveOrgId(open);
   const [step, setStep] = useState<Step>("toolkits");
   const [selected, setSelected] = useState<Set<string>>(() => new Set(toolkitIds));
   const [newName, setNewName] = useState("");
@@ -784,18 +784,18 @@ export function EnableMcpServerButton({
                 )}
 
                 {/* ── Connection ────────────────────────────────────────────── */}
-                {enabledToolkits.length > 0 && orgSlug && (
+                {enabledToolkits.length > 0 && orgId && (
                   <Section
                     title="Connection"
                     hint="The gateway endpoint for each enabled toolkit. Use this URL in your MCP client."
                     stacked
                   >
-                    <ConnectionEndpoints orgSlug={orgSlug} toolkits={enabledToolkits} />
+                    <ConnectionEndpoints orgId={orgId} toolkits={enabledToolkits} />
                   </Section>
                 )}
 
                 {/* ── How to connect ────────────────────────────────────────── */}
-                {primaryToolkit && orgSlug && (
+                {primaryToolkit && orgId && (
                   <Section
                     title="How to connect"
                     hint="Pick your MCP client, then add this server with the config below."
@@ -803,7 +803,7 @@ export function EnableMcpServerButton({
                   >
                     <HowToConnect
                       configKey={serverSlug}
-                      url={gatewayEndpoint(orgSlug, primaryToolkit.slug)}
+                      url={gatewayEndpoint(orgId, primaryToolkit.id)}
                     />
 
                     {enabledToolkits.length > 1 && (

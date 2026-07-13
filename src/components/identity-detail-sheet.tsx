@@ -18,7 +18,7 @@ import {
   CopyRow,
   HowToConnect,
   Section,
-  useActiveOrgSlug,
+  useActiveOrgId,
   useCopy,
 } from "@/components/mcp-connect";
 import { PillTabs, type PillTabItem } from "@/components/pill-tabs";
@@ -840,7 +840,7 @@ function AgentSetupTab({
   loading: boolean;
   onGoToToolkits: () => void;
 }) {
-  const orgSlug = useActiveOrgSlug(true);
+  const orgId = useActiveOrgId(true);
   // Show only this identity's own personal toolkit endpoint, not the shared
   // toolkits it's also been granted. The personal toolkit is the non-shared one
   // whose slug matches the principal's.
@@ -848,7 +848,7 @@ function AgentSetupTab({
     grantedToolkits.find((t) => t.kind !== "shared" && t.slug === principal.slug) ??
     grantedToolkits.find((t) => t.kind !== "shared");
 
-  if (loading || !orgSlug) {
+  if (loading || !orgId) {
     return (
       <Section title="Connection" hint="The gateway endpoint this agent can call." stacked>
         <Skeleton className="h-10 w-full rounded-lg" />
@@ -879,7 +879,7 @@ function AgentSetupTab({
         hint="The gateway endpoint for this identity. Use this URL in your MCP client."
         stacked
       >
-        <ConnectionEndpoints orgSlug={orgSlug} toolkits={[ownToolkit]} />
+        <ConnectionEndpoints orgId={orgId} toolkits={[ownToolkit]} />
       </Section>
 
       <Section
@@ -889,7 +889,7 @@ function AgentSetupTab({
       >
         <HowToConnect
           configKey={configKeyFor(principal)}
-          url={gatewayEndpoint(orgSlug, ownToolkit.slug)}
+          url={gatewayEndpoint(orgId, ownToolkit.id)}
         />
       </Section>
     </>

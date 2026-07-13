@@ -28,8 +28,12 @@ type Membership = {
 };
 type MeResponse = { memberships: Membership[] };
 
-/** The slug of the org whose gateway endpoints we render. Only fetches while `enabled`. */
-export function useActiveOrgSlug(enabled: boolean): string | null {
+/**
+ * The immutable id of the org whose gateway endpoints we render. Only fetches
+ * while `enabled`. We key connection URLs on the id (not the slug) so they don't
+ * break when the org is renamed. Returns null until the membership is known.
+ */
+export function useActiveOrgId(enabled: boolean): string | null {
   const { data } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
@@ -40,7 +44,7 @@ export function useActiveOrgSlug(enabled: boolean): string | null {
   const storedOrgId =
     typeof window !== "undefined" ? localStorage.getItem("organization_id") : null;
   const active = memberships.find((m) => m.organization_id === storedOrgId) ?? memberships[0];
-  return active?.organization_slug ?? null;
+  return active?.organization_id ?? null;
 }
 
 /** Copy-to-clipboard with a per-key "copied" flash that resets itself. */
@@ -277,26 +281,27 @@ export function HowToConnect({ configKey, url }: { configKey: string; url: strin
   );
 }
 
-/** The gateway URL rows for a set of toolkit slugs, one CopyRow each. */
+/** The gateway URL rows for a set of toolkits, one CopyRow each. Keyed on the
+ * immutable org/toolkit ids so a rename doesn't break the copied connection. */
 export function ConnectionEndpoints({
-  orgSlug,
+  orgId,
   toolkits,
 }: {
-  orgSlug: string;
+  orgId: string;
   toolkits: { id: string; name: string; slug: string }[];
 }) {
   const { copiedKey, copy } = useCopy();
   return (
     <>
       {toolkits.map((t) => {
-        const url = gatewayEndpoint(orgSlug, t.slug);
+        const url = gatewayEndpoint(orgId, t.id);
         return (
           <div key={t.id} className="space-y-1">
             {toolkits.length > 1 && <p className="text-xs text-muted-foreground">{t.name}</p>}
             <CopyRow
               value={url}
-              copied={copiedKey === `url:${t.slug}`}
-              onCopy={() => copy(`url:${t.slug}`, url)}
+              copied={copiedKey === `url:${t.id}`}
+              onCopy={() => copy(`url:${t.id}`, url)}
             />
           </div>
         );

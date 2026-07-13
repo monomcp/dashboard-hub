@@ -272,6 +272,9 @@ export type ApiKeyCreate = {
 export const GATEWAY_BASE_URL: string =
   import.meta.env.VITE_GATEWAY_URL || "https://mcp.monomcp.com";
 
-export function gatewayEndpoint(orgSlug: string, toolkitSlug: string): string {
-  return `${GATEWAY_BASE_URL}/${orgSlug}/${toolkitSlug}/mcp`;
+// The gateway resolves each path segment by immutable id (UUID) or by slug, so
+// pass the ids here: a connection pinned to ids survives an org/toolkit rename,
+// whereas slugs change and break every already-configured client.
+export function gatewayEndpoint(orgRef: string, toolkitRef: string): string {
+  return `${GATEWAY_BASE_URL}/${orgRef}/${toolkitRef}/mcp`;
 }
