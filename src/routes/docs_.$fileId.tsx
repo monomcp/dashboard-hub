@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, CloudAlert, CloudCheck, CloudSync } from "lucide-react";
+import { ArrowLeft, CloudAlert, CloudCheck, CloudSync, UserPlus } from "lucide-react";
+import { FileShareDialog } from "@/components/file-share-dialog";
 import {
   MDXEditor,
   headingsPlugin,
@@ -58,6 +59,7 @@ function DocumentEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -163,8 +165,22 @@ function DocumentEditorPage() {
     </Link>
   );
 
+  const shareButton = (
+    <Button
+      variant="secondary"
+      size="sm"
+      className="ml-auto h-8 gap-1.5 rounded-full bg-sky-100 px-3 text-sky-700 hover:bg-sky-200"
+      disabled={loading}
+      onClick={() => setShareOpen(true)}
+    >
+      <UserPlus className="h-4 w-4" />
+      Share
+    </Button>
+  );
+
   const saveIndicator = (
-    <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2 text-xs text-muted-foreground">
+    <div className="flex shrink-0 items-center gap-1.5 pl-2 text-xs text-muted-foreground">
+
       {saveState === "saving" && (
         <>
           <CloudSync className="h-3.5 w-3.5 animate-spin" /> Saving…
@@ -185,6 +201,12 @@ function DocumentEditorPage() {
 
   return (
     <div className="doc-editor-page min-h-screen bg-[hsl(220,33%,98%)] text-foreground">
+      <FileShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        fileId={fileId}
+        fileName={file?.name ?? name ?? "Untitled document"}
+      />
       {/* The MDXEditor toolbar is restyled into a full-width sticky header that
           also carries the back button, logo, title field and save indicator, so
           the formatting controls live in the same bar as the document chrome. */}
@@ -309,6 +331,7 @@ function DocumentEditorPage() {
                   <ListsToggle />
                   <Separator />
                   <CreateLink />
+                  {shareButton}
                   {saveIndicator}
                 </div>
               ),
