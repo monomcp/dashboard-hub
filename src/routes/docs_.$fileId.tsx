@@ -210,6 +210,17 @@ function DocumentEditorPage() {
         @media (min-width: 768px) {
           .doc-editor-page .mdxeditor [role="toolbar"] { padding: 0.5rem 1.25rem; }
         }
+        /* The card styling lives on the editable's wrapper — not on
+           contentEditableClassName, which MDXEditor also copies onto the
+           absolutely-positioned placeholder (that produced a phantom second
+           card on empty documents). */
+        .doc-editor-page .mdxeditor-root-contenteditable {
+          width: min(48rem, 100% - 2rem);
+          margin: 2rem auto;
+          background: #ffffff;
+          border-radius: 1rem;
+          box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        }
         /* MDXEditor's link editor is a popover anchored to the current text
            selection. Creating a link from the toolbar should instead behave
            like a dialog, consistently centered in the viewport. */
@@ -264,7 +275,7 @@ function DocumentEditorPage() {
           className="doc-editor-instance"
           markdown={markdown}
           onChange={setMarkdown}
-          contentEditableClassName="prose mx-auto my-8 min-h-[70vh] max-w-3xl rounded-2xl bg-white px-6 py-10 shadow-sm ring-1 ring-black/5 focus:outline-none md:px-10"
+          contentEditableClassName="prose max-w-none min-h-[70vh] px-6 py-10 focus:outline-none md:px-10"
           plugins={[
             headingsPlugin(),
             listsPlugin(),
