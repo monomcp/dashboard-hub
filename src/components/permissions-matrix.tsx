@@ -162,12 +162,12 @@ function GrantControl({
   principal,
   busy,
   onEnableAll,
-  onRevoke,
+  onDisableAll,
 }: {
   principal: AccessMatrixPrincipal;
   busy: boolean;
   onEnableAll: () => void;
-  onRevoke: () => void;
+  onDisableAll: () => void;
 }) {
   const theme = useTheme();
   const grant = storedGrant(principal);
@@ -177,7 +177,9 @@ function GrantControl({
       className="inline-flex items-center gap-1.5"
       title={grant.viaPersonal ? "Access through this identity's personal toolkit" : undefined}
     >
-      <span className={cn("text-xs", theme.principalSub)}>Enable all tools</span>
+      <span className={cn("shrink-0 whitespace-nowrap text-xs", theme.principalSub)}>
+        Enable all tools
+      </span>
       {busy ? (
         <Loader2 className={cn("h-3.5 w-3.5 animate-spin", theme.loader)} />
       ) : (
@@ -185,7 +187,7 @@ function GrantControl({
           checked={allOn}
           disabled={busy}
           aria-label={`Enable all tools for ${principal.name}`}
-          onCheckedChange={(checked) => (checked ? onEnableAll() : onRevoke())}
+          onCheckedChange={(checked) => (checked ? onEnableAll() : onDisableAll())}
         />
       )}
     </span>
@@ -272,12 +274,12 @@ function PrincipalLabel({
   principal,
   busy,
   onEnableAll,
-  onRevoke,
+  onDisableAll,
 }: {
   principal: AccessMatrixPrincipal;
   busy: boolean;
   onEnableAll: () => void;
-  onRevoke: () => void;
+  onDisableAll: () => void;
 }) {
   const theme = useTheme();
   const meta = PRINCIPAL_META[principal.type];
@@ -294,7 +296,7 @@ function PrincipalLabel({
             principal={principal}
             busy={busy}
             onEnableAll={onEnableAll}
-            onRevoke={onRevoke}
+            onDisableAll={onDisableAll}
           />
         </div>
       </div>
@@ -342,8 +344,7 @@ export function PermissionsMatrix({
     [moduleSlugs],
   );
   // This page shows one server's actions inside a toolkit that may hold several, so
-  // grants and revokes here must speak only for the actions on screen.
-  const scoped = moduleScope.length > 0;
+  // bulk and individual access updates here must speak only for the actions on screen.
   const toolkitMatrixQueryKey = useMemo(
     () => ["toolkit-access-matrix", toolkitId] as const,
     [toolkitId],
@@ -437,13 +438,6 @@ export function PermissionsMatrix({
   const bulkToolkitId = (principal: AccessMatrixPrincipal) =>
     principal.has_toolkit_access ? toolkitId : (principal.personal_access?.toolkit_id ?? toolkitId);
 
-  // Any enabled grant keeps its tools individually editable, so a single tool can be
-  // switched off after "Enable all tools" — which flips the header switch back off.
-  const canEditIndividualTools = (principal: AccessMatrixPrincipal) => {
-    const grant = storedGrant(principal);
-    return grant.hasGrant && grant.enabled;
-  };
-
   const setAccessMode = (principal: AccessMatrixPrincipal, accessMode: ToolkitAccessMode) => {
     const targetToolkitId = bulkToolkitId(principal);
     if (!targetToolkitId) return Promise.resolve();
@@ -462,31 +456,25 @@ export function PermissionsMatrix({
     );
   };
 
-  const revokeAccess = (principal: AccessMatrixPrincipal) => {
-    const targetToolkitId = bulkToolkitId(principal);
-    if (!targetToolkitId) return Promise.resolve();
-    return runAction(`bulk:${principal.id}`, async () => {
-      await apiRequest<unknown>(
-        `/api/v1/identities/${principal.id}/toolkits/${targetToolkitId}/tool-rules`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ enabled: false, module_slugs: moduleScope }),
-        },
-      );
-      // Dropping the grant would take every server in the toolkit with it, and a scoped
-      // page only speaks for the one it lists. The API retires the grant itself once
-      // nothing outside the scope is left to reach.
-      if (!scoped) {
+  const setToolRule = (principal: AccessMatrixPrincipal, toolId: string, choice: ToolRuleChoice) =>
+    runAction(`tr:${principal.id}:${toolId}`, async () => {
+      // A restricted grant keeps the toolkit active while admitting only explicit
+      // per-tool allows. Create it on demand so no-access cells can be configured.
+      if (!storedGrant(principal).enabled) {
+        const targetToolkitId = bulkToolkitId(principal);
+        if (!targetToolkitId) return;
         await apiRequest<unknown>(
-          `/api/v1/identities/${principal.id}/toolkit-access/${targetToolkitId}`,
-          { method: "DELETE" },
+          `/api/v1/identities/${principal.id}/toolkits/${targetToolkitId}/tool-rules`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              enabled: true,
+              module_slugs: moduleScope,
+              access_mode: "restricted",
+            }),
+          },
         );
       }
-    });
-  };
-
-  const setToolRule = (principalId: string, toolId: string, choice: ToolRuleChoice) =>
-    runAction(`tr:${principalId}:${toolId}`, () => {
       const body =
         choice === "deny"
           ? { mcp_tool_id: toolId, effect: "deny" }
@@ -495,7 +483,7 @@ export function PermissionsMatrix({
               effect: "allow",
               permission: choice === "needs_approval" ? "needs_approval" : "always_allow",
             };
-      return apiRequest<unknown>(`/api/v1/identities/${principalId}/tool-rules`, {
+      return apiRequest<unknown>(`/api/v1/identities/${principal.id}/tool-rules`, {
         method: "PUT",
         body: JSON.stringify(body),
       });
@@ -511,8 +499,8 @@ export function PermissionsMatrix({
         rule={principal.rules[tool.id]}
         value={principal.tools[tool.id] ?? "no_access"}
         busy={busyKey === `tr:${principal.id}:${tool.id}`}
-        editable={canEditIndividualTools(principal) && busyKey !== `bulk:${principal.id}`}
-        onChoose={(choice) => setToolRule(principal.id, tool.id, choice)}
+        editable={busyKey !== `bulk:${principal.id}`}
+        onChoose={(choice) => setToolRule(principal, tool.id, choice)}
       />
     </div>
   );
@@ -684,7 +672,7 @@ export function PermissionsMatrix({
                             principal={principal}
                             busy={busyKey === `bulk:${principal.id}`}
                             onEnableAll={() => setAccessMode(principal, "full")}
-                            onRevoke={() => revokeAccess(principal)}
+                            onDisableAll={() => setAccessMode(principal, "restricted")}
                           />
                         </td>
                         {tools.map((tool) => (
@@ -729,7 +717,7 @@ export function PermissionsMatrix({
                             principal={principal}
                             busy={busyKey === `bulk:${principal.id}`}
                             onEnableAll={() => setAccessMode(principal, "full")}
-                            onRevoke={() => revokeAccess(principal)}
+                            onDisableAll={() => setAccessMode(principal, "restricted")}
                           />
                         </th>
                       ))}
