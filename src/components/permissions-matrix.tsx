@@ -35,7 +35,7 @@ import { lightPermissionsTheme, type PermissionsTheme } from "@/lib/permissions-
 //
 // One component, two looks: Brand DNA (dark) and Content (light) both render this
 // with a different `theme` and a different toolkit source. All the access logic —
-// grant/revoke, per-tool allow / needs-approval / deny / inherit, the admin (403)
+// grant/revoke, per-tool allow / needs-approval / deny, the admin (403)
 // handling, the "only with access" filter — lives here once.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -74,10 +74,11 @@ function hasAnyAccess(principal: AccessMatrixPrincipal): boolean {
   return Object.values(principal.tools).some((cell) => cell !== "no_access");
 }
 
-type ToolRuleChoice = "inherit" | "allow" | "needs_approval" | "deny";
+type ToolRuleChoice = "allow" | "needs_approval" | "deny";
+type ToolRuleDisplay = ToolRuleChoice | "inherit";
 type MatrixOrientation = "principals" | "tools";
 
-function ruleChoice(rule: AccessRuleInfo | undefined): ToolRuleChoice {
+function ruleChoice(rule: AccessRuleInfo | undefined): ToolRuleDisplay {
   if (!rule) return "inherit";
   if (rule.effect === "deny") return "deny";
   if (rule.permission === "needs_approval") return "needs_approval";
@@ -260,17 +261,6 @@ function ToolAccessCell({
           active={current === "deny"}
           onClick={() => pick("deny")}
         />
-        {rule && (
-          <>
-            <div className={cn("my-1 h-px", theme.menuDivider)} />
-            <MenuButton
-              icon={Minus}
-              iconClass={theme.menuIcon.muted}
-              label="Inherit default"
-              onClick={() => pick("inherit")}
-            />
-          </>
-        )}
       </PopoverContent>
     </Popover>
   );
@@ -300,7 +290,6 @@ function PrincipalLabel({
       <div className="min-w-0">
         <div className={cn("truncate font-medium", theme.principalName)}>{principal.name}</div>
         <div className={cn("mt-0.5 flex items-center gap-1.5 text-xs", theme.principalSub)}>
-          <span>{meta.label}</span>
           <GrantControl
             principal={principal}
             busy={busy}
@@ -498,11 +487,6 @@ export function PermissionsMatrix({
 
   const setToolRule = (principalId: string, toolId: string, choice: ToolRuleChoice) =>
     runAction(`tr:${principalId}:${toolId}`, () => {
-      if (choice === "inherit") {
-        return apiRequest<unknown>(`/api/v1/identities/${principalId}/tool-rules/${toolId}`, {
-          method: "DELETE",
-        });
-      }
       const body =
         choice === "deny"
           ? { mcp_tool_id: toolId, effect: "deny" }
