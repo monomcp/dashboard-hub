@@ -46,6 +46,8 @@ import { Route as MonoAgentAutomationsRouteImport } from './routes/mono-agent_.a
 import { Route as McpViewRouteImport } from './routes/mcp.$view'
 import { Route as InstagramViewRouteImport } from './routes/instagram.$view'
 import { Route as GithubViewRouteImport } from './routes/github.$view'
+import { Route as DocsPermissionsRouteImport } from './routes/docs_.permissions'
+import { Route as DocsActivityRouteImport } from './routes/docs_.activity'
 import { Route as DocsFileIdRouteImport } from './routes/docs_.$fileId'
 import { Route as ContentViewRouteImport } from './routes/content.$view'
 import { Route as BrandViewRouteImport } from './routes/brand.$view'
@@ -236,6 +238,16 @@ const GithubViewRoute = GithubViewRouteImport.update({
   path: '/$view',
   getParentRoute: () => GithubRoute,
 } as any)
+const DocsPermissionsRoute = DocsPermissionsRouteImport.update({
+  id: '/docs_/permissions',
+  path: '/docs/permissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsActivityRoute = DocsActivityRouteImport.update({
+  id: '/docs_/activity',
+  path: '/docs/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsFileIdRoute = DocsFileIdRouteImport.update({
   id: '/docs_/$fileId',
   path: '/docs/$fileId',
@@ -286,6 +298,8 @@ export interface FileRoutesByFullPath {
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/docs/$fileId': typeof DocsFileIdRoute
+  '/docs/activity': typeof DocsActivityRoute
+  '/docs/permissions': typeof DocsPermissionsRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -329,6 +343,8 @@ export interface FileRoutesByTo {
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/docs/$fileId': typeof DocsFileIdRoute
+  '/docs/activity': typeof DocsActivityRoute
+  '/docs/permissions': typeof DocsPermissionsRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -373,6 +389,8 @@ export interface FileRoutesById {
   '/brand/$view': typeof BrandViewRoute
   '/content/$view': typeof ContentViewRoute
   '/docs_/$fileId': typeof DocsFileIdRoute
+  '/docs_/activity': typeof DocsActivityRoute
+  '/docs_/permissions': typeof DocsPermissionsRoute
   '/github/$view': typeof GithubViewRoute
   '/instagram/$view': typeof InstagramViewRoute
   '/mcp/$view': typeof McpViewRoute
@@ -418,6 +436,8 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/docs/$fileId'
+    | '/docs/activity'
+    | '/docs/permissions'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -461,6 +481,8 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/docs/$fileId'
+    | '/docs/activity'
+    | '/docs/permissions'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -504,6 +526,8 @@ export interface FileRouteTypes {
     | '/brand/$view'
     | '/content/$view'
     | '/docs_/$fileId'
+    | '/docs_/activity'
+    | '/docs_/permissions'
     | '/github/$view'
     | '/instagram/$view'
     | '/mcp/$view'
@@ -547,6 +571,8 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   BrandViewRoute: typeof BrandViewRoute
   DocsFileIdRoute: typeof DocsFileIdRoute
+  DocsActivityRoute: typeof DocsActivityRoute
+  DocsPermissionsRoute: typeof DocsPermissionsRoute
   MonoAgentAutomationsRoute: typeof MonoAgentAutomationsRoute
   MonoAgentCreateRoute: typeof MonoAgentCreateRoute
   TasksActivityRoute: typeof TasksActivityRoute
@@ -817,6 +843,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GithubViewRouteImport
       parentRoute: typeof GithubRoute
     }
+    '/docs_/permissions': {
+      id: '/docs_/permissions'
+      path: '/docs/permissions'
+      fullPath: '/docs/permissions'
+      preLoaderRoute: typeof DocsPermissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs_/activity': {
+      id: '/docs_/activity'
+      path: '/docs/activity'
+      fullPath: '/docs/activity'
+      preLoaderRoute: typeof DocsActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs_/$fileId': {
       id: '/docs_/$fileId'
       path: '/docs/$fileId'
@@ -955,6 +995,8 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   BrandViewRoute: BrandViewRoute,
   DocsFileIdRoute: DocsFileIdRoute,
+  DocsActivityRoute: DocsActivityRoute,
+  DocsPermissionsRoute: DocsPermissionsRoute,
   MonoAgentAutomationsRoute: MonoAgentAutomationsRoute,
   MonoAgentCreateRoute: MonoAgentCreateRoute,
   TasksActivityRoute: TasksActivityRoute,

@@ -4,7 +4,6 @@ import {
   Ban,
   Bot,
   Check,
-  ChevronDown,
   Clock,
   KeyRound,
   Loader2,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, apiRequest } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
@@ -121,7 +121,7 @@ function MenuButton({
   );
 }
 
-function effectiveGrant(principal: AccessMatrixPrincipal): {
+function storedGrant(principal: AccessMatrixPrincipal): {
   hasGrant: boolean;
   mode: ToolkitAccessMode | null;
   enabled: boolean;
@@ -146,76 +146,44 @@ function effectiveGrant(principal: AccessMatrixPrincipal): {
   return { hasGrant: false, mode: null, enabled: false, viaPersonal: false };
 }
 
+/** The switch is on only when every listed tool is actually reachable, so denying
+ *  a single tool (or holding a partial grant) reads as "not all tools enabled". */
+function allToolsEnabled(principal: AccessMatrixPrincipal): boolean {
+  const cells = Object.values(principal.tools);
+  return cells.length > 0 && cells.every((cell) => cell === "allowed" || cell === "needs_approval");
+}
+
 function GrantControl({
   principal,
   busy,
-  onSet,
+  onEnableAll,
   onRevoke,
 }: {
   principal: AccessMatrixPrincipal;
   busy: boolean;
-  onSet: (mode: ToolkitAccessMode) => void;
+  onEnableAll: () => void;
   onRevoke: () => void;
 }) {
   const theme = useTheme();
-  const [open, setOpen] = useState(false);
-  const grant = effectiveGrant(principal);
-  const pick = (fn: () => void) => {
-    setOpen(false);
-    fn();
-  };
+  const grant = storedGrant(principal);
+  const allOn = allToolsEnabled(principal);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
+    <span
+      className="inline-flex items-center gap-1.5"
+      title={grant.viaPersonal ? "Access through this identity's personal toolkit" : undefined}
+    >
+      <span className={cn("text-xs", theme.principalSub)}>Enable all tools</span>
+      {busy ? (
+        <Loader2 className={cn("h-3.5 w-3.5 animate-spin", theme.loader)} />
+      ) : (
+        <Switch
+          checked={allOn}
           disabled={busy}
-          title={grant.viaPersonal ? "Access through this identity's personal toolkit" : undefined}
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs capitalize transition disabled:opacity-50",
-            grant.hasGrant && grant.enabled ? theme.grantHas : theme.grantNone,
-          )}
-        >
-          {busy ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <>
-              {grant.hasGrant && grant.enabled ? grant.mode : "Grant access"}
-              <ChevronDown className="h-3 w-3" />
-            </>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className={cn(theme.menuPanel, "space-y-px")}>
-        <div
-          className={cn("px-2.5 pb-1 pt-1.5 text-xs uppercase tracking-wide", theme.principalSub)}
-        >
-          {grant.viaPersonal ? "Personal toolkit access" : "Toolkit access"}
-        </div>
-        <MenuButton
-          icon={Check}
-          iconClass={theme.menuIcon.allow}
-          label="Full access"
-          hint="all tools"
-          active={grant.hasGrant && grant.enabled && grant.mode === "full"}
-          onClick={() => pick(() => onSet("full"))}
+          aria-label={`Enable all tools for ${principal.name}`}
+          onCheckedChange={(checked) => (checked ? onEnableAll() : onRevoke())}
         />
-        <MenuButton
-          icon={KeyRound}
-          iconClass={theme.menuIcon.needs}
-          label="Restricted"
-          hint="allowed only"
-          active={grant.hasGrant && grant.enabled && grant.mode === "restricted"}
-          onClick={() => pick(() => onSet("restricted"))}
-        />
-        {grant.hasGrant && grant.enabled && (
-          <>
-            <div className={cn("my-1 h-px", theme.menuDivider)} />
-            <MenuButton icon={X} label="Revoke access" danger onClick={() => pick(onRevoke)} />
-          </>
-        )}
-      </PopoverContent>
-    </Popover>
+      )}
+    </span>
   );
 }
 
@@ -307,12 +275,12 @@ function ToolAccessCell({
 function PrincipalLabel({
   principal,
   busy,
-  onSet,
+  onEnableAll,
   onRevoke,
 }: {
   principal: AccessMatrixPrincipal;
   busy: boolean;
-  onSet: (mode: ToolkitAccessMode) => void;
+  onEnableAll: () => void;
   onRevoke: () => void;
 }) {
   const theme = useTheme();
@@ -327,7 +295,12 @@ function PrincipalLabel({
         <div className={cn("truncate font-medium", theme.principalName)}>{principal.name}</div>
         <div className={cn("mt-0.5 flex items-center gap-1.5 text-xs", theme.principalSub)}>
           <span>{meta.label}</span>
-          <GrantControl principal={principal} busy={busy} onSet={onSet} onRevoke={onRevoke} />
+          <GrantControl
+            principal={principal}
+            busy={busy}
+            onEnableAll={onEnableAll}
+            onRevoke={onRevoke}
+          />
         </div>
       </div>
     </div>
@@ -373,6 +346,9 @@ export function PermissionsMatrix({
     () => [...new Set(moduleSlugs ?? [])].filter(Boolean).sort(),
     [moduleSlugs],
   );
+  // This page shows one server's actions inside a toolkit that may hold several, so
+  // grants and revokes here must speak only for the actions on screen.
+  const scoped = moduleScope.length > 0;
   const toolkitMatrixQueryKey = useMemo(
     () => ["toolkit-access-matrix", toolkitId] as const,
     [toolkitId],
@@ -466,9 +442,11 @@ export function PermissionsMatrix({
   const bulkToolkitId = (principal: AccessMatrixPrincipal) =>
     principal.has_toolkit_access ? toolkitId : (principal.personal_access?.toolkit_id ?? toolkitId);
 
+  // Any enabled grant keeps its tools individually editable, so a single tool can be
+  // switched off after "Enable all tools" — which flips the header switch back off.
   const canEditIndividualTools = (principal: AccessMatrixPrincipal) => {
-    const grant = effectiveGrant(principal);
-    return grant.hasGrant && grant.enabled && grant.mode === "restricted";
+    const grant = storedGrant(principal);
+    return grant.hasGrant && grant.enabled;
   };
 
   const setAccessMode = (principal: AccessMatrixPrincipal, accessMode: ToolkitAccessMode) => {
@@ -500,10 +478,15 @@ export function PermissionsMatrix({
           body: JSON.stringify({ enabled: false, module_slugs: moduleScope }),
         },
       );
-      await apiRequest<unknown>(
-        `/api/v1/identities/${principal.id}/toolkit-access/${targetToolkitId}`,
-        { method: "DELETE" },
-      );
+      // Dropping the grant would take every server in the toolkit with it, and a scoped
+      // page only speaks for the one it lists. The API retires the grant itself once
+      // nothing outside the scope is left to reach.
+      if (!scoped) {
+        await apiRequest<unknown>(
+          `/api/v1/identities/${principal.id}/toolkit-access/${targetToolkitId}`,
+          { method: "DELETE" },
+        );
+      }
     });
   };
 
@@ -710,7 +693,7 @@ export function PermissionsMatrix({
                           <PrincipalLabel
                             principal={principal}
                             busy={busyKey === `bulk:${principal.id}`}
-                            onSet={(mode) => setAccessMode(principal, mode)}
+                            onEnableAll={() => setAccessMode(principal, "full")}
                             onRevoke={() => revokeAccess(principal)}
                           />
                         </td>
@@ -755,7 +738,7 @@ export function PermissionsMatrix({
                           <PrincipalLabel
                             principal={principal}
                             busy={busyKey === `bulk:${principal.id}`}
-                            onSet={(mode) => setAccessMode(principal, mode)}
+                            onEnableAll={() => setAccessMode(principal, "full")}
                             onRevoke={() => revokeAccess(principal)}
                           />
                         </th>
