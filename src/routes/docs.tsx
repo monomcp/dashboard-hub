@@ -23,6 +23,8 @@ import {
   RotateCcw,
   Star,
   ChevronRight,
+  Pencil,
+  FolderInput,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,9 +43,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
+import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
+import type { CatalogServer } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/docs")({
@@ -230,7 +242,28 @@ function DrivePage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [createOpen, setCreateOpen] = useState<"folder" | "document" | null>(null);
   const [createName, setCreateName] = useState("");
+  const [renameFile, setRenameFile] = useState<DriveFileResponse | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [moveFile, setMoveFile] = useState<DriveFileResponse | null>(null);
+  const [moveFolderId, setMoveFolderId] = useState("root");
   const [mutating, setMutating] = useState(false);
+
+  // Catalog entry backing the Docs MCP server — drives the header Enable button.
+  const { data: catalog } = useQuery({
+    queryKey: ["mcp-catalog"],
+    queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
+    staleTime: 60 * 1000,
+  });
+  const docsServer = catalog?.find((s) => s.slug === "docs");
+
+  const { data: moveFolders, isLoading: moveFoldersLoading } = useQuery({
+    queryKey: ["drive-move-folders"],
+    queryFn: () =>
+      apiRequest<Page<DriveFolderResponse>>(
+        "/api/v1/drive-folders?sort=name&direction=asc&limit=50&offset=0",
+      ),
+    enabled: moveFile !== null,
+  });
 
   const handleApiError = useCallback(
     (err: unknown) => {
@@ -467,6 +500,37 @@ function DrivePage() {
     }
   };
 
+  const openRenameFile = (file: DriveFileResponse) => {
+    setRenameFile(file);
+    setRenameName(file.name);
+  };
+
+  const submitRename = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = renameName.trim();
+    if (!renameFile || !name) return;
+    if (name !== renameFile.name) await updateFile(renameFile, { name });
+    setRenameFile(null);
+  };
+
+  const openMoveFile = (file: DriveFileResponse) => {
+    setMoveFile(file);
+    setMoveFolderId(file.folder_id ?? "root");
+  };
+
+  const submitMove = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!moveFile) return;
+    const nextFolderId = moveFolderId === "root" ? null : moveFolderId;
+    if (nextFolderId !== moveFile.folder_id) {
+      await updateFile(moveFile, { folder_id: nextFolderId });
+      if (folderId !== nextFolderId) {
+        setFiles((prev) => prev.filter((file) => file.id !== moveFile.id));
+      }
+    }
+    setMoveFile(null);
+  };
+
   const trashFolder = async (folder: DriveFolderResponse) => {
     setMutating(true);
     setError("");
@@ -563,6 +627,15 @@ function DrivePage() {
           <div className="hidden min-w-0 max-w-2xl flex-1 md:block">{searchField}</div>
         )}
         <div className="flex items-center gap-1">
+          {docsServer && (
+            <div className="mr-1">
+              <EnableMcpServerButton
+                serverSlug="docs"
+                enabled={docsServer.enabled}
+                toolkitIds={docsServer.toolkit_ids}
+              />
+            </div>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -878,6 +951,8 @@ function DrivePage() {
                             system={file.is_system}
                             disabled={mutating}
                             onToggleStar={() => updateFile(file, { starred: !file.starred })}
+                            onRename={() => openRenameFile(file)}
+                            onMove={() => openMoveFile(file)}
                             onTrash={() => trashFile(file)}
                             onRestore={() => restoreFile(file)}
                           />
@@ -935,6 +1010,8 @@ function DrivePage() {
                           system={file.is_system}
                           disabled={mutating}
                           onToggleStar={() => updateFile(file, { starred: !file.starred })}
+                          onRename={() => openRenameFile(file)}
+                          onMove={() => openMoveFile(file)}
                           onTrash={() => trashFile(file)}
                           onRestore={() => restoreFile(file)}
                         />
@@ -1004,6 +1081,93 @@ function DrivePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={renameFile !== null} onOpenChange={(open) => !open && setRenameFile(null)}>
+        <DialogContent className="rounded-2xl">
+          <form onSubmit={submitRename} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Rename file</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="drive-rename-name">File name</Label>
+              <Input
+                id="drive-rename-name"
+                value={renameName}
+                onChange={(event) => setRenameName(event.target.value)}
+                autoFocus
+                disabled={mutating}
+                className="h-11 rounded-lg"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-lg"
+                onClick={() => setRenameFile(null)}
+                disabled={mutating}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-lg"
+                disabled={mutating || !renameName.trim()}
+              >
+                Rename
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={moveFile !== null} onOpenChange={(open) => !open && setMoveFile(null)}>
+        <DialogContent className="rounded-2xl">
+          <form onSubmit={submitMove} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Move file</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="drive-move-folder">Destination</Label>
+              <Select
+                value={moveFolderId}
+                onValueChange={setMoveFolderId}
+                disabled={mutating || moveFoldersLoading}
+              >
+                <SelectTrigger id="drive-move-folder" className="h-11 rounded-lg">
+                  <SelectValue placeholder="Select a folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="root">My Docs</SelectItem>
+                  {moveFolders?.items.map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-lg"
+                onClick={() => setMoveFile(null)}
+                disabled={mutating}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="rounded-lg"
+                disabled={mutating || moveFoldersLoading}
+              >
+                Move
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1014,6 +1178,8 @@ function DriveActions({
   system = false,
   disabled,
   onToggleStar,
+  onRename,
+  onMove,
   onTrash,
   onRestore,
 }: {
@@ -1022,6 +1188,8 @@ function DriveActions({
   system?: boolean;
   disabled: boolean;
   onToggleStar: () => void;
+  onRename?: () => void;
+  onMove?: () => void;
   onTrash: () => void;
   onRestore: () => void;
 }) {
@@ -1044,6 +1212,16 @@ function DriveActions({
           </DropdownMenuItem>
         ) : (
           <>
+            {onRename && (
+              <DropdownMenuItem className="gap-2 rounded-lg" onSelect={onRename}>
+                <Pencil className="h-4 w-4" /> Rename
+              </DropdownMenuItem>
+            )}
+            {onMove && (
+              <DropdownMenuItem className="gap-2 rounded-lg" onSelect={onMove}>
+                <FolderInput className="h-4 w-4" /> Move
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="gap-2 rounded-lg" onSelect={onToggleStar}>
               <Star className={`h-4 w-4 ${starred ? "fill-yellow-400 text-yellow-400" : ""}`} />{" "}
               {starred ? "Unstar" : "Star"}

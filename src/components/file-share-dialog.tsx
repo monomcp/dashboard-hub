@@ -320,9 +320,6 @@ export function FileShareDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Done
-          </Button>
           <Button onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
             {save.isPending ? "Saving…" : saveLabel}
           </Button>
