@@ -136,10 +136,14 @@ export type AccessMatrixPrincipal = {
   // toolkit. Editing this grant (full/restricted/revoke) targets its toolkit_id,
   // not the toolkit the matrix is scoped to.
   personal_access: MatrixPersonalAccess | null;
+  // The toolkit every edit from this row must be written to — the selected toolkit
+  // when the identity holds a grant on it, otherwise its personal toolkit. Grants and
+  // per-tool rules are both scoped to a toolkit, so all mutations need this id.
+  edit_toolkit_id: string;
   access_mode: ToolkitAccessMode | null;
   enabled: boolean;
   tools: Record<string, AccessCell>;
-  // tool_id → the raw rule, present only for tools that have one.
+  // tool_id → the raw rule *on edit_toolkit_id*, present only for tools that have one.
   rules: Record<string, AccessRuleInfo>;
 };
 

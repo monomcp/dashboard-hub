@@ -435,15 +435,10 @@ export function PermissionsMatrix({
     [queryClient, toolkitMatrixQueryKey, onApiError],
   );
 
-  const bulkToolkitId = (principal: AccessMatrixPrincipal) =>
-    principal.has_toolkit_access ? toolkitId : (principal.personal_access?.toolkit_id ?? toolkitId);
-
-  const setAccessMode = (principal: AccessMatrixPrincipal, accessMode: ToolkitAccessMode) => {
-    const targetToolkitId = bulkToolkitId(principal);
-    if (!targetToolkitId) return Promise.resolve();
-    return runAction(`bulk:${principal.id}`, () =>
+  const setAccessMode = (principal: AccessMatrixPrincipal, accessMode: ToolkitAccessMode) =>
+    runAction(`bulk:${principal.id}`, () =>
       apiRequest<unknown>(
-        `/api/v1/identities/${principal.id}/toolkits/${targetToolkitId}/tool-rules`,
+        `/api/v1/identities/${principal.id}/toolkits/${principal.edit_toolkit_id}/tool-rules`,
         {
           method: "PUT",
           body: JSON.stringify({
@@ -454,15 +449,16 @@ export function PermissionsMatrix({
         },
       ),
     );
-  };
 
+  // A rule qualifies one toolkit's grant, so it is written against the same toolkit the
+  // row's grant lives on — the selected one, or the identity's personal toolkit when
+  // that is how it reaches these tools. Either way the other toolkit is left alone.
   const setToolRule = (principal: AccessMatrixPrincipal, toolId: string, choice: ToolRuleChoice) =>
     runAction(`tr:${principal.id}:${toolId}`, async () => {
+      const targetToolkitId = principal.edit_toolkit_id;
       // A restricted grant keeps the toolkit active while admitting only explicit
       // per-tool allows. Create it on demand so no-access cells can be configured.
       if (!storedGrant(principal).enabled) {
-        const targetToolkitId = bulkToolkitId(principal);
-        if (!targetToolkitId) return;
         await apiRequest<unknown>(
           `/api/v1/identities/${principal.id}/toolkits/${targetToolkitId}/tool-rules`,
           {
@@ -477,16 +473,15 @@ export function PermissionsMatrix({
       }
       const body =
         choice === "deny"
-          ? { mcp_tool_id: toolId, effect: "deny" }
+          ? { effect: "deny" }
           : {
-              mcp_tool_id: toolId,
               effect: "allow",
               permission: choice === "needs_approval" ? "needs_approval" : "always_allow",
             };
-      return apiRequest<unknown>(`/api/v1/identities/${principal.id}/tool-rules`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      });
+      return apiRequest<unknown>(
+        `/api/v1/identities/${principal.id}/toolkits/${targetToolkitId}/tool-rules/${toolId}`,
+        { method: "PUT", body: JSON.stringify(body) },
+      );
     });
 
   const toolLabel = (tool: AccessMatrixTool) =>

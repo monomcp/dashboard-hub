@@ -436,6 +436,8 @@ type IdentityTool = {
   description: string;
   value: AccessCell;
   principal: AccessMatrixPrincipal;
+  // The toolkit this tool was read through, and so the grant a rule for it qualifies.
+  toolkitId: string;
 };
 
 function McpServerTools({
@@ -476,22 +478,34 @@ function McpServerTools({
           description: tool.description ?? catalogTool?.description ?? "",
           value: matrixPrincipal.tools[tool.id] ?? "no_access",
           principal: matrixPrincipal,
+          toolkitId: matrixPrincipal.edit_toolkit_id,
         });
       }
     }
     return [...merged.values()];
   }, [matrices, principal.id, server.tools]);
 
+  // Rules are scoped to a toolkit, so each switch writes against the toolkit the tool
+  // was read through, not against the identity as a whole.
   const updateRule = useMutation({
-    mutationFn: ({ toolId, enabled }: { toolId: string; enabled: boolean }) =>
-      apiRequest<unknown>(`/api/v1/identities/${principal.id}/tool-rules`, {
-        method: "PUT",
-        body: JSON.stringify(
-          enabled
-            ? { mcp_tool_id: toolId, effect: "allow", permission: "always_allow" }
-            : { mcp_tool_id: toolId, effect: "deny" },
-        ),
-      }),
+    mutationFn: ({
+      toolId,
+      toolkitId,
+      enabled,
+    }: {
+      toolId: string;
+      toolkitId: string;
+      enabled: boolean;
+    }) =>
+      apiRequest<unknown>(
+        `/api/v1/identities/${principal.id}/toolkits/${toolkitId}/tool-rules/${toolId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(
+            enabled ? { effect: "allow", permission: "always_allow" } : { effect: "deny" },
+          ),
+        },
+      ),
     onMutate: ({ toolId }) => setBusyToolId(toolId),
     onSettled: async () => {
       setBusyToolId(null);
@@ -504,14 +518,21 @@ function McpServerTools({
   const allToolsEnabled =
     tools.length > 0 &&
     tools.every((tool) => tool.value === "allowed" || tool.value === "needs_approval");
+  // Same toolkits the individual switches write to, one bulk call each, narrowed to
+  // this server's actions so the other servers sharing a toolkit are left untouched.
+  const editToolkitIds = useMemo(() => [...new Set(tools.map((tool) => tool.toolkitId))], [tools]);
   const updateAllRules = useMutation({
     mutationFn: (enabled: boolean) =>
-      apiRequest<unknown>(
-        `/api/v1/identities/${principal.id}/mcp-servers/${encodeURIComponent(server.slug)}/tool-rules`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ enabled }),
-        },
+      Promise.all(
+        editToolkitIds.map((toolkitId) =>
+          apiRequest<unknown>(
+            `/api/v1/identities/${principal.id}/toolkits/${toolkitId}/tool-rules`,
+            {
+              method: "PUT",
+              body: JSON.stringify({ enabled, module_slugs: [server.slug] }),
+            },
+          ),
+        ),
       ),
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ["identity-tool-access", principal.id] });
@@ -596,7 +617,11 @@ function McpServerTools({
                     checked={enabled}
                     disabled={busy || updateRule.isPending || !tool.principal.has_toolkit_access}
                     onCheckedChange={(checked) =>
-                      updateRule.mutate({ toolId: tool.id, enabled: checked })
+                      updateRule.mutate({
+                        toolId: tool.id,
+                        toolkitId: tool.toolkitId,
+                        enabled: checked,
+                      })
                     }
                     aria-label={`${enabled ? "Disable" : "Enable"} ${tool.name}`}
                   />
