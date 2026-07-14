@@ -91,6 +91,7 @@ function MenuButton({
   hint,
   active,
   danger,
+  disabled,
   onClick,
 }: {
   icon: typeof Check;
@@ -99,18 +100,21 @@ function MenuButton({
   hint?: string;
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   const theme = useTheme();
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
       className={cn(
         "flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm transition",
-        theme.menuHover,
+        disabled
+          ? "cursor-not-allowed opacity-50"
+          : cn(theme.menuHover, danger && theme.menuDanger),
         active && theme.menuActiveBg,
-        danger && theme.menuDanger,
       )}
     >
       <Icon className={cn("h-4 w-4 shrink-0", iconClass)} />
@@ -244,6 +248,8 @@ function ToolAccessCell({
           icon={Clock}
           iconClass={theme.menuIcon.needs}
           label="Needs approval"
+          hint="Soon"
+          disabled
           active={current === "needs_approval"}
           onClick={() => pick("needs_approval")}
         />
