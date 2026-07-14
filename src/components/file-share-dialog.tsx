@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Check, Lock, User, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -203,118 +203,123 @@ export function FileShareDialog({
   const saveLabel = hasRemoval ? "Update" : "Save changes";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-0 p-0">
-        <DialogHeader className="px-6 pt-6">
-          <DialogTitle className="text-xl font-normal">Share “{fileName}”</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="inset-y-2 right-2 flex h-auto w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl"
+      >
+        <SheetHeader className="px-6 pb-0 pt-5 text-left">
+          <SheetTitle className="text-xl font-normal">Share “{fileName}”</SheetTitle>
+        </SheetHeader>
 
-        <div className="px-6 pt-4">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Add people or agents"
-            className="h-11"
-          />
-        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 pt-4">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Add people or agents"
+              className="h-11"
+            />
+          </div>
 
-        {query.trim() !== "" && query.trim().length < 3 && (
-          <p className="mx-6 mt-2 text-xs text-muted-foreground">
-            Type at least 3 characters to search.
-          </p>
-        )}
+          {query.trim() !== "" && query.trim().length < 3 && (
+            <p className="mx-6 mt-2 text-xs text-muted-foreground">
+              Type at least 3 characters to search.
+            </p>
+          )}
 
-        {searchEnabled && searching && (
-          <p className="mx-6 mt-2 text-xs text-muted-foreground">Searching…</p>
-        )}
+          {searchEnabled && searching && (
+            <p className="mx-6 mt-2 text-xs text-muted-foreground">Searching…</p>
+          )}
 
-        {showResults && results.length === 0 && (
-          <p className="mx-6 mt-2 text-xs text-muted-foreground">
-            No people or agents match “{debouncedQuery}”.
-          </p>
-        )}
+          {showResults && results.length === 0 && (
+            <p className="mx-6 mt-2 text-xs text-muted-foreground">
+              No people or agents match “{debouncedQuery}”.
+            </p>
+          )}
 
-        {showResults && results.length > 0 && (
-          <div className="mx-6 mt-2 max-h-56 overflow-auto rounded-md border">
-            {results.slice(0, 8).map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  setKnownPrincipals((prev) => ({ ...prev, [p.id]: p }));
-                  setRole(p.id, "viewer");
-                  setQuery("");
-                }}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted"
-              >
-                <PrincipalAvatar principal={p} />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{p.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    <span className="capitalize">{formatType(p.type)}</span>
-                    {p.slug ? ` · ${p.slug}` : ""}
+          {showResults && results.length > 0 && (
+            <div className="mx-6 mt-2 max-h-56 overflow-auto rounded-md border">
+              {results.slice(0, 8).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setKnownPrincipals((prev) => ({ ...prev, [p.id]: p }));
+                    setRole(p.id, "viewer");
+                    setQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-muted"
+                >
+                  <PrincipalAvatar principal={p} />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{p.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      <span className="capitalize">{formatType(p.type)}</span>
+                      {p.slug ? ` · ${p.slug}` : ""}
+                    </div>
                   </div>
-                </div>
-                <Check className="h-4 w-4 opacity-0" />
-              </button>
-            ))}
-          </div>
-        )}
+                  <Check className="h-4 w-4 opacity-0" />
+                </button>
+              ))}
+            </div>
+          )}
 
-        <div className="mt-4 px-6">
-          <h3 className="text-sm font-medium">People with access</h3>
-          <div className="mt-2 space-y-1">
-            {isLoading || sharesLoading ? (
-              <AccessSectionSkeleton />
-            ) : (
-              withAccess
-                .filter((p) => p.type === "user")
-                .map((p) => (
-                  <AccessRow
-                    key={p.id}
-                    principal={p}
-                    role={p.id === ownerId ? "owner" : shares[p.id]}
-                    locked={p.id === ownerId}
-                    onChange={(r) => setRole(p.id, r)}
-                  />
-                ))
-            )}
-            {!isLoading &&
-              !sharesLoading &&
-              withAccess.filter((p) => p.type === "user").length === 0 && (
-                <p className="text-xs text-muted-foreground">No users yet.</p>
+          <div className="mt-4 px-6">
+            <h3 className="text-sm font-medium">People with access</h3>
+            <div className="mt-2 space-y-1">
+              {isLoading || sharesLoading ? (
+                <AccessSectionSkeleton />
+              ) : (
+                withAccess
+                  .filter((p) => p.type === "user")
+                  .map((p) => (
+                    <AccessRow
+                      key={p.id}
+                      principal={p}
+                      role={p.id === ownerId ? "owner" : shares[p.id]}
+                      locked={p.id === ownerId}
+                      onChange={(r) => setRole(p.id, r)}
+                    />
+                  ))
               )}
+              {!isLoading &&
+                !sharesLoading &&
+                withAccess.filter((p) => p.type === "user").length === 0 && (
+                  <p className="text-xs text-muted-foreground">No users yet.</p>
+                )}
+            </div>
+          </div>
+
+          <div className="mt-4 px-6 pb-6">
+            <h3 className="text-sm font-medium">Agents with access</h3>
+            <div className="mt-2 space-y-1">
+              {isLoading || sharesLoading ? (
+                <AccessSectionSkeleton />
+              ) : (
+                withAccess
+                  .filter((p) => p.type !== "user")
+                  .map((p) => (
+                    <AccessRow
+                      key={p.id}
+                      principal={p}
+                      role={shares[p.id]}
+                      onChange={(r) => setRole(p.id, r)}
+                    />
+                  ))
+              )}
+              {!isLoading &&
+                !sharesLoading &&
+                withAccess.filter((p) => p.type !== "user").length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No agents yet. Search above to add one.
+                  </p>
+                )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-4 px-6">
-          <h3 className="text-sm font-medium">Agents with access</h3>
-          <div className="mt-2 space-y-1">
-            {isLoading || sharesLoading ? (
-              <AccessSectionSkeleton />
-            ) : (
-              withAccess
-                .filter((p) => p.type !== "user")
-                .map((p) => (
-                  <AccessRow
-                    key={p.id}
-                    principal={p}
-                    role={shares[p.id]}
-                    onChange={(r) => setRole(p.id, r)}
-                  />
-                ))
-            )}
-            {!isLoading &&
-              !sharesLoading &&
-              withAccess.filter((p) => p.type !== "user").length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No agents yet. Search above to add one.
-                </p>
-              )}
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-end gap-2 border-t px-6 py-4">
+        <div className="flex items-center justify-end gap-2 border-t px-6 py-4">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Done
           </Button>
@@ -322,8 +327,8 @@ export function FileShareDialog({
             {save.isPending ? "Saving…" : saveLabel}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 

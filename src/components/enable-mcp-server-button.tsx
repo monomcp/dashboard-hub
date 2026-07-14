@@ -821,7 +821,7 @@ export function EnableMcpServerButton({
           {step === "overview" && (
             <div className="border-t px-6 py-4">
               <Button className="w-full rounded-full" onClick={goInstall} disabled={!server}>
-                Install
+                Enable
               </Button>
             </div>
           )}
