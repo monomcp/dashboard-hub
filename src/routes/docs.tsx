@@ -25,6 +25,8 @@ import {
   ChevronRight,
   Pencil,
   FolderInput,
+  KeyRound,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +56,8 @@ import { useQuery } from "@tanstack/react-query";
 import { AppsMenu, PlaygroundHeaderButton } from "@/components/apps-menu";
 import { AccountMenu } from "@/components/account-menu";
 import { EnableMcpServerButton } from "@/components/enable-mcp-server-button";
+import { DocsPermissionsView } from "@/components/docs-permissions";
+import { ActivityLog } from "@/components/activity-log";
 import { ApiError, apiRequest, clearAuthTokens } from "@/lib/api-client";
 import type { CatalogServer } from "@/lib/mcp-types";
 import { cn } from "@/lib/utils";
@@ -75,7 +79,7 @@ export const Route = createFileRoute("/docs")({
 });
 
 type DriveFileKind = "document" | "image" | "video" | "pdf" | "other";
-type DriveViewFilter = "my-drive" | "starred" | "system" | "trash";
+type DriveViewFilter = "my-drive" | "starred" | "system" | "trash" | "permissions" | "activity";
 
 type Page<T> = {
   items: T[];
@@ -126,6 +130,8 @@ const DRIVE_NAV = [
   { id: "starred", label: "Starred", icon: Sparkles },
   { id: "system", label: "System", icon: Settings },
   { id: "trash", label: "Trash", icon: Trash2 },
+  { id: "permissions", label: "Permissions", icon: KeyRound },
+  { id: "activity", label: "Activity", icon: Activity },
 ] satisfies { id: DriveViewFilter; label: string; icon: typeof Folder }[];
 
 function formatDate(value: string) {
@@ -249,12 +255,13 @@ function DrivePage() {
   const [mutating, setMutating] = useState(false);
 
   // Catalog entry backing the Docs MCP server — drives the header Enable button.
-  const { data: catalog } = useQuery({
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
     queryKey: ["mcp-catalog"],
     queryFn: () => apiRequest<CatalogServer[]>("/api/v1/mcp-catalog"),
     staleTime: 60 * 1000,
   });
   const docsServer = catalog?.find((s) => s.slug === "docs");
+  const catalogReady = !catalogLoading;
 
   const { data: moveFolders, isLoading: moveFoldersLoading } = useQuery({
     queryKey: ["drive-move-folders"],
@@ -284,6 +291,11 @@ function DrivePage() {
   sortRef.current = { field: sortField, direction: sortDirection };
 
   const loadDrive = useCallback(async () => {
+    // Toolkit views (Permissions, Activity) list no drive data.
+    if (filter === "permissions" || filter === "activity") {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     const { field, direction } = sortRef.current;
@@ -588,7 +600,12 @@ function DrivePage() {
     }
   };
 
-  const isEmpty = !loading && !error && folders.length === 0 && files.length === 0;
+  // Permissions and Activity are toolkit views — they replace the file listing.
+  const isPermissions = filter === "permissions";
+  const isActivity = filter === "activity";
+  const isToolkitSection = isPermissions || isActivity;
+  const isEmpty =
+    !isToolkitSection && !loading && !error && folders.length === 0 && files.length === 0;
 
   const searchField = (
     <div className="relative flex h-9 w-full items-center">
@@ -648,7 +665,8 @@ function DrivePage() {
           <Button variant="ghost" size="icon" className="rounded-full" aria-label="Help">
             <HelpCircle className="h-5 w-5 text-muted-foreground" />
           </Button>
-          <PlaygroundHeaderButton /><AppsMenu />
+          <PlaygroundHeaderButton />
+          <AppsMenu />
           <AccountMenu />
         </div>
       </header>
@@ -662,7 +680,9 @@ function DrivePage() {
               <DropdownMenuTrigger asChild>
                 <Button
                   className="mb-4 h-14 w-[110px] rounded-2xl bg-white text-foreground shadow-md hover:bg-white hover:shadow-lg"
-                  disabled={mutating || filter === "trash" || filter === "system"}
+                  disabled={
+                    mutating || filter === "trash" || filter === "system" || isToolkitSection
+                  }
                 >
                   <Plus className="mr-1 h-5 w-5" /> New
                 </Button>
@@ -716,10 +736,7 @@ function DrivePage() {
         )}
 
         <main
-          className={cn(
-            "min-w-0 flex-1 px-4 pb-16 md:pr-6",
-            sidebarOpen ? "md:pl-0" : "md:pl-6",
-          )}
+          className={cn("min-w-0 flex-1 px-4 pb-16 md:pr-6", sidebarOpen ? "md:pl-0" : "md:pl-6")}
         >
           {!folderId && filter === "my-drive" && (
             <section className="rounded-3xl bg-[hsl(220,33%,96%)] p-6">
@@ -755,81 +772,83 @@ function DrivePage() {
             </section>
           )}
 
-          <div className="mt-8 flex items-center justify-between">
-            {folderId && filter === "my-drive" ? (
-              <nav className="flex min-w-0 items-center gap-1 text-lg font-medium">
-                <button
-                  className="shrink-0 rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
-                  onClick={() => void navigate({ to: "/docs", search: {} })}
-                >
-                  My Docs
-                </button>
-                {breadcrumbs.map((crumb, index) => (
-                  <span key={crumb.id} className="flex min-w-0 items-center gap-1">
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {index === breadcrumbs.length - 1 ? (
-                      <span className="truncate px-2 py-0.5">{crumb.name}</span>
-                    ) : (
-                      <button
-                        className="truncate rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
-                        onClick={() =>
-                          void navigate({ to: "/docs", search: { folder: crumb.id } })
-                        }
-                      >
-                        {crumb.name}
-                      </button>
-                    )}
-                  </span>
-                ))}
-              </nav>
-            ) : (
-              <h2 className="text-lg font-medium">{currentTitle}</h2>
-            )}
-            <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 rounded-full text-muted-foreground"
+          {!isToolkitSection && (
+            <div className="mt-8 flex items-center justify-between">
+              {folderId && filter === "my-drive" ? (
+                <nav className="flex min-w-0 items-center gap-1 text-lg font-medium">
+                  <button
+                    className="shrink-0 rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
+                    onClick={() => void navigate({ to: "/docs", search: {} })}
                   >
-                    <ArrowUpDown className="h-4 w-4" /> {sortLabel}
-                    {sortDirection === "asc" ? (
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    ) : (
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5">
-                  {SORT_OPTIONS.map((option) => (
-                    <DropdownMenuItem
-                      key={option.field}
-                      className="gap-2 rounded-lg"
-                      onSelect={() => changeSort(option.field)}
-                    >
-                      <span className="flex-1">{option.label}</span>
-                      {sortField === option.field &&
-                        (sortDirection === "asc" ? (
-                          <ArrowUp className="h-4 w-4" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4" />
-                        ))}
-                    </DropdownMenuItem>
+                    My Docs
+                  </button>
+                  {breadcrumbs.map((crumb, index) => (
+                    <span key={crumb.id} className="flex min-w-0 items-center gap-1">
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {index === breadcrumbs.length - 1 ? (
+                        <span className="truncate px-2 py-0.5">{crumb.name}</span>
+                      ) : (
+                        <button
+                          className="truncate rounded-full px-2 py-0.5 text-muted-foreground transition hover:bg-black/5 hover:text-foreground"
+                          onClick={() =>
+                            void navigate({ to: "/docs", search: { folder: crumb.id } })
+                          }
+                        >
+                          {crumb.name}
+                        </button>
+                      )}
+                    </span>
                   ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                onClick={() => setView((v) => (v === "grid" ? "list" : "grid"))}
-                aria-label="Toggle view"
-              >
-                {view === "grid" ? <List className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}
-              </Button>
+                </nav>
+              ) : (
+                <h2 className="text-lg font-medium">{currentTitle}</h2>
+              )}
+              <div className="flex items-center gap-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 rounded-full text-muted-foreground"
+                    >
+                      <ArrowUpDown className="h-4 w-4" /> {sortLabel}
+                      {sortDirection === "asc" ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 rounded-xl p-1.5">
+                    {SORT_OPTIONS.map((option) => (
+                      <DropdownMenuItem
+                        key={option.field}
+                        className="gap-2 rounded-lg"
+                        onSelect={() => changeSort(option.field)}
+                      >
+                        <span className="flex-1">{option.label}</span>
+                        {sortField === option.field &&
+                          (sortDirection === "asc" ? (
+                            <ArrowUp className="h-4 w-4" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4" />
+                          ))}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={() => setView((v) => (v === "grid" ? "list" : "grid"))}
+                  aria-label="Toggle view"
+                >
+                  {view === "grid" ? <List className="h-4 w-4" /> : <Grid3x3 className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <div className="mt-4 flex items-center justify-between rounded-2xl border border-destructive/20 bg-white px-4 py-3 text-sm text-destructive shadow-sm">
@@ -845,7 +864,34 @@ function DrivePage() {
             </div>
           )}
 
-          {loading && (
+          {isPermissions && (
+            <div className="mt-6">
+              <DocsPermissionsView server={docsServer} onApiError={handleApiError} />
+            </div>
+          )}
+
+          {isActivity && (
+            <div className="mt-6">
+              <ActivityLog
+                onApiError={handleApiError}
+                nameServerSlugs={["docs"]}
+                moduleSlug="docs"
+                toolkitIds={docsServer?.toolkit_ids ?? []}
+                enabled={catalogReady}
+                logFilter={(log) =>
+                  log.tool_name
+                    ? log.tool_name.startsWith("docs_")
+                    : Boolean(
+                        log.path?.startsWith("/api/v1/drive-files") ||
+                        log.path?.startsWith("/api/v1/drive-folders"),
+                      )
+                }
+                description="Every change made to your files and folders through Console and via Docs tool calls."
+              />
+            </div>
+          )}
+
+          {!isToolkitSection && loading && (
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((item) => (
                 <div
@@ -856,7 +902,7 @@ function DrivePage() {
             </div>
           )}
 
-          {!loading && folders.length > 0 && (
+          {!isToolkitSection && !loading && folders.length > 0 && (
             <>
               <h3 className="mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Folders
@@ -899,7 +945,7 @@ function DrivePage() {
             </>
           )}
 
-          {!loading && files.length > 0 && (
+          {!isToolkitSection && !loading && files.length > 0 && (
             <>
               <h3 className="mt-8 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Files
