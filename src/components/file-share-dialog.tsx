@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Check, Lock, User, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -13,30 +14,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiRequest } from "@/lib/api-client";
+import { apiRequest, ApiError } from "@/lib/api-client";
 import type { Principal } from "@/lib/mcp-types";
 
 type AccessRole = "viewer" | "editor" | "owner";
 type ShareMap = Record<string, AccessRole>;
 
+// Just enough of a principal to render a row — search results carry the full
+// object, but share rows from the API only carry this summary.
+type PrincipalLike = Pick<Principal, "id" | "name" | "type" | "slug">;
+
+// Mirrors api/app/modules/drive/schemas.py DriveFileShareResponse.
+type FileShare = {
+  id: string;
+  file_id: string;
+  role: Exclude<AccessRole, "owner">;
+  principal: PrincipalLike;
+  created_at: string;
+  updated_at: string;
+};
+
 type Page<T> = { items: T[]; total: number; limit: number; offset: number };
 
-function storageKey(fileId: string) {
-  return `file-share:${fileId}`;
+function sharesQueryKey(fileId: string) {
+  return ["file-shares", fileId] as const;
 }
 
-function loadShares(fileId: string): ShareMap {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(storageKey(fileId)) ?? "{}");
-  } catch {
-    return {};
+// Server truth (persisted grants) reduced to the id -> role map the UI edits.
+function toShareMap(shares: FileShare[]): ShareMap {
+  const map: ShareMap = {};
+  for (const share of shares) map[share.principal.id] = share.role;
+  return map;
+}
+
+function shareMapsEqual(a: ShareMap, b: ShareMap): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    if (a[key] !== b[key]) return false;
   }
-}
-
-function saveShares(fileId: string, map: ShareMap) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(fileId), JSON.stringify(map));
+  return true;
 }
 
 function formatType(type: string): string {
@@ -63,6 +79,8 @@ export function FileShareDialog({
   fileId: string;
   fileName: string;
 }) {
+  const queryClient = useQueryClient();
+
   // Base list resolves the owner and any already-shared identities so the
   // "with access" sections can render names for ids stored in localStorage.
   const { data, isLoading } = useQuery({
@@ -72,19 +90,44 @@ export function FileShareDialog({
     staleTime: 60_000,
   });
 
+  // Persisted grants for this file, loaded from and saved to the database.
+  const { data: sharesData, isLoading: sharesLoading } = useQuery({
+    queryKey: sharesQueryKey(fileId),
+    queryFn: () => apiRequest<FileShare[]>(`/api/v1/drive-files/${fileId}/shares`),
+    enabled: open,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  // `saved` is the last persisted state; `shares` is the working copy the user
+  // edits. The Save button is enabled while the two diverge.
+  const [saved, setSaved] = useState<ShareMap>({});
   const [shares, setShares] = useState<ShareMap>({});
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 250);
   // Principals discovered via search may fall outside the base list, so keep the
   // full objects for anyone granted access so the rows below can still render.
-  const [knownPrincipals, setKnownPrincipals] = useState<Record<string, Principal>>({});
+  const [knownPrincipals, setKnownPrincipals] = useState<Record<string, PrincipalLike>>({});
 
   useEffect(() => {
     if (open) {
-      setShares(loadShares(fileId));
-      setKnownPrincipals({});
+      setQuery("");
     }
   }, [open, fileId]);
+
+  // Seed the working copy from the server whenever fresh grants arrive (initial
+  // load and after a save). Edits made against the same server snapshot survive.
+  useEffect(() => {
+    if (!sharesData) return;
+    const map = toShareMap(sharesData);
+    setSaved(map);
+    setShares(map);
+    setKnownPrincipals((prev) => {
+      const next = { ...prev };
+      for (const share of sharesData) next[share.principal.id] = share.principal;
+      return next;
+    });
+  }, [sharesData]);
 
   const principals = data?.items ?? [];
   const users = principals.filter((p) => p.type === "user");
@@ -96,7 +139,7 @@ export function FileShareDialog({
   }, [users]);
 
   const principalById = useMemo(() => {
-    const map = new Map<string, Principal>();
+    const map = new Map<string, PrincipalLike>();
     for (const p of principals) map.set(p.id, p);
     for (const p of Object.values(knownPrincipals)) map.set(p.id, p);
     return map;
@@ -120,15 +163,44 @@ export function FileShareDialog({
   const results = (searchData?.items ?? []).filter((p) => !withAccessIds.has(p.id));
   const showResults = searchEnabled && !searching;
 
+  const dirty = !shareMapsEqual(shares, saved);
+
   const setRole = (id: string, role: AccessRole | null) => {
     setShares((prev) => {
       const next = { ...prev };
       if (role === null) delete next[id];
       else next[id] = role;
-      saveShares(fileId, next);
       return next;
     });
   };
+
+  const save = useMutation({
+    mutationFn: () =>
+      apiRequest<FileShare[]>(`/api/v1/drive-files/${fileId}/shares`, {
+        method: "PUT",
+        body: JSON.stringify({
+          shares: Object.entries(shares)
+            .filter(([id]) => id !== ownerId)
+            .map(([principal_id, role]) => ({ principal_id, role })),
+        }),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(sharesQueryKey(fileId), updated);
+      const map = toShareMap(updated);
+      setSaved(map);
+      setShares(map);
+      toast.success("Sharing updated");
+    },
+    onError: (error) => {
+      const message = error instanceof ApiError ? error.message : "Could not save sharing";
+      toast.error(message);
+    },
+  });
+
+  // Adding a grant surfaces "Save changes"; removing one that was persisted
+  // surfaces "Update" — both write through to the database on click.
+  const hasRemoval = Object.keys(saved).some((id) => !(id in shares));
+  const saveLabel = hasRemoval ? "Update" : "Save changes";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -192,7 +264,7 @@ export function FileShareDialog({
         <div className="mt-4 px-6">
           <h3 className="text-sm font-medium">People with access</h3>
           <div className="mt-2 space-y-1">
-            {isLoading ? (
+            {isLoading || sharesLoading ? (
               <AccessSectionSkeleton />
             ) : (
               withAccess
@@ -207,16 +279,18 @@ export function FileShareDialog({
                   />
                 ))
             )}
-            {!isLoading && withAccess.filter((p) => p.type === "user").length === 0 && (
-              <p className="text-xs text-muted-foreground">No users yet.</p>
-            )}
+            {!isLoading &&
+              !sharesLoading &&
+              withAccess.filter((p) => p.type === "user").length === 0 && (
+                <p className="text-xs text-muted-foreground">No users yet.</p>
+              )}
           </div>
         </div>
 
         <div className="mt-4 px-6">
           <h3 className="text-sm font-medium">Agents with access</h3>
           <div className="mt-2 space-y-1">
-            {isLoading ? (
+            {isLoading || sharesLoading ? (
               <AccessSectionSkeleton />
             ) : (
               withAccess
@@ -230,16 +304,23 @@ export function FileShareDialog({
                   />
                 ))
             )}
-            {!isLoading && withAccess.filter((p) => p.type !== "user").length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No agents yet. Search above to add one.
-              </p>
-            )}
+            {!isLoading &&
+              !sharesLoading &&
+              withAccess.filter((p) => p.type !== "user").length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No agents yet. Search above to add one.
+                </p>
+              )}
           </div>
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2 border-t px-6 py-4">
-          <Button onClick={() => onOpenChange(false)}>Done</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
+            {save.isPending ? "Saving…" : saveLabel}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -259,7 +340,7 @@ function AccessSectionSkeleton() {
   );
 }
 
-function PrincipalAvatar({ principal }: { principal: Principal }) {
+function PrincipalAvatar({ principal }: { principal: PrincipalLike }) {
   const isAgent = principal.type === "agent";
   const initials = principal.name
     .split(/\s+/)
@@ -284,7 +365,7 @@ function AccessRow({
   locked,
   onChange,
 }: {
-  principal: Principal;
+  principal: PrincipalLike;
   role: AccessRole | undefined;
   locked?: boolean;
   onChange: (role: AccessRole | null) => void;
